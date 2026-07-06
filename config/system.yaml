@@ -1,0 +1,58 @@
+# config/system.yaml
+# Omni-Brain 全局系统配置
+
+project:
+  name: omni-brain
+  version: "0.1.0"
+  root: "${OMNI_BRAIN_ROOT}"          # 由调用方设置，或自动推断为此文件的上两级目录
+
+knowledge:
+  root: "${project.root}/knowledge"
+  raw_dir: "raw"
+  index_file: "index.md"
+  log_file: "log.md"
+  taxonomy_file: "taxonomy.yaml"
+
+  # 摄入配置
+  ingest:
+    chunk_size_tokens: 2000           # 分块大小（token 数）
+    chunk_overlap_tokens: 200         # 分块重叠
+    auto_merge_threshold: 0.95        # 重复度超过此值自动合并（0-1）
+    require_human_review_on_conflict: true  # 冲突时必须人工确认
+
+search:
+  derived_dir: "${project.root}/.derived"
+  fts_db: "fts.db"
+  graph_file: "graph.json"
+  stats_file: "stats.json"
+
+  # 检索参数
+  bm25:
+    top_k: 10                         # BM25 初始召回数量
+    min_score: 0.5                    # 最低分数阈值
+  graph:
+    max_hops: 2                       # 最大图扩展跳数
+    expansion_limit_multiplier: 3     # 图扩展后总候选 ≤ top_k * 此值
+    relation_weights:
+      supports: 1.0
+      depends_on: 1.0
+      contradicts: 0.8
+      related: 0.5
+      derived_from: 0.7
+  output:
+    max_full_read: 5                  # 全文读取的最大卡片数
+    max_summary_only: 10              # 摘要读取的最大卡片数
+    max_context_tokens: 8000          # 输出上下文的 token 预算
+
+skills:
+  root: "${project.root}/.agents/skills"
+  registry: "${project.root}/.agents/skills.json"
+
+eval:
+  root: "${project.root}/eval"
+  datasets_dir: "datasets"
+  baselines_dir: "baselines"
+  reports_dir: "reports"
+
+logging:
+  level: INFO                         # DEBUG | INFO | WARNING | ERROR

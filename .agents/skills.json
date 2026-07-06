@@ -1,0 +1,13 @@
+{
+  "entries": [
+    { "path": ".agents/skills/knowledge-query" },
+    { "path": ".agents/skills/knowledge-ingest" },
+    { "path": ".agents/skills/knowledge-health" },
+    { "path": ".agents/skills/code-ingest" },
+    { "path": ".agents/skills/task-reflector" },
+    { "path": ".agents/skills/skill-creator" },
+    { "path": ".agents/skills/eval-runner" }
+  ],
+  "inherits": [],
+  "exclude": []
+}

@@ -1,0 +1,25 @@
+# eval/datasets/knowledge_retrieval/kr_template.yaml
+# 知识检索评测用例模板
+# 每个 .yaml 文件是一条评测用例
+
+# ── 用例标识 ──
+id: KR_001                            # 唯一 ID，格式：KR_序号
+category: knowledge_retrieval         # 固定值
+
+# ── 查询 ──
+query: "FastAPI 中如何正确管理数据库连接池？"
+
+# ── 期望结果 ──
+expected_docs:                        # 期望被召回的卡片路径（相对 knowledge/）
+  - "concepts/async_connection_pool"
+  - "pitfalls/lifespan_cleanup"
+  - "norms/fastapi_db_setup"          # 可选：若存在则期望召回
+
+# ── 指标阈值 ──
+min_recall: 0.8                       # 最低召回率（expected_docs 中被召回的比例）
+max_latency_ms: 1000                  # 最大查询延迟
+
+# ── 元信息 ──
+notes: "应同时召回连接池概念卡和 lifespan 避坑指南"
+created: 2026-07-06
+author: manual                        # manual | generated

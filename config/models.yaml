@@ -1,0 +1,31 @@
+# config/models.yaml
+# 模型端点与参数配置
+# 不要在此文件存储 API Key，Key 走环境变量
+
+# ── 主力模型（用于知识摄入、验证、问答）──
+primary:
+  provider: gemini                    # gemini | openai | anthropic
+  model: gemini-2.5-flash
+  api_key_env: GEMINI_API_KEY         # 从此环境变量读取 Key
+  max_tokens: 8192
+  temperature: 0.2                    # 摄入和验证用低温度，提高一致性
+
+# ── 验证门禁专用模型（可与主力相同或更快的小模型）──
+verification:
+  provider: gemini
+  model: gemini-2.5-flash
+  api_key_env: GEMINI_API_KEY
+  temperature: 0.1
+
+# ── Embedding 模型（第一阶段不使用，预留配置）──
+# embedding:
+#   provider: gemini
+#   model: text-embedding-004
+#   api_key_env: GEMINI_API_KEY
+#   dimensions: 768
+
+# ── Codex / OpenAI（若通过 Codex 工具调用，通常由工具本身管理）──
+# codex:
+#   provider: openai
+#   model: codex-1
+#   api_key_env: OPENAI_API_KEY
