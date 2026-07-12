@@ -1,139 +1,79 @@
 ---
 name: knowledge-ingest
 description: >
-  Omni-Brain 知识高保真摄入技能。当用户要求"加入知识库"、"整理资料"、"沉淀经验"、
-  "摄入这篇文章/对话"时触发。执行「保存原料→分块→草案→验证门禁→冲突检测→入库→重编译」
-  流水线，确保信息完整无损地融入知识体系。
-  触发关键词：加入知识库、整理一下、记录下来、沉淀、摄入、归档
-metadata:
-  author: omni-brain
-  version: "1.0"
-  platform: [codex, antigravity, opencode]
+  治理 Omni-Brain 的长期知识变更。仅当用户明确要求把资料或结论形成长期知识，
+  或 task-knowledge-prep 已产生获准入库的长期知识候选时使用。
+  不用于只做总结、临时任务记录、普通文档编辑、状态恢复或自动反思。
 ---
 
-# 知识摄入技能（knowledge-ingest）
+# 治理长期知识变更
 
-## 触发条件
+把“沉淀”理解为一次受控知识变更，而不是把当前内容全部保存并批量建卡。先分流，再提案，最后只写入获授权且有长期归属的内容。
 
-- 用户要求"把这个加入知识库"、"整理这篇资料"
-- 任务完成后需要沉淀 Experience/Norm/Pitfall
-- 有新的学习资料、文档或代码需要摄入
+## 1. 确认授权与预期结果
 
-## 摄入流水线
+确认用户要的是长期知识变更，而不是以下结果：
 
-### 第 0 步：保存原料
+- 临时任务投影或会话交接；
+- research 调研输入；
+- docs 中的讨论稿、规格或当前工作台；
+- eval 的 Task、fixture、Trial 或报告；
+- 仅面向当前回答的摘要；
+- 原始会话或外部资料全文归档。
 
-```bash
-# 将原始资料保存到 raw/（只读区，之后禁止修改）
-# 根据来源类型选择目录：
-#   raw/articles/     - 文章、文档
-#   raw/conversations/ - 对话记录
-#   raw/assets/       - 图片、PDF 等附件
-```
+用户明确要求“加入知识库”或“形成长期可复用知识”可视为本次范围内的新增长期知识授权；保存完整原始会话、复制外部全文、覆盖既有规范、解决冲突或修改 taxonomy 仍需单独确认。
 
-### 第 1 步：分块扫描（Map）
+完成标准：目标载体、授权范围和明确不保存的内容均已说明；结果只是临时材料时退出本 Skill。
 
-若资料较长（>1000 字），运行分块：
-```bash
-python scripts/chunk.py <raw文件路径>
-# 在同目录生成 .chunks/ 文件夹，逐个读取分块
-```
+## 2. 建立来源与知识切片
 
-**不要立即建卡。** 先输出《高保真摄入清单》：
-```
-📋 摄入清单：
-- 新概念：[X]（位置：第Y节）
-- 规范约束：[A]（位置：第Z段）
-- 避坑要点：[B]（包含具体参数/配置）
-- 代码结构：[C]
-- 来源信息：[URL/标题/作者/日期]
-```
+定位直接来源，区分当前事实、历史事实、推断、目标设计和开放问题。外部来源优先保存 URI、访问日期和项目采用判断，不默认复制全文。任务案候选沿用其 Evidence ID，不让聊天记录成为唯一证据。
 
-### 第 2 步：草案生成（Reduce）
+将材料切成可独立判断的 Claim，并记录适用范围、事实时间和不确定性。不要以完整复制为目标；每个被采用 Claim 必须能回到来源，未采用内容也要有明确去向。
 
-按清单逐条建卡草案，遵循写卡原则：
-- **具体 > 通用**：拒绝模棱两可的概括
-- **证据驱动**：关键参数/API/配置必须内联引用原文
-- **Token 意识**：极致精简，消除客套话
+完成标准：每个候选 Claim 都有来源、现实形态、适用范围和成熟度；无法追溯的关键 Claim 保持候选或开放问题。
 
-**强制约束（信息无损）**：
-写 `Norm`、`Pitfall`、`CodeModule` 时，涉及具体参数/API/代码，
-**必须**使用内联引用：
-```markdown
-> 📌 引自 raw/articles/xxx.md#第2节:
-> "具体的原文内容，一字不改"
-```
+## 3. 分流长期归属
 
-### 第 3 步：验证门禁（Verification Gate）
+对每个 Claim 选择一个落点：
 
-对照清单检查草案，逐条确认：
-- [ ] 清单中的每个知识点在卡片中都体现了吗？
-- [ ] 卡片中的表述有没有扭曲原文意思？
-- [ ] 关键数字/参数/API 名称是否准确？
-- [ ] 是否使用了内联引用锚定证据？
-
-**若检查未通过 → 打回草案，说明缺失点，重新生成。**
-
-### 第 4 步：冲突与重复检测
-
-```bash
-python scripts/search_engine.py "<新卡片标题/核心主题>"
-```
-
-比对结果：
-- **重复度高** → 合并到现有卡片，或标注更新
-- **内容冲突** → 标记冲突，生成冲突提案，等待人工确认
-- **时效性问题** → 标记旧卡为 `status: stale`
-
-### 第 5 步：人工审核确认
-
-- 低风险（纯新增、无冲突）→ 直接进入入库
-- 存在冲突或覆盖旧内容 → **必须人工确认**
-
-### 第 6 步：入库与收尾
-
-```bash
-# 1. 写入卡片文件（按 taxonomy.yaml 选择正确目录）
-# 2. 在 knowledge/index.md 对应分类下注册
-# 3. 在 knowledge/log.md 追加操作记录
-# 4. 重编译索引（必须！）
-python scripts/compile_index.py
-```
-
-**验证入库成功**：
-```bash
-python scripts/search_engine.py "<新卡片标题>"
-# 确认新卡片出现在检索结果中
-```
-
-## Frontmatter 模板
-
-```yaml
----
-type: Concept                        # 取自 taxonomy.yaml types
-title: "卡片完整标题"
-description: "一句话概括，用于索引和预览"
-tags: [标签1, 标签2]
-timestamp: YYYY-MM-DDTHH:MM:SS
-domain: [backend_dev]                # 取自 taxonomy.yaml domains，列表
-status: active                       # active | draft | stale | superseded
-confidence: 0.9                      # 可信度 0-1（可选）
-source:
-  type: article                      # 取自 taxonomy.yaml source_types
-  uri: "raw/articles/xxx.md"         # 原始资料路径（可选）
-relations:
-  - target: "concepts/related_concept"
-    type: supports                   # 取自 taxonomy.yaml relation_types
-affects_path: []                     # Norm/Pitfall 必须填写
-related_code: []                     # CodeModule 必须填写
----
-```
-
-## 特殊类型约束
-
-| 类型 | 额外必填 |
+| 落点 | 适用内容 |
 |---|---|
-| `Norm` | `affects_path`（约束哪些路径）|
-| `Pitfall` | `affects_path`（在哪里踩了坑）|
-| `CodeModule` | `related_code`（关联代码路径）、`code_hash` |
-| `Experience` | `source.type: task_execution / conversation` |
+| `knowledge/` | 稳定、可复用、可归属且需要被人或 AI 长期查询的规范知识 |
+| `docs/research/` | 外部资料比较、尚未采用的线索和待反证判断 |
+| `docs/specs/` | provisional/approved 的实施契约与机制 |
+| `eval/` | Task、fixture、Transcript、Trial、Grader 和报告 |
+| task case | 一次性排序、运行细节、未决问题和长期知识候选 |
+| discard | 重复、无长期价值或无法核验的内容 |
+
+同一核心定义只保留一个规范落点；其他载体链接它。面向任务产生的内容必须区分**任务投影**与**长期知识候选**，不能把本次上下文整体升级为知识卡。
+
+完成标准：每个候选都有 `create / merge / update / task_only / discard` 处置、规范归属、复用理由和视图影响。
+
+## 4. 检查现有知识与提出变更
+
+先读 `knowledge/index.md`、相关卡片、`knowledge/taxonomy.yaml` 和直接事实源。当前检索、摄入、健康检查和索引编译脚本是 stub 时，使用 `rg`、`rg --files` 和直接读取，记录 `manual_fallback`；不得运行占位脚本后声称完成检索、冲突检测或编译。
+
+检查重复、冲突、粒度、关系、状态、来源和人类浏览位置。涉及覆盖、冲突、结构、taxonomy 或多文件知识时，先形成 change set，列出差异、影响、验证、人工确认点和回滚。
+
+完成标准：现有规范落点已查明；重复和冲突有证据；高风险变更停在可审查提案，而不是直接写入。
+
+## 5. 应用获准变更
+
+只应用授权范围：
+
+1. 使用 `apply_patch` 新增或更新规范落点；
+2. `knowledge/raw/` 只新增，不修改已有原料；
+3. 新知识卡符合当前 taxonomy，并登记 `knowledge/index.md`；
+4. 在 `knowledge/log.md` 记录来源、成熟度、人工降级和未执行能力；
+5. 用可用的 YAML、链接、引用和差异检查验证；占位脚本不作为成功证据。
+
+任何语义冲突、来源不足或目标不明确都应暂停对应 Claim，不阻止其他独立且安全的 Claim 完成。
+
+完成标准：每项写入都能回到授权和来源；索引/日志/关系同步；验证结果与未验证边界均已报告；没有把 stub 输出冒充能力证据。
+
+## 6. 交接
+
+向用户说明：写入了什么、为什么进入该落点、哪些内容没有保存、是否使用 `manual_fallback`、存在什么冲突或开放问题，以及后续任务怎样消费这项知识。
+
+完成标准：用户无需理解内部术语，也能判断此次长期知识变更的实际结果和下一步。

@@ -12,9 +12,10 @@
 
 1. **持续问题处理与对话回收**｜Provisional｜让日常困扰和讨论结论成为可追溯的验证输入，而不是聊天记录堆积。→ [问题处理协议](specs/continuous-problem-loop.md)｜[对话回收协议](specs/conversation-knowledge-lifecycle.md)
 2. **日志规范案例**｜Triaged｜验证 AI 在写代码时能否带入带范围的工程规范，并识别历史冲突写法；不是日志整改任务。→ [案例](problems/2026-07-11-logging-standard-not-applied.md)
-3. **任务知识准备能力**｜Implemented@mechanical-ledger｜一次基础模型重放准确恢复了语义结果，但依靠 Skill 猜测、目录搜索、全量阅读和环境变更补偿；已加入“显式 ID 直读 `case.yaml`、按需下钻、不为恢复加载工作流 Skill”的快速通道，待同类模型复测。→ [任务案](../workspaces/task-cases/acceptance-knowledge-prep/overview.md)｜[质检场景](scenarios/quality-domain-knowledge-workbench.md)
+3. **任务知识准备能力**｜L1@recovery-core｜冷启动恢复 Outcome 已跑通；Task v2 已有冻结 fixture、参考响应、两次 Trial 人工校准和不存在 ID 的反向任务。下一步可测试先行实现只评分既有 Trial、不调用模型的最小 Runner。→ [任务案](../workspaces/task-cases/acceptance-knowledge-prep/overview.md)｜[评测策略](specs/evaluation-strategy.md)｜[校准报告](../eval/reports/task_case/2026-07-12-task-v2-grader-calibration.md)
 4. **人工质检具体能力产物**｜后置候选｜在知识准备与后续建设组件得到切片证据后再选择；验收任务分配闭环目前只是领域假设。→ [问题案例](problems/2026-07-11-manual-quality-capability-construction-gap.md)｜[实验协议](specs/capability-slice-experiment.md)
 5. **讨论行动交接**｜Experimenting｜试行“本轮决定 + 现在怎么继续”，降低开放式总结造成的阅读与行动负担。→ [问题案例](problems/2026-07-11-discussion-action-handoff-unclear.md)｜[对话协议](specs/conversation-knowledge-lifecycle.md)
+6. **Skill 体系治理**｜Implemented@contract / Provisional｜活动 Skill 已由九个收敛为四个；不合理 Skill 和无消费者清单直接删除，`knowledge-ingest` 完成窄触发重写，已有 13 个路由 fixture 和静态契约测试。下一步做独立基础模型 Trial。→ [任务案](../workspaces/task-cases/skill-system-audit/overview.md)｜[审计](research/skill-system-audit-2026-07-12.md)｜[治理协议](specs/skill-system-governance.md)
 
 ## 近期关键结论
 
@@ -39,11 +40,12 @@
 6. 零背景学习、模糊痛点和明确重构三种入口怎样汇合，任务框架、问题缺口和知识切片如何迭代推进？
 7. 哪些知识准备步骤必须先工具化，才能让基础模型可靠调用而不是依靠强模型补偿？
 8. 知识准备切片验证后，第一项人工质检领域产物是否仍选择验收任务分配闭环？
+9. Skill 的采用强度怎样通过真实 Trial 表达在 Blueprint 与 Eval 中，而不再预设一套 registry？
 
 ## 下一步候选
 
-- 用同类基础模型复测显式任务案恢复快速通道，目标为结果字段完整、零搜索、零无关读取和零环境变更；
-- 快速通道稳定后，优先验证原子 question-answer/resolve 回写；若仍不稳定再设计单一 resume 输出；
+- 测试先行实现只负责 Schema/fixture 校验、既有 Trial 确定性评分和报告的最小 Runner；
+- 用独立基础模型运行 Skill 治理路由 fixture，优先验证 `knowledge-ingest` 的正触发、反触发和 stub 降级；
 - 设计任务投影与长期知识变更候选的分流门禁，并用人类浏览视图检查知识是否碎片化；
 - 将日志案例改写为可运行的用户旅程与验收表；
 - 用两条旅程手工组装第一版任务上下文包，并记录从方案到产物验证的失败类型；
@@ -52,13 +54,13 @@
 
 ## 最近变化
 
-1. 建立持续问题处理协议与首个日志案例。
-2. 建立对话结论回收与续接协议。
-3. 启用本工作台作为项目续接入口。
-4. 完成本轮沉淀：明确以高标准纵向切片验证上下文、检索与协作架构。
-5. 沉淀人工质检全流程痛点与目标，并确立“长期完整闭环牵引、短期真实能力产物验证”的双层目标。
-6. 建立能力切片四级证据协议，并记录验收能力可能从不同知识和需求清晰度起步。
-7. 更新对话规则：重要讨论必须形成可执行行动交接，并建立互动术语与结果说明。
-8. 校正首个切片主线：验收任务先作为测试夹具，建设任务知识准备能力；同时约束短期任务价值、长期知识复利、人类浏览和基础模型可重放。
-9. 实现最小 `task_case.py` 账本工具与验收探索恢复夹具；当前只形成机械实现证据，真实会话重放仍待进行。
-10. 首次 Gemini 重放结果准确但引导路径失败；登记执行轨迹，并将任务案恢复与 C 类工作流执行拆开，等待第二次重放验证。
+1. 明确以高标准纵向切片验证上下文、检索与协作架构。
+2. 沉淀人工质检全流程痛点与双层目标：长期完整闭环牵引、短期真实能力验证。
+3. 建立能力切片四级证据协议，并记录验收能力的不同发现入口。
+4. 更新对话行动交接规则，降低开放式总结带来的阅读与行动负担。
+5. 校正首个切片主线：验收任务作为夹具，优先建设可复用、可重放的任务知识准备能力。
+6. 实现最小 `task_case.py` 账本工具、机械双门禁和恢复夹具。
+7. 两次 Gemini 重放形成“首次路径失败、第二次核心通过”的 L1 证据；建立 AGENTS 自治理与最小评测策略。
+8. 吸收 Anthropic、LangChain 与知识系统项目实践，按方法论优先重构评测领域模型。
+9. 冻结恢复 fixture，建立参考响应、人工 Grader 校准和不存在 ID 的反向任务；满足最小 Runner 的设计前置条件。
+10. 完成九个项目 Skill 的来源审计和首轮治理：活动面收敛为四个，重写 `knowledge-ingest`，退役五个超前或冲突 Skill，并建立 13 个路由 fixture 与契约测试。

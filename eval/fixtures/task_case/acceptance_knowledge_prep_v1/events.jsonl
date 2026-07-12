@@ -1,0 +1,2 @@
+{"actor":"codex","at":"2026-07-12T05:33:54Z","data":{},"frame_version":1,"id":"event-0016","summary":"新增 q-004 验证恢复快速通道，首次重放仅认定为结果通过、引导失败","type":"frame_updated"}
+{"actor":"task_case.py","at":"2026-07-12T05:33:55Z","data":{"decision_ready":false,"knowledge_handoff_ready":true},"frame_version":1,"id":"event-0017","summary":"重新检查任务案门禁","type":"gates_checked"}

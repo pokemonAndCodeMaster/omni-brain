@@ -51,6 +51,7 @@ timestamp: 2026-07-06T00:00:00
 |---|---|
 | [synthesis/omni_brain_product_direction_v0_1.md](synthesis/omni_brain_product_direction_v0_1.md) | 工作、开发与业务知识系统的产品基调讨论稿。 |
 | [synthesis/quality_domain_real_scenario_v0_1.md](synthesis/quality_domain_real_scenario_v0_1.md) | 质检领域知识、方案设计与工程协同的首个真实验证场景。 |
+| [synthesis/agent_evaluation_methodology_v0_1.md](synthesis/agent_evaluation_methodology_v0_1.md) | Agent 评测对象、生命周期、分层与当前采用边界。 |
 
 ## 🧑 实体（Entities）
 

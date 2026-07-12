@@ -1,0 +1,13 @@
+schema_version: '0.1'
+id: acceptance_knowledge_prep_v1
+captured_at: '2026-07-12T05:33:55Z'
+source_case: acceptance-knowledge-prep
+materialize_to: workspaces/task-cases/acceptance-knowledge-prep
+files:
+  - case.yaml
+  - events.jsonl
+  - evidence.jsonl
+clean_start:
+  chat_history: none
+  remove_existing_case: true
+notes: 只冻结第二次 Gemini 重放所需的权威状态和相关事件/证据，不复制后续运行结果。

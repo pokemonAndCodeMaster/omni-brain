@@ -105,3 +105,43 @@
 - 将本次证据评定为“结果通过、引导失败”，不能据此声称任务案恢复组件已验证；摘要写入任务案 Evidence，未保存完整原始会话。
 - 更新 `AGENTS.md`：显式 case ID 直接读取权威 `case.yaml`，按门禁和引用渐进下钻；仅查看状态不加载 `task-knowledge-prep`，不得为恢复自行安装或切换环境。
 - 更新恢复评测夹具，新增零搜索、零无关读取、零环境变更指标及禁止路径；新增 q-004 等待同类基础模型复测。
+
+## [2026-07-12] update | AGENTS 自治理与最小评测策略
+
+- 按用户要求只沉淀结构化结论，未保存本轮逐字原始对话；`knowledge-ingest` 的检索、索引与编译脚本仍为 stub，本轮使用协议化人工分流，不声称完成自动知识摄入。
+- 新增 `docs/specs/agents-contract-governance.md`（Provisional）：定义操作契约职责、准入、替换优先、容量触发和行为回归；AGENTS 只保留最小治理内核，并移除动态实验状态。
+- 新增 `docs/specs/evaluation-strategy.md`（Provisional）：定义代码、契约、Agent 行为和能力切片四层验证，区分硬门禁与软指标，并采用 E0—E4 隔离阶梯。
+- 升级任务案恢复用例并新增 Gemini 两轮结构化 baseline；第二轮核心硬门禁通过，登记为 L1/单用例 route-core 证据，不升级组件整体 Verified。
+- 外部调研仅用于校验最小对象边界：Inspect AI 与 Harbor 作为未来适配候选，当前不安装；现阶段优先冻结 fixture 和实现最小评分 runner。
+
+## [2026-07-12] update | Agent 评测方法论校正
+
+- 根据用户反馈修正此前偏基础设施的参考坐标：Anthropic Agent Evals 方法作为对象与生命周期主骨架，LangChain Deep Agents 用于行为 taxonomy、trace 驱动和正确性—效率分层。
+- 新增 `docs/research/agent-evaluation-reference-review.md`：区分方法论、模型生成数据集、组件实证、被测能力和执行基础设施；gbrain、CodeGraph、Graphify 等用于 capture/replay、A/B、多 Trial 和能力发现，宣传指标仍待独立反证。
+- 重写 `docs/specs/evaluation-strategy.md`：采用 Suite/Task/Trial/Grader/Transcript/Outcome，区分 Agent/Eval Harness、Capability/Regression、参考解、平衡任务、Grader 校准和 pass@k/pass^k。
+- 将恢复用例迁移至 schema 0.2，并按 Outcome、范围、安全、质量和效率重新解释两次 Gemini Trial；尚缺冻结 fixture、参考解和 Grader 校准，因此暂停 Runner 实现。
+- 未保存外部网页全文或本轮逐字对话；检索/编译 stub 未被当作已执行的自动摄入能力。
+
+## [2026-07-12] experiment | 恢复 Task v2 fixture 与 Grader 校准
+
+- 冻结 `acceptance_knowledge_prep_v1` 最小 fixture，并提供能通过必需 Grader 的参考响应；不复制后续活跃任务状态。
+- 新增 `TC_UNKNOWN_CASE_001` 反向任务，检查不存在 ID 时不自动创建、不编造和不加载推进工作流。
+- 新增人工校准报告：Outcome、权威范围和安全作为必需 Grader；固定顺序、目录列表和短事件读取只作效率参考。
+- q-005 已由结构化证据回答；下一步允许测试先行实现“不调用模型、只评分已提供 Trial”的最小 Runner。
+
+## [2026-07-12] audit | Skill 体系与 Eval 知识生命周期
+
+- 新建可恢复任务案 `skill-system-audit`，审计 `.agents/skills/` 九个项目 Skill 的来源、蓝图归属、实现真实性、触发风险与证据等级。
+- 新增 `docs/research/skill-system-audit-2026-07-12.md`：确认七个 Skill 首次出现于 Phase 0，其中 `knowledge-query` 后来已重写，其余六个基本保持初始化契约；`knowledge-ingest`、`eval-runner`、`knowledge-health`、`code-ingest` 等存在 stub 或不存在接口的超前声明。
+- 新增 `docs/specs/skill-system-governance.md`（Provisional）：Skill 必须区分操作/编排/参考职责，采用强度与产品成熟度分离，并用正反任务和 change set 决定是否进入默认工作方式。
+- 新增并登记 `synthesis/agent_evaluation_methodology_v0_1.md`（draft）：只吸收已形成项目采用边界的 Eval 方法；外部逐项分析继续留在 research，具体对象与门禁留在 spec，运行证据留在 `eval/`。
+- 由于现有 `knowledge-ingest` 契约与 stub 状态不一致，本次使用受控人工分流完成摄入，没有保存外部网页全文，也未声称执行了自动检索、冲突检测或索引编译。
+
+## [2026-07-12] implementation | Skill 首轮治理
+
+- 测试先行新增 `tests/test_skill_contracts.py` 和 13 项 `skill_governance_v1.yaml` 路由 fixture，覆盖正触发、反触发、stub、缺失 Runner、任务反思和 Skill 自动固化。
+- 重写 `knowledge-ingest`：仅处理明确授权的长期知识变更或已批准候选，强制分流 research/spec/knowledge/eval/task，当前工具不可用时记录 `manual_fallback`。
+- `eval-runner`、项目 `skill-creator`、`task-reflector`、`knowledge-health`、`code-ingest` 直接从活动 Skill 目录删除；对应 Runner、健康检查和代码摄入实现存在前不得恢复能力声明。
+- 删除无仓库消费者的 `.agents/skills.json`；不把“维护 registry”新增为产品问题，当前以活动目录事实为准。
+- 未创建新的 `skill-change-proposal`；长期 Skill 变更继续作为 C 类任务形成 change set，避免在无行为证据时重复扩张。
+- 当前结果为 `Implemented@contract`：静态契约和既有任务案测试通过，但尚无独立 Agent Trial，不升级为 verified。

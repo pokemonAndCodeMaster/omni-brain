@@ -1,0 +1,75 @@
+schema_version: '0.1'
+id: acceptance-knowledge-prep
+title: 验收探索驱动的任务知识准备能力验证
+status: active
+current_focus: validation
+frame_version: 1
+created_at: '2026-07-12T05:05:38Z'
+updated_at: '2026-07-12T05:33:55Z'
+task_frame:
+  trigger: 以人工质检验收为测试夹具，建设可由不同 AI 会话调用和恢复的 Omni-Brain 任务知识准备能力
+  goal: 验证最小任务案账本能否支持目标澄清、知识缺口推进、双门禁和跨会话恢复
+  decision_to_support: 最小机械账本成立后，下一项最值得工具化的任务知识准备能力是什么
+  in_scope:
+    - 任务案文件契约、事件与证据追加、机械双门禁、视图重建和跨会话恢复
+  out_of_scope:
+    - 直接实现人工质检验收工具或完整质检平台
+  constraints:
+    - 会话负责语义工作，脚本只负责确定性状态与机械校验
+  assumptions:
+    - 首次真实重放可以由另一个新会话完成
+questions:
+  - id: q-001
+    text: 新会话能否准确恢复目标、阻塞项与下一动作？
+    criticality: critical
+    status: answered
+    evidence_ids: [evidence-0004]
+  - id: q-002
+    text: 重放暴露的最高成本人工步骤是什么？
+    criticality: critical
+    status: answered
+    evidence_ids: [evidence-0005, evidence-0007]
+  - id: q-003
+    text: 首版是否应为正常 YAML 引入 PyYAML？
+    criticality: critical
+    status: answered
+    evidence_ids: [evidence-0001]
+  - id: q-004
+    text: 恢复快速通道能否让基础模型准确恢复且不改变环境？
+    criticality: critical
+    status: open
+    evidence_ids: []
+blockers:
+  - q-004 是根据首次失败路径提出的新恢复协议，尚未由同类基础模型重放验证
+knowledge_candidates:
+  - id: kc-001
+    summary: 任务知识准备案的最小机械账本契约
+    disposition: task_only
+    evidence_ids: [evidence-0002, evidence-0003]
+  - id: kc-002
+    summary: 基础模型恢复后需要原子化答案回写能力
+    disposition: task_only
+    evidence_ids: [evidence-0004, evidence-0005]
+  - id: kc-003
+    summary: 显式任务案恢复需要渐进下钻快速通道
+    disposition: task_only
+    evidence_ids: [evidence-0004, evidence-0007]
+gates:
+  decision_ready:
+    status: failed
+    checked_at: '2026-07-12T05:33:55Z'
+    checks:
+      - {code: schema_valid, passed: true, detail: 结构有效}
+      - {code: critical_questions_resolved, passed: false, detail: '未解决：q-004'}
+      - {code: blockers_cleared, passed: false, detail: '仍有阻塞项：1'}
+  knowledge_handoff_ready:
+    status: passed
+    checked_at: '2026-07-12T05:33:55Z'
+    checks:
+      - {code: schema_valid, passed: true, detail: 结构有效}
+      - {code: stable_candidates_routed, passed: true, detail: 长期知识候选已分流}
+next_actions:
+  - 用同一基础模型从精确路径的 case.yaml 开始重放，记录搜索次数、过读文件和环境变更
+  - 若仅靠路由契约即可稳定恢复，下一切片实现原子 question-answer/resolve 回写命令
+  - 若仍不能稳定恢复，再设计单一 resume 输出；环境 setup/doctor 作为独立问题处理
+closure: null

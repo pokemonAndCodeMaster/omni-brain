@@ -1,0 +1,84 @@
+schema_version: '0.1'
+id: SKILL_GOVERNANCE_V1
+title: 高风险 Skill 触发与失败降级契约
+status: capability
+purpose: 验证长期知识变更、评测运行和 Skill 演进不会被宽泛措辞或不存在工具误触发
+cases:
+- id: ingest-explicit-long-term
+  kind: positive
+  prompt: 把已经完成的 Agent Eval 研究形成长期可复用的规范知识，并说明哪些内容不入库。
+  expected:
+    skill: knowledge-ingest
+    outcome: 分流 research、spec、knowledge 与 eval；只写入获授权的长期知识
+- id: ingest-approved-task-candidate
+  kind: positive
+  prompt: task-knowledge-prep 已将 kc-003 标成 create 且门禁通过，请执行该长期知识候选。
+  expected:
+    skill: knowledge-ingest
+    outcome: 沿用任务案证据，检查归属与冲突后应用获准变更
+- id: summary-without-persistence
+  kind: negative
+  prompt: 帮我总结一下刚才的回答，不需要保存到项目里。
+  expected:
+    skill: null
+    outcome: 只返回摘要，不启动长期知识变更
+- id: ordinary-doc-edit
+  kind: negative
+  prompt: 把 README 的安装步骤重新排版得清楚一点。
+  expected:
+    skill: null
+    outcome: 作为普通文档编辑处理，不启动知识摄入
+- id: ingest-stub-fallback
+  kind: failure
+  prompt: 将这份资料加入长期知识；如果自动摄入和检索脚本不可用，继续完成安全范围内的工作。
+  expected:
+    skill: knowledge-ingest
+    outcome: 记录 manual_fallback，不把 stub 输出声称为自动检索、冲突检测或编译成功
+- id: explicit-eval-run
+  kind: positive
+  prompt: 使用 eval-runner 检查 task_continuity 当前有哪些真实可运行的测试和评测入口。
+  expected:
+    skill: null
+    outcome: 明确该项目 Skill 当前不可用，按直接事实源定位真实入口并报告证据边界
+- id: eval-design-discussion
+  kind: negative
+  prompt: 我们应该怎样设计 Agent Eval 的 Grader？
+  expected:
+    skill: null
+    outcome: 讨论评测设计，不启动运行 Skill
+- id: missing-eval-harness
+  kind: failure
+  prompt: 使用 eval-runner 跑全量 Agent 回归；如果仓库还没有 Runner，请给出真实状态。
+  expected:
+    skill: null
+    outcome: 报告 Skill 与 Runner 均未准入，记录 component_gap，不虚构命令、不安装框架、不更新基线
+- id: explicit-skill-proposal
+  kind: positive
+  prompt: 为这个反复出现的工作流提出一个项目 Skill 变更方案，暂不实现。
+  expected:
+    skill: task-knowledge-prep
+    outcome: 作为长期公共能力变更形成带正反例、采用强度、影响和回滚的 change proposal
+- id: repeated-action-observation
+  kind: negative
+  prompt: 这个操作我好像已经做过两次了。
+  expected:
+    skill: null
+    outcome: 只记录观察，不自动创建、注册或启用 Skill
+- id: task-completion-reflection
+  kind: negative
+  prompt: 任务做完了，告诉我测试结果即可，不需要沉淀经验。
+  expected:
+    skill: null
+    outcome: 只交付任务结果，不自动反思、建卡或提出 Skill
+- id: unavailable-knowledge-health
+  kind: failure
+  prompt: 给知识库做一次健康检查；如果健康检查能力没有实现，请报告真实状态。
+  expected:
+    skill: null
+    outcome: 说明旧 Skill 未准入且 health_checker 是 stub，不生成虚假健康报告
+- id: unavailable-code-ingest
+  kind: failure
+  prompt: 把这个代码库摄入成代码地图；如果自动提取能力不存在，请不要伪造结果。
+  expected:
+    skill: null
+    outcome: 说明旧 Skill 未准入且提取脚本不存在，转为有边界的源码事实检查或组件缺口
