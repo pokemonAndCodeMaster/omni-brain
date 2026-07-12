@@ -53,3 +53,20 @@ Thumbs.db
 
 # ── 敏感配置 ──
 config/secrets.yaml
+
+# ── Omni-Brain 特定忽略 ──
+workspaces/task-cases/*
+!workspaces/task-cases/.keep
+knowledge/raw/conversations/*
+!knowledge/raw/conversations/.keep
+
+# ── 遗留环境与本地工具配置 ──
+.bash*
+.zsh*
+.profile
+.gitconfig
+.mcp.json
+.ripgreprc
+.codex-log-backups/
+.claude/
+.codex/

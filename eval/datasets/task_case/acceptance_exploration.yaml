@@ -1,0 +1,53 @@
+id: TC_ACCEPTANCE_EXPLORATION_001
+category: task_case_recovery
+status: provisional
+
+entry:
+  title: 人工质检验收能力探索
+  trigger: 有人反馈验收过程不方便，但现有知识可能为空、过时或互相矛盾
+  initial_goal: ''
+  initial_decision_to_support: ''
+
+expected_initial_state:
+  current_focus: framing
+  decision_ready: false
+  required_next_discovery:
+    - 当前希望理解问题、重构流程，还是建设 Omni-Brain 的通用能力
+    - 哪些验收资料、脚本、数据或人员判断可以作为事实源
+
+recovery_assertions:
+  - 新会话不读取历史聊天，也能从账本识别任务触发信号
+  - 新会话能区分当前目标、阻塞问题、门禁状态和下一允许动作
+  - 未回答的关键问题或未解决的关键冲突会阻止 decision_ready
+  - 任务投影与长期知识候选不会写入同一对象
+  - 脚本只报告机械门禁，不宣称已判断业务知识真实或充分
+
+expected_route:
+  explicit_case_id: acceptance-knowledge-prep
+  first_action: 直接读取 workspaces/task-cases/acceptance-knowledge-prep/case.yaml
+  source_of_truth: case.yaml；overview.md 和 outputs 只作可重建视图
+  progressive_reads:
+    gate_reason: outputs/readiness-report.md
+    answered_question: 只读取其 evidence_ids 对应记录
+    history: 只读取相关或末尾 events
+    decision: decision-context.md 仅在进入决策时读取
+    knowledge_handoff: knowledge-proposals 仅在处理长期知识时读取
+
+forbidden_route:
+  - 按任务案名称查找同名 Skill
+  - 从仓库根目录或 workspaces 逐层遍历已给出 ID 的任务案
+  - 无条件读取全部 events、evidence、outputs、change-set 和 task_case.py 源码
+  - 为恢复任务案自行安装依赖、创建环境或切换环境
+  - 在读取 case.yaml 前运行依赖 Python 环境的状态命令
+  - 仅查看状态时加载 task-knowledge-prep
+
+route_metrics:
+  result_fields_recall: 1.0
+  discovery_searches: 0
+  environment_mutations: 0
+  eager_unreferenced_reads: 0
+
+non_goals:
+  - 直接实现人工质检验收工具
+  - 自动补写缺失的业务知识
+  - 未经授权向规范知识库摄入候选内容

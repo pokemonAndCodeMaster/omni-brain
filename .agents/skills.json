@@ -1,6 +1,8 @@
 {
   "entries": [
     { "path": ".agents/skills/knowledge-query" },
+    { "path": ".agents/skills/task-knowledge-prep" },
+    { "path": ".agents/skills/writing-great-skills" },
     { "path": ".agents/skills/knowledge-ingest" },
     { "path": ".agents/skills/knowledge-health" },
     { "path": ".agents/skills/code-ingest" },

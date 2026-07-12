@@ -49,7 +49,8 @@ timestamp: 2026-07-06T00:00:00
 
 | 文件 | 摘要 |
 |---|---|
-| *(待填充)* | |
+| [synthesis/omni_brain_product_direction_v0_1.md](synthesis/omni_brain_product_direction_v0_1.md) | 工作、开发与业务知识系统的产品基调讨论稿。 |
+| [synthesis/quality_domain_real_scenario_v0_1.md](synthesis/quality_domain_real_scenario_v0_1.md) | 质检领域知识、方案设计与工程协同的首个真实验证场景。 |
 
 ## 🧑 实体（Entities）
 

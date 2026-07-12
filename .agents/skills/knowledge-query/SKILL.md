@@ -1,76 +1,45 @@
 ---
 name: knowledge-query
 description: >
-  Omni-Brain 知识库智能检索技能。当用户提出知识性问题、开发任务开始前需要查阅历史经验、
-  或需要查找项目规范和避坑指南时触发。执行「意图路由→BM25检索→关系图扩展→重排→分级输出」
-  流水线，返回结构化的知识上下文，供后续任务使用。
-  触发关键词：查一下、有没有相关的、历史上有没有、之前怎么做的、有什么规范
-metadata:
-  author: omni-brain
-  version: "1.0"
-  platform: [codex, antigravity, opencode]
+  有边界地查询 Omni-Brain 已有知识。用于回答明确的知识问题、为范围清楚的任务补少量规范或历史背景，
+  或供 task-knowledge-prep 盘点存量知识。不用于管理任务状态、补知、摄入或判断决策准备度。
 ---
 
-# 知识检索技能（knowledge-query）
+# 有界知识查询
 
-## 触发条件
+保持**有界**：只查可能改变当前答案或下一动作的知识，并返回来源与缺口。由父 Skill 调用时只返回结果，不自行维护任务状态。
 
-- 用户提出知识性问题（"X 是怎么做的？""有什么规范？"）
-- 开发任务开始前的强制知识检索（所有非平凡任务）
-- 用户明确要求"查一下知识库"、"有没有相关的记录"
+## 1. 定界
 
-## 前置检查
+写下一项主问题，以及领域/项目、事实时间或状态、所需深度和停止条件。若无法形成单一主问题，返回 `scope_ambiguous`，不要用宽泛查询掩盖目标不清。
 
-1. 确认 `.derived/fts.db` 存在
-   - 不存在 → 先运行 `python scripts/compile_index.py`
-   - 存在但知识库刚更新 → 也运行重编译
+完成标准：能说明“要回答什么、在哪个范围回答、读到什么程度停止”。
 
-## 执行流程
+## 2. 查询
 
-```bash
-# 基础检索
-python scripts/search_engine.py "<查询描述>"
+按 AGENTS.md 的事实源顺序选择入口。先确认工具的真实能力；不可用时使用 `rg`、`rg --files` 和直接读取，并记录 `manual_fallback`。全文读取所有高相关结果及适用的 Norm/Pitfall；不要把摘要当作精确当前事实。
 
-# 指定域过滤（推荐，可提高精度）
-python scripts/search_engine.py "<查询描述>" --domain backend_dev,software_engineering
+完成标准：实际查询方式已记录；所有高相关命中已按其允许深度处理；每项答案都能回到具体来源。
 
-# 指定类型过滤
-python scripts/search_engine.py "<查询描述>" --type Norm,Pitfall,Concept
+## 3. 收束
 
-# 组合过滤
-python scripts/search_engine.py "<查询描述>" --domain agent_engineering --type Concept,Synthesis
+输出以下结构；自然语言回答也不得省略来源、查询模式、缺口和限制。
+
+```yaml
+question: "..."
+scope: "..."
+mode: tool | manual_fallback
+answers:
+  - claim: "..."
+    source: "path-or-uri"
+    reality: as_is | to_be | historical | unknown
+gaps:
+  - type: not_retrieved | not_codified | missing_source | stale | conflicted | access_blocked | scope_ambiguous
+    detail: "..."
+limitations: []
+next: answer | refine_scope | broaden_sources | escalate | ask_human
 ```
 
-## 结果处理
+查询没有命中时只报告缺口，不能推断知识不存在；不要自动摄入、建卡或创建任务工作区。若命中适用的 Norm/Pitfall，在末尾列出架构护栏。
 
-按脚本返回的优先级处理：
-
-1. **full_read 列表**：全文读取，提取关键信息（特别是 Norm/Pitfall 类型）
-2. **summary_only 列表**：只使用 `description` 字段，不读全文
-3. **title_only 列表**：仅列出标题，供用户按需下钻
-
-## 输出格式
-
-```
-📋 领域知识：[Concept/Synthesis 卡片要点，含文件路径]
-⚠️  避坑护栏：[Pitfall 卡片全文要点，必须全部列出]
-📐 操作规范：[Norm 卡片全文要点，必须全部列出]
-🔗 代码关联：[CodeModule 卡片 + 关键函数/路径]
-📄 参考来源：[Source 卡片标题列表]
-🌟 相关经历：[Experience 卡片要点]
-```
-
-## 硬规则
-
-- **若检索到 Norm 或 Pitfall，必须在输出末尾强制标出**：
-  `> ⚠️ 架构护栏：[具体约束描述]`
-- 若召回不足（< 3 个相关卡片），说明知识缺口，建议补充摄入
-- 不要凭记忆给出没有出处的事实，必须来自知识库
-
-## 知识缺口处理
-
-召回不足时输出：
-```
-📭 知识缺口：未找到关于「X」的足够信息。
-建议：通过 knowledge-ingest 技能摄入相关资料，或手动创建卡片。
-```
+完成标准：主问题得到带来源的回答，或每个关键未回答项都有明确缺口类型和下一动作；本 Skill 未产生任何知识或任务状态变更。
