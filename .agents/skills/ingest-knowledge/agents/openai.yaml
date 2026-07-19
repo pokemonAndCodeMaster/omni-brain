@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ingest Knowledge"
+  short_description: "Turn messy sources into governed, browsable knowledge"
+  default_prompt: "Use $ingest-knowledge to ingest a bounded set of source materials into the governed knowledge base."

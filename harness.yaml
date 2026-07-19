@@ -1,0 +1,67 @@
+schema_version: '0.3'
+name: omni-brain-harness
+release_channel: experiment
+release_date: '2026-07-19'
+roadmap: docs/roadmap.md
+
+current_stage:
+  id: M1
+  status: implemented_awaiting_real_use
+  outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
+
+runtime:
+  primary: opencode
+  adapter: native_file_conventions
+  instructions: AGENTS.md
+  skills_root: .agents/skills
+  opencode_specific_config_required: false
+
+capabilities:
+  task_case:
+    adoption: verified_at_recovery_and_atomic_answer_slices
+    entrypoints:
+      - .agents/skills/task-knowledge-prep/SKILL.md
+      - scripts/task_case.py
+    limits:
+      - 尚缺跨模型和跨领域稳定证据
+      - 语义准备度仍由 Agent 和人判断
+  local_git_source_run:
+    adoption: implemented_l1_local_git_slice
+    entrypoints:
+      - scripts/source_run.py
+    limits:
+      - 只记录显式本地 Git 范围、版本和覆盖
+      - 不理解或摄入知识语义
+  knowledge_base:
+    adoption: implemented_empty_okf_scaffold
+    entrypoints:
+      - knowledge/index.md
+      - config/knowledge-domains.yaml
+    limits:
+      - 当前没有正式领域知识或已验证产品视图
+      - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
+  knowledge_ingestion:
+    adoption: implemented_awaiting_real_use
+    entrypoints:
+      - .agents/skills/ingest-knowledge/SKILL.md
+      - scripts/knowledge_check.py
+    limits:
+      - 尚未由用户使用另一模型处理真实材料
+      - 只读检查不判断业务真伪或内容充分性
+      - 未取得 verified@slice 证据
+  knowledge_query_and_context:
+    adoption: not_implemented
+    entrypoints:
+      - knowledge/index.md
+    limits:
+      - 当前只有文件导航和定向事实源读取
+      - 没有 FTS、向量、图查询或自动上下文组装
+
+promotion_policy:
+  allowed:
+    - 真实纵向能力已经产生用户可用结果
+    - 下一实验已确认用户流程、边界、技术选项和验收
+  forbidden:
+    - 仅存在于设计仓库的方案
+    - 手工答案、stub、合成测试或不存在工具的能力声明
+    - 依赖当前聊天历史或构建者临场能力才能理解的状态
