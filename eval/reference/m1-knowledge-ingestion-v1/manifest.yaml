@@ -1,0 +1,36 @@
+schema_version: '0.1'
+id: m1-knowledge-ingestion-reference-v1
+milestone: M1
+status: under_review
+visibility: evaluator_private
+created_at: '2026-07-19'
+source:
+  repository: /home/yyh/project/ai-knowledge-base
+  commit: 3cf393479d59dae57280df3c80a1ff213a936909
+  supplemental_collection:
+    path: knowledge/raw/quality_check
+    provenance: 用户从 ChatGPT 质检项目人工下载
+    downloaded_at: '2026-07-19'
+    file_count: 25
+    content_format: Markdown stored with .txt suffix
+    collection_fingerprint: 7add0cb2ffb9ca100c657fbcc418bf17ea36a8695f1e5f10775d504c1f3955d9
+candidate_harness:
+  repository: /home/yyh/project/omni-brain-harness
+  blind_baseline_commit: 890e65f
+contracts:
+  task: eval/contracts/m1-knowledge-ingestion-v1.md
+  promotion: docs/specs/milestone-reference-promotion-loop.md
+outcome:
+  knowledge_root: outcome/knowledge
+  domain_map: outcome/config/knowledge-domains.yaml
+review:
+  entrypoint: review.md
+  round: 4
+  certified_by: null
+  certified_at: null
+  certified_commit: null
+blockers: []
+constraints:
+  - 不得复制到候选 Harness 或候选可见 Git 历史
+  - 认证前只作为专家草案，不是规范知识或能力证据
+  - 只记录可观察过程，不保存模型隐藏思维过程
