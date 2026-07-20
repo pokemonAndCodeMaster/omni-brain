@@ -1,7 +1,7 @@
 schema_version: '0.1'
 id: m1-knowledge-ingestion-reference-v1
 milestone: M1
-status: under_review
+status: certified
 visibility: evaluator_private
 created_at: '2026-07-19'
 source:
@@ -26,11 +26,11 @@ outcome:
 review:
   entrypoint: review.md
   round: 4
-  certified_by: null
-  certified_at: null
-  certified_commit: null
+  certified_by: user
+  certified_at: '2026-07-20'
+  certified_commit: 1f3760b3d8e02e77bf0117cc6a6b7ef90b874be7
 blockers: []
 constraints:
   - 不得复制到候选 Harness 或候选可见 Git 历史
-  - 认证前只作为专家草案，不是规范知识或能力证据
+  - 认证参考是当前最佳可用版本，不是候选必须逐文件匹配的唯一答案
   - 只记录可观察过程，不保存模型隐藏思维过程

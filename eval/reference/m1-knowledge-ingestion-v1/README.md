@@ -1,7 +1,7 @@
 # M1 知识摄入私有参考成果
 
-这是评测者私有的专家参考轨，不是候选 Harness 的教学材料，也不是已认证答案。
+这是评测者私有的专家参考轨，不是候选 Harness 的教学材料。
 
-当前状态：`under_review`。第 4 轮已经按获批 [`learning-coverage-matrix.md`](learning-coverage-matrix.md) 完成正文、两种产品视图、私有消费参考和十二项内容自检；现在等待用户从 [`outcome/knowledge/index.md`](outcome/knowledge/index.md) 实际阅读和审查，尚未认证。完整审查状态从 [`review.md`](review.md) 进入。
+当前状态：`certified`。用户于 2026-07-20 完成第 4 轮实际阅读，并批准稳定核心、D1—D5 和保留未知；认证内容快照为 `1f3760b3d8e02e77bf0117cc6a6b7ef90b874be7`。它是当前最佳可用参考，不是唯一合法文件布局；候选的合理替代与更优结果仍可反向升级参考。完整决定从 [`review.md`](review.md) 进入。
 
 禁止把本目录、文件路径、内容或 Git 历史暴露给 `/home/yyh/project/omni-brain-harness` 中的被测模型。
