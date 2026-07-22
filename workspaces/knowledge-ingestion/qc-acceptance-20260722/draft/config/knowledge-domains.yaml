@@ -1,0 +1,12 @@
+schema_version: '0.1'
+domains:
+  - id: manual-quality
+    title: 人工质检
+    parent: null
+    scope: 人工质检交付、标注质量、验收、通过打回、返修和交付闭环的业务与平台知识。
+    excludes: 不包含上游数据生产算法、通用学习资料和未被本轮来源证明的生产部署事实。
+  - id: manual-quality.acceptance
+    title: 人工质检验收
+    parent: manual-quality
+    scope: 验收队列、粒度与快照、抽样分配、预览、结论执行、状态回查及验收相关前后端实现。
+    excludes: 不把标注生产、通用看板组件或旧版外部平台行为自动视为当前验收实现。
