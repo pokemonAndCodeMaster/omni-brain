@@ -3,10 +3,10 @@
 ## 本轮结果
 
 - **用户目标**：整理两个指定来源中与人工质检验收有关的材料，形成可浏览、理解、追溯和继续使用的候选知识。
-- **来源范围与基线**：见 [source-a](draft/knowledge/sources/ai-knowledge-base-qc.md) 与 [source-b](draft/knowledge/sources/omni-brain-m1-quality-check.md)；source-a Git `3cf3934` 且工作区 dirty，source-b 无 Git 基线。
-- **新增/更新规范页**：人工质检领域、验收子域总览、数据粒度与快照、抽样与预览、通过打回与回查、前后端实现边界；系统事实页记录验收 vertical slice。
-- **同步产品视图**：[领域位置](draft/knowledge/views/by-domain/acceptance-map.md)、[旅程/学习路线](draft/knowledge/views/by-journey/acceptance-understanding.md)。
-- **仍然未知**：Q1–Q6，尤其是正式阈值、schema、execute/回查落地和交付口径。
+- **来源范围与基线**：见 [source-a](draft/knowledge/sources/ai-knowledge-base-qc.md) 与 [source-b](draft/knowledge/sources/omni-brain-m1-quality-check.md)；source-a Git `3cf3934` 且工作区 dirty，source-b 无 Git 基线；quality_check 实际 25 份材料。
+- **新增/更新规范页**：人工质检全局定位、验收子域总览、数据粒度与快照、抽样与预览、通过打回与回查、前后端实现边界、验收运行链与公共能力关系；系统事实页记录验收 vertical slice。
+- **同步产品视图**：[领域位置](draft/knowledge/views/by-domain/acceptance-map.md)、[旅程/学习路线](draft/knowledge/views/by-journey/acceptance-understanding.md)、[候选开放问题](draft/knowledge/questions.md)。
+- **仍然未知**：Q1–Q6，尤其是正式阈值、schema、execute/回查落地、OBS/Delta 真实绑定和交付口径。
 
 ## 领域地图差异
 
@@ -25,6 +25,8 @@
 | 当前 vertical slice 的查询、date breakdown、Ratio preview 和测试边界 | `systems/acceptance-vertical-slice.md`、`implementation-boundaries.md` | source-a 代码、migration、测试、脚本 | 领域和旅程均可回查 |
 | scene/task/date 粒度的候选解释及 schema 差异 | `data-granularity-and-snapshot.md` | source-b scene/snapshot/契约，source-a 纵切 | 领域路线覆盖 |
 | preview 的选择解析、容量补足、过期和 owner/source_version | `sampling-and-preview.md` | source-a sampler/service/schema/test | 领域和旅程均覆盖 |
+| 零背景业务地图与业务动作→Python→数据库调用链 | `system-landscape.md`、`systems/acceptance-runtime-chain.md` | source-a 当前前后端代码；source-b 全局/架构设计 | 领域、旅程和系统入口均覆盖 |
+| 数据库、OBS、Delta 的真实使用关系矩阵 | `systems/acceptance-runtime-chain.md` | source-a acceptance 源码与公共能力卡；source-b Delta/Repository 设计 | 明确当前使用、历史/目标和未知 |
 
 ## 需要选择
 
@@ -55,7 +57,7 @@
 ```text
 knowledge-check: PASS
 root: workspaces/knowledge-ingestion/qc-acceptance-20260722/draft/knowledge
-files: 19; concepts: 11
+files: 22; concepts: 14
 链接、锚点、领域镜像和产品视图可达性通过；检查不判断业务真伪或内容充分性。
 ```
 

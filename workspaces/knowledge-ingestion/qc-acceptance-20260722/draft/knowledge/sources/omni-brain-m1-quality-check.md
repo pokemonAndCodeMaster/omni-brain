@@ -1,7 +1,7 @@
 ---
 type: Source Record
 title: omni-brain-m1-input-v1：quality_check 设计材料
-description: 用户指定目录中的 24 份人工质检/验收相关文本，混合设计目标、人工决定、历史行为摘录和生成综合；不具备 Git 基线。
+description: 用户指定目录中的 25 份人工质检/验收相关文本，混合设计目标、人工决定、历史行为摘录和生成综合；不具备 Git 基线。
 tags: [source, manual-quality, acceptance, design]
 ---
 
@@ -11,9 +11,9 @@ tags: [source, manual-quality, acceptance, design]
 
 - **位置**：用户指定的 `omni-brain-m1-input-v1/quality_check` 目录。
 - **类型**：目标设计、人工决定、历史快照、生成综合混合。
-- **版本或快照**：无可用 Git commit；以本轮读取时目录中的 24 个 `.txt` 文件为边界。
+- **版本或快照**：无可用 Git commit；以本轮读取时目录中的 25 个 `.txt` 文件为边界。
 - **所有者**：未在本轮材料中确认。
-- **本轮实际读取范围**：全部 24 个文本文件的标题和结构；深读交付/行动项、验收中心/前端页面与状态、scene_name、综合快照、采样、通过打回、Delta 调用与状态回查、Repository、后端分层、领域模型、四级实现契约、模块实施计划及相关信息架构/工作台设计。无额外目录扩展。
+- **本轮实际读取范围**：全部 **25 个**文本文件的标题和结构；深读交付/行动项、验收中心/前端页面与状态、scene_name、综合快照、采样、通过打回、Delta 调用与状态回查、Repository、后端分层、领域模型、四级实现契约、模块实施计划及相关信息架构/工作台设计。无额外目录扩展。
 
 ## 能证明
 
@@ -37,6 +37,10 @@ tags: [source, manual-quality, acceptance, design]
 
 ## 定位
 
+### 25份材料清单
+
+完整文件名清单见摄入案根入口的 `inventory.md`；本来源实际是 25 份 `.txt`，不是 24 份。
+
 本轮重点文件包括：
 
 - `人工质检-交付任务与行动项机制.txt`、`质检平台-人工质检验收中心前端设计.txt`、`质检平台-人工质检前端页面与状态设计.txt`。
@@ -44,6 +48,12 @@ tags: [source, manual-quality, acceptance, design]
 - `质检平台-验收采样配额与任务选择设计.txt`、`质检平台-通过打回规则与执行设计.txt`、`质检平台-Delta调用与状态回查设计.txt`。
 - `质检平台-Repository与数据库访问设计.txt`、`质检平台-后端分层与组件边界设计.txt`、`质检平台-领域模型层设计.txt`。
 - 其余文件已登记为相关上下文，未将通用工作台/卡片设计抽取为本轮公共能力。
+
+## 数据库、OBS 与 Delta 的证据边界
+
+- 数据库/Repository 是 source-a 当前验收 vertical slice 的直接依赖。
+- Delta 只在旧版人工质检 wiki 和 source-b 目标执行设计中出现；当前验收路由没有 Delta 调用证据。
+- OBS 公共工具卡在 source-a 中自身标为待补/过时，当前验收代码未见 OBS 直接调用；不能由其存在推断验收依赖 OBS。
 
 ## 业务闭环与交付完成
 

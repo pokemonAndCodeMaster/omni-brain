@@ -18,11 +18,13 @@ tags: [view, manual-quality, acceptance]
 ## 从头理解
 
 1. [人工质检领域总览](../../domains/manual-quality/overview.md) — 先理解验收在交付闭环中的位置。
-2. [人工质检验收子域总览](../../domains/manual-quality/acceptance/overview.md) — 建立对象粒度、阶段和核心入口。
-3. [验收数据粒度与快照口径](../../domains/manual-quality/acceptance/data-granularity-and-snapshot.md) — 理解 scene、task、date 与统计边界。
-4. [验收抽样与分配预览](../../domains/manual-quality/acceptance/sampling-and-preview.md) — 理解可执行前的配额计算和冻结结果。
-5. [通过打回与状态回查](../../domains/manual-quality/acceptance/pass-reject-and-reconciliation.md) — 区分历史规则、目标状态机和当前已证实范围。
-6. [验收前后端实现边界](../../domains/manual-quality/acceptance/implementation-boundaries.md) — 回到 API、Repository、Vue 与测试入口。
+2. [人工质检全局定位](../../domains/manual-quality/system-landscape.md) — 看懂从需求到交付的业务地图。
+3. [人工质检验收子域总览](../../domains/manual-quality/acceptance/overview.md) — 建立对象粒度、阶段和核心入口。
+4. [验收数据粒度与快照口径](../../domains/manual-quality/acceptance/data-granularity-and-snapshot.md) — 理解 scene、task、date 与统计边界。
+5. [验收抽样与分配预览](../../domains/manual-quality/acceptance/sampling-and-preview.md) — 理解可执行前的配额计算和冻结结果。
+6. [通过打回与状态回查](../../domains/manual-quality/acceptance/pass-reject-and-reconciliation.md) — 区分历史规则、目标状态机和当前已证实范围。
+7. [验收运行链与公共能力关系](../../systems/acceptance-runtime-chain.md) — 从业务动作回到 Python、数据库和相邻能力。
+8. [验收前后端实现边界](../../domains/manual-quality/acceptance/implementation-boundaries.md) — 回到 API、Repository、Vue 与测试入口。
 
 ## 按问题查找
 
@@ -37,7 +39,7 @@ tags: [view, manual-quality, acceptance]
 - 当前实现：[验收 vertical slice 当前实现](../../systems/acceptance-vertical-slice.md)
 - 历史快照：来源记录中的旧版人工质检卡与 `quality_check` 旧版行为摘录。
 - 目标设计：[通过打回与状态回查](../../domains/manual-quality/acceptance/pass-reject-and-reconciliation.md)、[验收抽样与分配预览](../../domains/manual-quality/acceptance/sampling-and-preview.md)
-- 开放问题：见工作台根目录的 `review.md` 与 `assets/questions.md`。
+- 开放问题：[候选知识开放问题](../../questions.md)。完整审查见摄入案根入口的 `questions.md` 和 `review.md`。
 
 ## 系统与实现入口
 

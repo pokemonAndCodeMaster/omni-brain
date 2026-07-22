@@ -18,11 +18,13 @@ tags: [view, journey, acceptance]
 ## 从头理解
 
 1. [人工质检领域总览](../../domains/manual-quality/overview.md) — 明确验收不是孤立页面，而是交付轨道的一段。
-2. [人工质检验收子域总览](../../domains/manual-quality/acceptance/overview.md) — 识别阶段、结论和完成定义。
-3. [验收数据粒度与快照口径](../../domains/manual-quality/acceptance/data-granularity-and-snapshot.md) — 识别管理单元与可操作单元。
-4. [验收抽样与分配预览](../../domains/manual-quality/acceptance/sampling-and-preview.md) — 理解从选择到可审查配额的过程。
-5. [验收前后端实现边界](../../domains/manual-quality/acceptance/implementation-boundaries.md) — 用代码、schema、测试验证当前能力。
-6. [通过打回与状态回查](../../domains/manual-quality/acceptance/pass-reject-and-reconciliation.md) — 识别仍需人工决策的执行闭环。
+2. [人工质检全局定位](../../domains/manual-quality/system-landscape.md) — 先建立零背景的业务地图。
+3. [人工质检验收子域总览](../../domains/manual-quality/acceptance/overview.md) — 识别阶段、结论和完成定义。
+4. [验收数据粒度与快照口径](../../domains/manual-quality/acceptance/data-granularity-and-snapshot.md) — 识别管理单元与可操作单元。
+5. [验收抽样与分配预览](../../domains/manual-quality/acceptance/sampling-and-preview.md) — 理解从选择到可审查配额的过程。
+6. [验收运行链与公共能力关系](../../systems/acceptance-runtime-chain.md) — 把业务动作连接到 Python、PostgreSQL、OBS/Delta 证据边界。
+7. [验收前后端实现边界](../../domains/manual-quality/acceptance/implementation-boundaries.md) — 用代码、schema、测试验证当前能力。
+8. [通过打回与状态回查](../../domains/manual-quality/acceptance/pass-reject-and-reconciliation.md) — 识别仍需人工决策的执行闭环。
 
 ## 按问题查找
 
@@ -36,7 +38,7 @@ tags: [view, journey, acceptance]
 - 当前实现：[验收 vertical slice 当前实现](../../systems/acceptance-vertical-slice.md)
 - 历史快照：来源记录 [ai-knowledge-base](../../sources/ai-knowledge-base-qc.md) 中的旧版人工质检卡。
 - 目标设计：来源记录 [quality_check 设计材料](../../sources/omni-brain-m1-quality-check.md)及各候选页的“目标设计”段落。
-- 开放问题：见工作台根目录的 `assets/questions.md`。
+- 开放问题：[候选知识开放问题](../../questions.md)。完整登记见摄入案根入口的 `questions.md`。
 
 ## 系统与实现入口
 
