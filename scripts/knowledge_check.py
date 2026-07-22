@@ -328,8 +328,15 @@ def validate_bundle(knowledge_root: Path, domain_map: Path) -> Report:
         if page.name == "overview.md":
             continue
         text = contents[page]
-        if not re.search(r"^#\s+Citations\s*$", text, flags=re.MULTILINE | re.IGNORECASE):
+        citation_headings = re.findall(
+            r"^(#{1,6})\s+Citations\s*$", text, flags=re.MULTILINE | re.IGNORECASE
+        )
+        if "#" not in citation_headings:
             report.errors.append(f"{relative(page, root)}: canonical page lacks '# Citations'")
+        if len(citation_headings) > 1 or any(level != "#" for level in citation_headings):
+            report.errors.append(
+                f"{relative(page, root)}: canonical page must contain exactly one level-1 '# Citations' section"
+            )
         if not any(relative(target, root).startswith("sources/") for target in outbound.get(page, set())):
             report.errors.append(f"{relative(page, root)}: canonical page has no link to a source record")
 
@@ -383,4 +390,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

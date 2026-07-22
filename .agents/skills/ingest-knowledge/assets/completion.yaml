@@ -1,0 +1,43 @@
+schema_version: '0.1'
+target_reader: <谁要使用这批知识，已有多少背景>
+intended_outcome: <读完后能够理解、判断或执行什么>
+dimensions:
+  - id: placement_and_scope
+    question: 主题位于什么上级领域，边界与相邻能力是什么？
+    status: pending
+    evidence_pages: []
+    rationale: ''
+  - id: operating_model
+    question: 参与者、端到端流程、状态、异常与返工怎样运作？
+    status: pending
+    evidence_pages: []
+    rationale: ''
+  - id: information_model
+    question: 核心数据、标识、口径、输入输出及其关系是什么？
+    status: pending
+    evidence_pages: []
+    rationale: ''
+  - id: system_and_software
+    question: 若材料涉及系统或代码，业务动作如何映射到组件、接口和实现入口？
+    status: pending
+    evidence_pages: []
+    rationale: ''
+  - id: rules_and_mechanisms
+    question: 若存在规则或算法，其输入、输出、不变量、步骤和边界是什么？
+    status: pending
+    evidence_pages: []
+    rationale: ''
+  - id: shared_dependencies
+    question: 跨领域或公共能力的规范落点和本领域使用契约是什么？
+    status: pending
+    evidence_pages: []
+    rationale: ''
+  - id: history_conflicts_and_unknowns
+    question: 当前事实、历史、目标、冲突和未知是否清楚分开？
+    status: pending
+    evidence_pages: []
+    rationale: ''
+visuals:
+  status: pending
+  rationale: ''
+  evidence_pages: []

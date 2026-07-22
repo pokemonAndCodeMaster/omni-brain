@@ -23,7 +23,7 @@
 
 - 任务案恢复、原子问题回答和机械门禁：已在有限切片验证；
 - 本地 Git 来源范围与版本记录：已实现有限切片；
-- 知识摄入 Skill、空 OKF Bundle、领域地图、产品视图入口和只读校验器：已实现，等待真实任务验证；
+- 知识摄入 Skill、确定性摄入工作台、空 OKF Bundle、领域地图、产品视图入口和只读校验器：首轮真实 Trial 已暴露内容与执行缺口，修订版等待重跑；
 - 正式领域知识、真实查询、图/向量索引、Web UI 和知识演进闭环：尚不存在。
 
 不得把结构测试通过表述为知识正确或 M1 已验证。
@@ -33,10 +33,11 @@
 - 正式知识只发布到 `knowledge/`；候选只写入 `workspaces/knowledge-ingestion/<case-id>/`。
 - 来源保持只读并记录版本、实际读取范围、能证明和不能证明的事项。
 - 用户批准前不得修改正式 `knowledge/` 或 `config/knowledge-domains.yaml`。
+- 摄入案必须由 `python scripts/ingestion_workspace.py init` 建立；来源数量、逐文件身份和覆盖状态以机器账本为准，不手工猜测。
 - 首批知识未同步形成领域位置视图和旅程/学习视图时，不得报告完成。
 - 跨域关系使用带业务解释的标准 Markdown 相对链接；禁止 Obsidian `[[...]]`、`file://`、本机绝对路径和未经批准的固定关系词表。
 - 公共能力只有在共同核心、领域差异、维护责任和人工批准都成立后才能抽取。
-- 发布后必须运行 `python scripts/knowledge_check.py` 并展示正式知识 diff；检查失败则回滚整组正式发布，保留工作台和失败证据。
+- 人工审查前必须运行 `python scripts/ingestion_workspace.py check <case-id>`，最终交接只给工作台根 `review.md`；发布后再运行 `python scripts/knowledge_check.py` 并展示正式知识 diff。检查失败则停止或回滚整组正式发布，保留工作台和失败证据。
 
 详细步骤与模板只在 `ingest-knowledge` 中维护，本文件不复制。
 

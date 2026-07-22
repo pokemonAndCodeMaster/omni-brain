@@ -25,8 +25,9 @@ class HarnessContractTest(unittest.TestCase):
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual("implemented_awaiting_real_use", manifest["current_stage"]["status"])
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
-        self.assertEqual("implemented_awaiting_real_use", ingestion["adoption"])
+        self.assertEqual("implemented_after_first_trial_awaiting_retest", ingestion["adoption"])
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
+        self.assertIn("scripts/ingestion_workspace.py", ingestion["entrypoints"])
         self.assertNotIn("verified", ingestion["adoption"])
 
     def test_skill_frontmatter_is_discoverable(self) -> None:
@@ -61,6 +62,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("review.md", skill)
         self.assertIn("首批知识", skill)
         self.assertIn("python scripts/knowledge_check.py", skill)
+        self.assertIn("python scripts/ingestion_workspace.py", skill)
         self.assertFalse((ROOT / "eval").exists())
         self.assertFalse((ROOT / "docs/experiments").exists())
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))

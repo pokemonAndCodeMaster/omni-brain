@@ -204,7 +204,20 @@ class KnowledgeCheckTest(unittest.TestCase):
         self.assertEqual(1, result.returncode)
         self.assertIn("unapproved M1 extension", "\n".join(report["errors"]))
 
+    def test_duplicate_or_wrong_level_citations_fail(self) -> None:
+        self.make_valid_slice()
+        page = self.knowledge / "domains/quality/policy.md"
+        page.write_text(
+            page.read_text(encoding="utf-8") + "\n## Citations\n\nDuplicate.\n",
+            encoding="utf-8",
+        )
+        result, report = self.run_check()
+        self.assertEqual(1, result.returncode)
+        self.assertIn(
+            "exactly one level-1 '# Citations' section",
+            "\n".join(report["errors"]),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
-

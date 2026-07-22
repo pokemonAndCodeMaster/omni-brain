@@ -1,110 +1,111 @@
 ---
 name: ingest-knowledge
 description: >
-  将一组有界的混乱文档、代码、导出材料或人工说明摄入为可浏览、可追溯、可维护的规范知识。
-  当用户要求整理、导入、摄入、归并一批材料，建立或更新领域知识、来源记录和产品视图时使用；
+  将有界的混乱文档、代码、导出材料或人工说明摄入为可浏览、可追溯、可维护的规范知识。
+  当用户要求整理、导入、摄入或归并一批材料，建立或更新知识与产品视图时使用；
   不用于只回答一个问题、直接改代码或无来源的自由创作。
 ---
 
 # 知识摄入
 
 把来源当作证据，把 `knowledge/` 当作唯一发布面，把
-`workspaces/knowledge-ingestion/<case-id>/` 当作发布前工作台。一次摄入只有在规范知识、来源记录、产品视图、人工批准和只读检查同时完成后才完成。
+`workspaces/knowledge-ingestion/<case-id>/` 当作发布前工作台。机器工具负责来源身份、固定入口和机械门禁；Agent 负责理解语义、组织知识和暴露未知；人负责批准发布与语义选择。
 
-## 1. 打开摄入案
+## 1. 建立工作台
 
-1. 从用户请求提取材料位置、期望结果和不能做错的事项；只有缺失信息会改变范围、权威或发布结果时，最多追问一次。
-2. 读取 `knowledge/index.md`、`config/knowledge-domains.yaml`、相关产品视图和已有规范页；不要先遍历整个知识库。
-3. 记录 `git status --short`。只读取用户明确指定的来源，不搜索同级项目、历史聊天、旧答案或其他未声明材料；需要扩展范围时先说明原因并取得同意。来源仓库保持只读；若是 Git 来源，记录 commit 和工作区状态，不切换分支、不安装工具、不修改来源。
-4. 创建 `workspaces/knowledge-ingestion/<case-id>/`，从 `assets/brief.md`、`inventory.md` 和 `questions.md` 建立工作文件。
+从用户请求提取材料位置、期望结果和不能做错的事项。只有缺失信息会改变授权范围或发布结果时才追问一次。先读取 `knowledge/index.md`、`config/knowledge-domains.yaml` 和直接相关入口，不遍历整个知识库。
 
-完成条件：`brief.md` 能独立说明目标、范围、禁区、来源位置和基线；已有知识入口与本轮材料边界已经明确。
-
-## 2. 盘点来源
-
-按 `brief.md` 的问题有界阅读材料，不逐文件机械总结。把每个来源登记到 `inventory.md`：
-
-- 区分当前实现、历史快照、目标设计、人工决定、原始记录和生成综合；
-- 记录能证明什么、不能证明什么、实际读取范围和权威边界；
-- 识别字节重复、语义重复、冲突、过时和缺失；
-- 为需要长期引用的来源起草 `assets/source-record.md`；
-- 将无法安全回答的事项写入 `questions.md`，不以常识补齐。
-
-如果没有找到有效知识，保留盘点和缺口并停止发布；请求具体来源、系统或人员补充。没有产出知识不是失败，发布空洞总结才是失败。
-
-完成条件：每个纳入候选都能回到直接来源；每个关键冲突、未知和未读范围都已显式登记。
-
-## 3. 编织候选
-
-先提出结构，再写内容：
-
-1. 为每个稳定主题选择一个规范页面；同一核心定义只保留一份。
-2. 使用 `config/knowledge-domains.yaml` 确定主要领域归属。需要新增或改变领域时，在 `review.md` 展示 ID、唯一上级、范围、排除项和目录差异，未经批准不修改正式地图。
-3. 从 `assets/knowledge-page.md`、`domain-overview.md` 编写候选页。规则和算法必须保留输入、输出、不变量、步骤、边界、失败行为和实现入口。
-4. 用标准 Markdown 相对链接表达跨页关系，并在链接所在句子中说明业务含义和边界。禁止 `[[Wiki Link]]`、`file://` 和本机绝对路径。
-5. 同步起草产品视图。首批知识至少需要领域位置视图和用户旅程/学习视图；使用 `assets/product-view.md`，只保存位置、顺序、问题入口和下一跳，不复制规则正文。
-6. 相似机制出现在多个领域时，先使用 `assets/shared-capability-review.md` 比较共同核心与领域差异。第二个消费者只触发审查；没有独立输入、输出、不变量、失败边界和维护责任时，不抽取公共能力。
-7. 所有候选写入工作台的 `draft/knowledge/` 和 `draft/config/`，不写正式目录。
-
-完成条件：每个候选页有唯一规范落点、来源、现实形态、适用范围和视图入口；公共能力与领域使用契约没有混写。
-
-## 4. 提交人工审查
-
-从 `assets/review.md` 生成唯一审查入口，按以下四类列出变更：
-
-- 可以发布：直接证据充分且没有语义冲突；
-- 需要选择：来源冲突、领域归属变化、公共能力抽取或会替代现有定义；
-- 需要补充：缺当前事实、范围或责任人；
-- 建议忽略：重复、过时、派生或与目标无关，并说明理由。
-
-对候选目录运行：
+用用户授权的每个来源目录执行一次初始化：
 
 ```bash
-python scripts/knowledge_check.py \
-  --knowledge-root workspaces/knowledge-ingestion/<case-id>/draft/knowledge \
-  --domain-map workspaces/knowledge-ingestion/<case-id>/draft/config/knowledge-domains.yaml
+python scripts/ingestion_workspace.py init <case-id> \
+  --goal '<用户最终要得到的结果>' \
+  --source <source-id>=<authorized-directory> [--source ...]
 ```
 
-展示审查页和检查结果后暂停。用户可以整体批准低风险项，但语义冲突、领域地图变化、公共能力抽取和正式发布必须有人决定。
+该命令确定性生成真实文件数、逐文件指纹、Git 基线、固定根入口、覆盖账本和正式知识副本。不要自行手搓工作台，也不要把 `brief.md`、`inventory.md`、`questions.md` 或 `review.md` 放入 `assets/`。
 
-完成条件：用户明确批准、拒绝或保留每个会改变正式知识语义的项目；没有批准时正式知识零变化。
+填写根目录的 `brief.md` 和 `completion.yaml`。当用户要求“浏览、理解、学习或让后续模型继续使用”且未说明读者背景时，按零背景读者填写；内容深度必须由预期使用结果反推。
 
-## 5. 发布获准内容
+完成条件：`source-summary.md` 显示每个授权来源的机器计数；`brief.md` 能独立说明目标、读者、范围、禁区和停止条件；`completion.yaml` 的读者与结果已经填写。
 
-只应用获准项目：
+## 2. 有界阅读并登记覆盖
 
-1. 写入 `knowledge/domains/`、`knowledge/capabilities/`、`knowledge/systems/` 和 `knowledge/sources/`；
-2. 同步更新 `knowledge/views/`、根 `knowledge/index.md`、相关目录 `index.md` 和 `knowledge/log.md`；
-3. 需要时应用已批准的 `config/knowledge-domains.yaml` 变更；
-4. 运行 `python scripts/knowledge_check.py`；
-5. 展示 `git diff -- knowledge config`，确认来源仓库没有变化。
+先读 `source-summary.md`，再按 `brief.md` 中的问题搜索最小直接来源。来源很多时不要整份打开 `source-manifest.jsonl` 或 `coverage.yaml`，用以下命令有界查看文件名：
 
-检查失败时恢复本次正式目录的整组发布差异，保留工作台与失败记录；不要在半发布状态继续叠补丁。
+```bash
+python scripts/ingestion_workspace.py files <case-id> <source-id> \
+  [--glob '<pattern>'] [--limit 100]
+```
 
-完成条件：只读检查通过，Git diff 与批准项一致，所有规范页可以从产品视图经标准 Markdown 链接到达。
+先查文件名或命中文件，再读直接相关段落；宽泛检索必须限制输出，不能把整批标题或正文一次灌入上下文。不要从全量逐文件精读开始，也不要在手写文本中重新猜测来源数量。
 
-## 6. 立即消费
+每次实际读取或决定排除一组文件后更新覆盖账本：
 
-从根 `knowledge/index.md` 沿产品视图完成一次人类浏览路线，并交付可直接点击的入口、推荐阅读顺序、已知范围和当前未知。用户提出真实问题时，只沿产品视图和最低充分规范页回答；记录实际读取页面、引用来源、明确未知、误解和无法回答项。
+```bash
+python scripts/ingestion_workspace.py mark <case-id> <source-id> \
+  --status <read_full|read_targeted|excluded|duplicate|unread_blocked> \
+  --reason '<为何这样处理>' \
+  [--evidence '<文件#标题或代码符号>'] \
+  [--path <relative-path> | --glob <pattern> | --all-unreviewed]
+```
 
-只有同时满足以下条件才报告摄入完成：
+`read_full`/`read_targeted` 必须给实际定位；排除必须给与本轮目标相关的理由。将来源区分为当前实现、历史快照、目标设计、人工决定、原始记录和生成综合，并在 `inventory.md` 记录能证明、不能证明、冲突、时效与实际读取策略。无法安全回答的事项写入 `questions.md`，不以常识补齐。
 
-- 规范知识、来源记录和两种首批产品视图均已发布；
-- 关键规则和算法没有被压缩成空泛摘要；
-- 历史、目标、当前实现、人工决定和未知没有混写；
-- 人工批准与只读检查均通过；
-- 用户可以从根入口找到并使用知识。
+完成条件：每个机器清单文件都有处理状态；每个纳入结论可回到直接定位；关键冲突、未知和未读范围均可见。没有有效知识时保留工作台并停止，不发布空洞总结。
 
-真实内容质量只能由后续实际使用证明。结构检查通过不得表述为知识已经正确或能力已经验证。
+## 3. 按完成契约编织候选
 
-## 模板导航
+先用 `completion.yaml` 逐项决定本轮必须覆盖、明确未知或不适用的内容，再提出知识结构：
 
-- 任务边界：`assets/brief.md`
-- 来源盘点：`assets/inventory.md`
-- 开放问题：`assets/questions.md`
-- 规范知识页：`assets/knowledge-page.md`
-- 领域说明页：`assets/domain-overview.md`
-- 来源记录：`assets/source-record.md`
-- 产品视图：`assets/product-view.md`
-- 公共能力抽取审查：`assets/shared-capability-review.md`
-- 人工审查入口：`assets/review.md`
+1. 为每个稳定主题选择一个规范页面，同一核心定义只保留一份；为需要长期引用的来源建立来源记录；
+2. 按 `config/knowledge-domains.yaml` 确定领域归属，从上级位置和边界展开到当前主题。新增或改变领域时，在 `review.md` 展示 ID、唯一上级、范围、排除项和目录差异，未经批准不修改正式地图；
+3. 若材料涉及流程，讲清角色、状态、异常和返工；涉及数据，讲清标识、口径和输入输出；涉及软件或代码，连接业务动作、组件、接口、运行链路和实现入口；涉及规则或算法，保留输入、输出、不变量、步骤、边界和失败行为；
+4. 跨领域或公共能力只保留一个规范落点，领域页说明真实使用契约；证据不足时明确未知，不为凑全貌虚构；
+5. 层级、流程、多组件协作、时序或算法仅靠文字不易理解时，提供 Mermaid 图和文字说明；确实不需要图时在 `completion.yaml` 说明理由；
+6. 使用标准 Markdown 相对链接。禁止 `[[Wiki Link]]`、`file://`、本机绝对路径和无解释的关系标签；
+7. 首批知识同步形成领域位置视图和旅程/学习视图。视图只保存位置、顺序、问题入口和下一跳，不复制规范事实；
+8. 所有候选只写入 `draft/knowledge/` 和 `draft/config/`。
+
+为每个 `completion.yaml` 维度填 `covered`、`unknown` 或 `not_applicable`；`covered` 必须指向真实候选页，后两者必须说明理由。
+
+完成条件：目标读者能沿产品视图取得约定结果；每个内容维度都有证据或显式边界；当前、历史、目标、人工决定和未知没有混写。
+
+## 4. 交给人工审查
+
+从根 `review.md` 提供唯一审查入口，链接 `brief.md`、`source-summary.md`、`inventory.md`、`questions.md` 和 `completion.yaml`，并把变更分成：
+
+- 可以发布：直接证据充分且没有语义冲突；
+- 需要选择：来源冲突、领域归属、公共能力抽取或定义替换；
+- 需要补充：缺当前事实、范围、责任人或实现证据；
+- 建议忽略：重复、过时、派生或与目标无关。
+
+运行整个工作台门禁：
+
+```bash
+python scripts/ingestion_workspace.py check <case-id>
+```
+
+它同时检查来源是否变化、文件覆盖、固定入口、内容完成契约、图表声明、审查链接、正式知识零变化和候选知识 Bundle。检查通过只表示候选可以交给人审，不表示知识真实或充分。
+
+最终消息只链接根 `review.md`，说明正式知识未修改并暂停；不要手工拼接多个深层绝对路径。
+
+完成条件：工作台门禁通过，用户可以从一个入口检查来源、范围、候选、未知和待决定项；没有批准时正式知识零变化。
+
+## 5. 发布并立即消费
+
+只应用用户批准的项目，更新规范页、来源记录、产品视图、索引、日志和已批准的领域地图。运行：
+
+```bash
+python scripts/knowledge_check.py
+```
+
+展示 `git diff -- knowledge config` 并确认来源未变化。检查失败时回滚本次正式发布整组差异，保留工作台证据。
+
+发布后从根 `knowledge/index.md` 沿产品视图完成一次真实浏览或问题消费，记录实际读取页面、引用来源、未知、误解和无法回答项。只有发布、人工批准、只读检查和真实消费都完成，才报告摄入完成。
+
+## 模板
+
+- 根工作文件：`assets/brief.md`、`inventory.md`、`questions.md`、`completion.yaml`、`review.md`
+- 候选知识：`assets/knowledge-page.md`、`domain-overview.md`、`source-record.md`
+- 产品视图与公共能力：`assets/product-view.md`、`shared-capability-review.md`
