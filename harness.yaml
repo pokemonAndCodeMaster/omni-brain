@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_content_first_v5_awaiting_forward_test
+  status: implemented_content_first_v6_awaiting_forward_test
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,14 +41,14 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_content_first_v5_awaiting_forward_test
+    adoption: implemented_content_first_v6_awaiting_forward_test
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
       - scripts/knowledge_check.py
     limits:
-      - 四轮 Luna Trial 已证明机器盘点、候选工作台、发布前隔离和部分结构切片；第四轮源码下钻明显改善，但内容仍仅 12/24
-      - 第五版新增逐题实答、主题全貌切面、软件设计说明和公共能力缺口约束，尚待同模型前向验证
+      - 第五轮 Luna Trial 首次同时改善上级定位、全貌、可信消费和路径隔离，内容由 12/24 升至 15/24，但仍不可发布
+      - 第六版补强平台/业务模块、焦点运行闭环、公共能力抽取触发和软件最小多视图，尚待同模型前向验证
       - 只读检查不判断业务真伪或内容充分性
       - 未取得 verified@slice 证据
   knowledge_query_and_context:

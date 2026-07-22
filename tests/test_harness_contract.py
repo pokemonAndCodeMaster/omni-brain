@@ -20,16 +20,16 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_content_first_v5_is_implemented_but_not_claimed_verified(self) -> None:
+    def test_m1_content_first_v6_is_implemented_but_not_claimed_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_content_first_v5_awaiting_forward_test",
+            "implemented_content_first_v6_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_content_first_v5_awaiting_forward_test",
+            "implemented_content_first_v6_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -106,11 +106,17 @@ class HarnessContractTest(unittest.TestCase):
         inventory = (assets / "inventory.md").read_text(encoding="utf-8")
         product_view = (assets / "product-view.md").read_text(encoding="utf-8")
         reader_answers = (assets / "reader-answers.md").read_text(encoding="utf-8")
+        software_architecture = (assets / "software-architecture.md").read_text(
+            encoding="utf-8"
+        )
+        shared_capability = (assets / "shared-capability-review.md").read_text(
+            encoding="utf-8"
+        )
         review = (assets / "review.md").read_text(encoding="utf-8")
 
         self.assertIn("## 逐层内容地图", brief)
         self.assertIn("## 读者问题主线", brief)
-        self.assertIn("真实入口、包/模块、类/函数、数据转换和输出", brief)
+        self.assertIn("代码地图、运行时序、核心类/数据关系", brief)
         self.assertIn("## 每个问题实际用了什么", inventory)
         self.assertIn("## 软件与代码事实源", inventory)
         self.assertIn("## 推荐路线：从全貌到细节", product_view)
@@ -118,6 +124,10 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 逐题回答", reader_answers)
         self.assertIn("每个有效问题必须恰好对应一行", reader_answers)
         self.assertIn("最多三篇规范页", reader_answers)
+        self.assertIn("## 代码地图与职责", software_architecture)
+        self.assertIn("## 核心对象和数据变化", software_architecture)
+        self.assertIn("## 一次具体修改路径", software_architecture)
+        self.assertIn("不要求先出现第二个外部领域", shared_capability)
         self.assertLess(review.index("## 从这里开始看内容"), review.index("## 结构状态"))
 
     def test_retired_knowledge_layout_is_absent(self) -> None:
