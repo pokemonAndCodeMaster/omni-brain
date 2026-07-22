@@ -67,6 +67,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
         (case / "review.md").write_text(
             "# 审查\n\n## 固定审查入口\n\n"
             "- [目标](brief.md)\n"
+            "- [逐题实答](reader-answers.md)\n"
             "- [来源](source-summary.md)\n"
             "- [盘点](inventory.md)\n"
             "- [契约](completion.yaml)\n"
@@ -83,6 +84,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
         for name in (
             "case.yaml",
             "brief.md",
+            "reader-answers.md",
             "inventory.md",
             "questions.md",
             "completion.yaml",
@@ -92,6 +94,9 @@ class IngestionWorkspaceTest(unittest.TestCase):
             "review.md",
         ):
             self.assertTrue((case / name).is_file(), name)
+        brief = (case / "brief.md").read_text(encoding="utf-8")
+        self.assertIn("让零背景读者理解材料并可继续使用", brief)
+        self.assertIn(str(self.source.resolve()), brief)
         records = [
             json.loads(line)
             for line in (case / "source-manifest.jsonl").read_text(encoding="utf-8").splitlines()

@@ -31,7 +31,7 @@ dimensions:
     evidence_pages: []
     rationale: ''
   - id: shared_dependencies
-    question: 跨领域或公共能力的规范落点和本领域使用契约是什么？
+    question: 跨领域或公共能力哪些已覆盖、哪些相关但尚未抽取或缺证据、哪些确实不适用；其规范落点和本领域使用契约是什么？
     status: pending
     evidence_pages: []
     rationale: ''

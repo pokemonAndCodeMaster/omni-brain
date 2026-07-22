@@ -30,6 +30,7 @@ LINK_RE = re.compile(r"(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)")
 REQUIRED_ROOT_FILES = {
     "case.yaml",
     "brief.md",
+    "reader-answers.md",
     "inventory.md",
     "questions.md",
     "completion.yaml",
@@ -38,7 +39,13 @@ REQUIRED_ROOT_FILES = {
     "source-summary.md",
     "review.md",
 }
-WORKBENCH_ENTRY_FILES = {"brief.md", "inventory.md", "questions.md", "review.md"}
+WORKBENCH_ENTRY_FILES = {
+    "brief.md",
+    "reader-answers.md",
+    "inventory.md",
+    "questions.md",
+    "review.md",
+}
 COVERAGE_STATES = {
     "unreviewed",
     "screened",
@@ -312,15 +319,25 @@ def init_case(args: argparse.Namespace) -> int:
     (root / "source-summary.md").write_text(
         render_source_summary(args.case_id, sources), encoding="utf-8"
     )
-    for name in ("brief.md", "inventory.md", "questions.md", "review.md"):
+    for name in (
+        "brief.md",
+        "reader-answers.md",
+        "inventory.md",
+        "questions.md",
+        "review.md",
+    ):
         copy_asset(name, root / name)
     copy_asset("completion.yaml", root / "completion.yaml")
     brief = (root / "brief.md").read_text(encoding="utf-8")
     brief = brief.replace("- **Case ID**：", f"- **Case ID**：`{args.case_id}`")
-    brief = brief.replace("- **用户要得到的结果**：", f"- **用户要得到的结果**：{args.goal.strip()}")
     brief = brief.replace(
-        "- **材料位置**：",
-        "- **材料位置**：" + "；".join(f"`{item['root']}`" for item in sources),
+        "- **用户最终要得到什么**：",
+        f"- **用户最终要得到什么**：{args.goal.strip()}",
+    )
+    brief = brief.replace(
+        "- **材料位置与版本**：",
+        "- **材料位置与版本**："
+        + "；".join(f"`{item['root']}`" for item in sources),
     )
     (root / "brief.md").write_text(brief, encoding="utf-8")
     draft = root / "draft"
@@ -339,7 +356,7 @@ def init_case(args: argparse.Namespace) -> int:
                     {"id": item["id"], "file_count": item["file_count"]}
                     for item in sources
                 ],
-                "next": "fill brief.md/completion.yaml; screen sources; register exact read claims",
+                "next": "fill brief.md; read by question; write candidate pages and reader-answers.md",
             },
             ensure_ascii=False,
             indent=2,
@@ -489,6 +506,7 @@ def validate_review_links(root: Path, errors: list[str]) -> None:
     text = review_path.read_text(encoding="utf-8")
     required_targets = {
         "brief.md",
+        "reader-answers.md",
         "inventory.md",
         "questions.md",
         "completion.yaml",
