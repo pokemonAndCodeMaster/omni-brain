@@ -1,4 +1,6 @@
 schema_version: '0.1'
+claim_owner: agent
+human_review_status: pending
 target_reader: <谁要使用这批知识，已有多少背景>
 intended_outcome: <读完后能够理解、判断或执行什么>
 dimensions:

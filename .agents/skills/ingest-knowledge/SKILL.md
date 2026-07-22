@@ -40,17 +40,24 @@ python scripts/ingestion_workspace.py files <case-id> <source-id> \
 
 先查文件名或命中文件，再读直接相关段落；宽泛检索必须限制输出，不能把整批标题或正文一次灌入上下文。不要从全量逐文件精读开始，也不要在手写文本中重新猜测来源数量。
 
-每次实际读取或决定排除一组文件后更新覆盖账本：
+每次筛查、实际读取或决定排除材料后更新覆盖账本：
 
 ```bash
 python scripts/ingestion_workspace.py mark <case-id> <source-id> \
-  --status <read_full|read_targeted|excluded|duplicate|unread_blocked> \
+  --status <screened|read_full|read_targeted|excluded|duplicate|unread_blocked> \
   --reason '<为何这样处理>' \
   [--evidence '<文件#标题或代码符号>'] \
   [--path <relative-path> | --glob <pattern> | --all-unreviewed]
 ```
 
-`read_full`/`read_targeted` 必须给实际定位；排除必须给与本轮目标相关的理由。将来源区分为当前实现、历史快照、目标设计、人工决定、原始记录和生成综合，并在 `inventory.md` 记录能证明、不能证明、冲突、时效与实际读取策略。无法安全回答的事项写入 `questions.md`，不以常识补齐。
+状态是 **Agent 声明**，不是机器观察到的阅读事实：
+
+- `screened`：只看过路径、标题、目录、标题层级或有限关键词片段；可以批量登记，但不能支撑正文结论；
+- `read_targeted`：读取了一个精确文件中的指定标题、行号或代码符号；每次只能用一个 `--path`，`--evidence` 必须以该路径开头并带定位；
+- `read_full`：完整读取一个精确文件；每次只能用一个 `--path`，证据固定为 `<path>#full-file`；
+- `excluded`、`duplicate`、`unread_blocked`：说明为何不把该文件作为本轮直接证据。
+
+禁止用 glob 或 `--all-unreviewed` 写入 `read_full`/`read_targeted`。批量标题或关键词扫描只能记为 `screened`。排除必须给与本轮目标相关的理由。将来源区分为当前实现、历史快照、目标设计、人工决定、原始记录和生成综合，并在 `inventory.md` 记录能证明、不能证明、冲突、时效与实际读取策略。无法安全回答的事项写入 `questions.md`，不以常识补齐。
 
 完成条件：每个机器清单文件都有处理状态；每个纳入结论可回到直接定位；关键冲突、未知和未读范围均可见。没有有效知识时保留工作台并停止，不发布空洞总结。
 
@@ -64,10 +71,10 @@ python scripts/ingestion_workspace.py mark <case-id> <source-id> \
 4. 跨领域或公共能力只保留一个规范落点，领域页说明真实使用契约；证据不足时明确未知，不为凑全貌虚构；
 5. 层级、流程、多组件协作、时序或算法仅靠文字不易理解时，提供 Mermaid 图和文字说明；确实不需要图时在 `completion.yaml` 说明理由；
 6. 使用标准 Markdown 相对链接。禁止 `[[Wiki Link]]`、`file://`、本机绝对路径和无解释的关系标签；
-7. 首批知识同步形成领域位置视图和旅程/学习视图。视图只保存位置、顺序、问题入口和下一跳，不复制规范事实；
+7. 首批知识同步形成领域位置视图和旅程/学习视图。`index.md` 只列出具名视图，视图正文只保留一份；视图只保存位置、顺序、问题入口和下一跳，不复制规范事实；
 8. 所有候选只写入 `draft/knowledge/` 和 `draft/config/`。
 
-为每个 `completion.yaml` 维度填 `covered`、`unknown` 或 `not_applicable`；`covered` 必须指向真实候选页，后两者必须说明理由。
+为每个 `completion.yaml` 维度填 `covered`、`unknown` 或 `not_applicable`；`covered` 必须指向真实候选页，后两者必须说明理由。这些只是 Agent 的内容声明，`human_review_status` 在人工决定前必须保持 `pending`。
 
 完成条件：目标读者能沿产品视图取得约定结果；每个内容维度都有证据或显式边界；当前、历史、目标、人工决定和未知没有混写。
 
@@ -86,9 +93,11 @@ python scripts/ingestion_workspace.py mark <case-id> <source-id> \
 python scripts/ingestion_workspace.py check <case-id>
 ```
 
-它同时检查来源是否变化、文件覆盖、固定入口、内容完成契约、图表声明、审查链接、正式知识零变化和候选知识 Bundle。检查通过只表示候选可以交给人审，不表示知识真实或充分。
+它同时检查来源是否变化、Agent 覆盖声明、固定入口、Markdown 表格、重复视图、内容声明格式、图表声明、审查链接、正式知识零变化和候选知识 Bundle。输出中的 `ingestion-structure-check: PASS` 只表示候选可以交给人审；`content-review` 必须仍是 `PENDING_HUMAN`。
 
-最终消息只链接根 `review.md`，说明正式知识未修改并暂停；不要手工拼接多个深层绝对路径。
+Skill、模板、命令帮助和错误输出就是公开契约。正常摄入不得读取 `ingestion_workspace.py` 或 `knowledge_check.py` 源码来猜门禁；命令不清楚时先运行 `--help`，检查失败时按错误逐项修正。
+
+最终消息只链接根 `review.md`，使用“候选已形成、结构门禁通过、内容等待人工审查、正式知识未修改”的语义并暂停。人工审查前禁止声称“整理已完成”“内容已通过”或把 Agent 覆盖声明写成机器证明；不要手工拼接多个深层绝对路径。
 
 完成条件：工作台门禁通过，用户可以从一个入口检查来源、范围、候选、未知和待决定项；没有批准时正式知识零变化。
 

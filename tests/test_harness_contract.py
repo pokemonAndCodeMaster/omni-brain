@@ -24,11 +24,11 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_after_first_trial_awaiting_retest",
+            "implemented_after_second_trial_awaiting_retest",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
-        self.assertEqual("implemented_after_first_trial_awaiting_retest", ingestion["adoption"])
+        self.assertEqual("implemented_after_second_trial_awaiting_retest", ingestion["adoption"])
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
         self.assertIn("scripts/ingestion_workspace.py", ingestion["entrypoints"])
         self.assertNotIn("verified", ingestion["adoption"])

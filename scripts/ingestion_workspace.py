@@ -20,10 +20,10 @@ from urllib.parse import unquote, urlsplit
 
 import yaml
 
-from knowledge_check import validate_bundle
+from knowledge_check import markdown_table_errors, validate_bundle
 
 
-SCHEMA_VERSION = "0.1"
+SCHEMA_VERSION = "0.2"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 SOURCE_ID_RE = CASE_ID_RE
 LINK_RE = re.compile(r"(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)")
@@ -41,12 +41,14 @@ REQUIRED_ROOT_FILES = {
 WORKBENCH_ENTRY_FILES = {"brief.md", "inventory.md", "questions.md", "review.md"}
 COVERAGE_STATES = {
     "unreviewed",
+    "screened",
     "read_full",
     "read_targeted",
     "excluded",
     "duplicate",
     "unread_blocked",
 }
+STRONG_READ_STATES = {"read_full", "read_targeted"}
 COMPLETION_STATES = {"covered", "unknown", "not_applicable"}
 COMPLETION_DIMENSIONS = {
     "placement_and_scope",
@@ -252,7 +254,7 @@ def render_source_summary(case_id: str, sources: list[dict[str, Any]]) -> str:
     lines.extend(
         [
             "",
-            "完整逐文件身份记录见 [source-manifest.jsonl](source-manifest.jsonl)，实际读取与排除状态见 [coverage.yaml](coverage.yaml)。",
+            "完整逐文件身份记录见 [source-manifest.jsonl](source-manifest.jsonl)，Agent 的筛查、读取与排除声明见 [coverage.yaml](coverage.yaml)。",
             "",
         ]
     )
@@ -294,6 +296,7 @@ def init_case(args: argparse.Namespace) -> int:
     coverage = {
         "schema_version": SCHEMA_VERSION,
         "case_id": args.case_id,
+        "semantics": "agent declarations; not machine-observed reading",
         "files": [
             {
                 "source_id": entry["source_id"],
@@ -336,7 +339,7 @@ def init_case(args: argparse.Namespace) -> int:
                     {"id": item["id"], "file_count": item["file_count"]}
                     for item in sources
                 ],
-                "next": "fill brief.md and completion.yaml; classify coverage.yaml",
+                "next": "fill brief.md/completion.yaml; screen sources; register exact read claims",
             },
             ensure_ascii=False,
             indent=2,
@@ -360,8 +363,33 @@ def mark_coverage(args: argparse.Namespace) -> int:
         raise IngestionWorkspaceError(f"不可写入 coverage status：{args.status}")
     if not args.reason.strip():
         raise IngestionWorkspaceError("--reason 不能为空")
-    if args.status in {"read_full", "read_targeted"} and not args.evidence:
-        raise IngestionWorkspaceError("已读取材料必须提供至少一个 --evidence 定位")
+    if args.status in STRONG_READ_STATES:
+        if args.glob or args.all_unreviewed:
+            raise IngestionWorkspaceError(
+                "read_full/read_targeted 只能使用一个精确 --path；"
+                "批量 glob 或 --all-unreviewed 只能登记 screened/excluded 等弱状态"
+            )
+        if len(args.path) != 1:
+            raise IngestionWorkspaceError(
+                "read_full/read_targeted 每次必须且只能登记一个精确 --path"
+            )
+        if not args.evidence:
+            raise IngestionWorkspaceError("read_full/read_targeted 必须提供直接 --evidence 定位")
+        selected_path = args.path[0]
+        if args.status == "read_full":
+            expected = f"{selected_path}#full-file"
+            if expected not in args.evidence:
+                raise IngestionWorkspaceError(
+                    f"read_full 必须包含 --evidence '{expected}'"
+                )
+        elif not any(
+            evidence.startswith(f"{selected_path}#")
+            or evidence.startswith(f"{selected_path}:")
+            for evidence in args.evidence
+        ):
+            raise IngestionWorkspaceError(
+                "read_targeted 的 --evidence 必须以精确文件路径开头并包含标题、行号或符号定位"
+            )
     coverage = load_yaml(root / "coverage.yaml", "coverage.yaml")
     files = coverage.get("files")
     if not isinstance(files, list):
@@ -382,6 +410,7 @@ def mark_coverage(args: argparse.Namespace) -> int:
         raise IngestionWorkspaceError("没有 coverage 条目匹配本次选择")
     for item in selected:
         item["status"] = args.status
+        item["assertion"] = "agent_declared"
         item["reason"] = args.reason.strip()
         item["evidence"] = list(args.evidence)
         item["updated_at"] = utc_now()
@@ -393,6 +422,7 @@ def mark_coverage(args: argparse.Namespace) -> int:
                 "source_id": args.source_id,
                 "updated": len(selected),
                 "status": args.status,
+                "assertion": "agent_declared",
             },
             ensure_ascii=False,
             indent=2,
@@ -488,10 +518,17 @@ def validate_review_links(root: Path, errors: list[str]) -> None:
         errors.append(f"review.md 缺少固定审查入口链接：{', '.join(missing)}")
     if re.search(r"<[^>\n]+>", text):
         errors.append("review.md 仍包含模板占位符")
+    for heading in ("Agent 内容声明（待人工审查）", "结构门禁", "人工门禁"):
+        if not re.search(rf"^##\s+{re.escape(heading)}\s*$", text, flags=re.MULTILINE):
+            errors.append(f"review.md 缺少固定分层标题：{heading}")
 
 
 def validate_completion(root: Path, errors: list[str]) -> None:
     value = load_yaml(root / "completion.yaml", "completion.yaml")
+    if value.get("claim_owner") != "agent":
+        errors.append("completion.yaml claim_owner 必须保持为 agent")
+    if value.get("human_review_status") != "pending":
+        errors.append("人工审查前 completion.yaml human_review_status 必须保持为 pending")
     for field in ("target_reader", "intended_outcome"):
         current = value.get(field)
         if not isinstance(current, str) or not current.strip() or current.startswith("<"):
@@ -590,6 +627,8 @@ def check_case(args: argparse.Namespace) -> int:
     if len(expected_keys) != len(manifest):
         errors.append("source-manifest.jsonl 存在重复来源路径")
     coverage = load_yaml(root / "coverage.yaml", "coverage.yaml")
+    if coverage.get("semantics") != "agent declarations; not machine-observed reading":
+        errors.append("coverage.yaml 缺少 Agent 声明语义标记")
     coverage_files = coverage.get("files")
     if not isinstance(coverage_files, list):
         errors.append("coverage.yaml files 必须是列表")
@@ -599,6 +638,8 @@ def check_case(args: argparse.Namespace) -> int:
     invalid_states: list[tuple[tuple[Any, Any], Any]] = []
     missing_reasons: list[tuple[Any, Any]] = []
     missing_evidence: list[tuple[Any, Any]] = []
+    missing_assertions: list[tuple[Any, Any]] = []
+    unbound_read_evidence: list[tuple[Any, Any]] = []
     for item in coverage_files:
         if not isinstance(item, dict):
             errors.append("coverage.yaml file entry 必须是 mapping")
@@ -615,10 +656,24 @@ def check_case(args: argparse.Namespace) -> int:
         reason = item.get("reason")
         if status != "unreviewed" and (not isinstance(reason, str) or not reason.strip()):
             missing_reasons.append(key)
+        if status != "unreviewed" and item.get("assertion") != "agent_declared":
+            missing_assertions.append(key)
         if status in {"read_full", "read_targeted"}:
             evidence = item.get("evidence")
             if not isinstance(evidence, list) or not evidence:
                 missing_evidence.append(key)
+            else:
+                path = str(item.get("path", ""))
+                if status == "read_full":
+                    bound = f"{path}#full-file" in evidence
+                else:
+                    bound = any(
+                        str(value).startswith(f"{path}#")
+                        or str(value).startswith(f"{path}:")
+                        for value in evidence
+                    )
+                if not bound:
+                    unbound_read_evidence.append(key)
     if unreviewed:
         errors.append(
             f"coverage.yaml 尚未分类 {len(unreviewed)} 项；示例：{unreviewed[:10]}"
@@ -634,6 +689,16 @@ def check_case(args: argparse.Namespace) -> int:
     if missing_evidence:
         errors.append(
             f"coverage.yaml 有 {len(missing_evidence)} 个已读取项缺少证据定位；示例：{missing_evidence[:10]}"
+        )
+    if missing_assertions:
+        errors.append(
+            f"coverage.yaml 有 {len(missing_assertions)} 项未标记为 Agent 声明；"
+            f"示例：{missing_assertions[:10]}"
+        )
+    if unbound_read_evidence:
+        errors.append(
+            f"coverage.yaml 有 {len(unbound_read_evidence)} 个强阅读声明没有逐文件绑定证据；"
+            f"示例：{unbound_read_evidence[:10]}"
         )
     if coverage_keys != expected_keys:
         missing_coverage = expected_keys - coverage_keys
@@ -664,6 +729,7 @@ def check_case(args: argparse.Namespace) -> int:
     if all((root / name).is_file() for name in ("completion.yaml", "review.md")):
         validate_completion(root, errors)
         validate_review_links(root, errors)
+    errors.extend(markdown_table_errors(list(root.glob("*.md")), root))
 
     knowledge_report = validate_bundle(
         root / "draft" / "knowledge",
@@ -676,10 +742,12 @@ def check_case(args: argparse.Namespace) -> int:
     )
     result = {
         "status": "passed" if not errors else "failed",
+        "structural_gate": "passed" if not errors else "failed",
+        "content_review": "pending_human",
         "case_id": args.case_id,
         "workbench": str(root),
-        "source_files": len(manifest),
-        "coverage": dict(sorted(counts.items())),
+        "machine_source_files": len(manifest),
+        "agent_coverage_claims": dict(sorted(counts.items())),
         "knowledge_files": knowledge_report.files_checked,
         "knowledge_concepts": knowledge_report.concepts_checked,
         "errors": errors,
@@ -687,9 +755,11 @@ def check_case(args: argparse.Namespace) -> int:
     if args.format == "json":
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        print(f"ingestion-check: {'PASS' if not errors else 'FAIL'}")
+        print(f"ingestion-structure-check: {'PASS' if not errors else 'FAIL'}")
+        print("content-review: PENDING_HUMAN")
         print(f"case: {args.case_id}")
-        print(f"source files: {len(manifest)}; coverage: {dict(sorted(counts.items()))}")
+        print(f"machine source files: {len(manifest)}")
+        print(f"agent coverage claims: {dict(sorted(counts.items()))}")
         print(
             f"knowledge files: {knowledge_report.files_checked}; "
             f"concepts: {knowledge_report.concepts_checked}"
@@ -721,7 +791,13 @@ def status_case(args: argparse.Namespace) -> int:
                     for item in case.get("sources", [])
                     if isinstance(item, dict)
                 ],
-                "coverage": dict(sorted(counts.items())),
+                "machine_source_files": sum(
+                    int(item.get("file_count", 0))
+                    for item in case.get("sources", [])
+                    if isinstance(item, dict)
+                ),
+                "agent_coverage_claims": dict(sorted(counts.items())),
+                "content_review": "pending_human",
                 "review": str(root / "review.md"),
             },
             ensure_ascii=False,
@@ -732,7 +808,13 @@ def status_case(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=(
+            "公开契约：source-manifest/source-summary 是机器事实；coverage 是 Agent 声明。"
+            "check 只判定结构是否可交人工审查，不判定内容真实、充分或已经完成。"
+        ),
+    )
     parser.add_argument("--cases-root", type=Path, default=default_cases_root())
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -742,7 +824,14 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--source", action="append", default=[], metavar="ID=DIR")
     init.set_defaults(func=init_case)
 
-    mark = subparsers.add_parser("mark", help="更新逐文件阅读或排除状态")
+    mark = subparsers.add_parser(
+        "mark",
+        help="登记 Agent 的逐文件筛查、读取或排除声明",
+        description=(
+            "screened/excluded 等弱状态可批量登记；read_full/read_targeted "
+            "每次只能使用一个精确 --path，并提供与该路径绑定的定位。"
+        ),
+    )
     mark.add_argument("case_id")
     mark.add_argument("source_id")
     mark.add_argument("--status", required=True, choices=sorted(COVERAGE_STATES - {"unreviewed"}))
@@ -764,7 +853,10 @@ def build_parser() -> argparse.ArgumentParser:
     files.add_argument("--limit", type=int, default=100)
     files.set_defaults(func=list_files)
 
-    check = subparsers.add_parser("check", help="验证整个摄入工作台和候选知识")
+    check = subparsers.add_parser(
+        "check",
+        help="验证工作台结构是否可交人工审查；不判定内容质量",
+    )
     check.add_argument("case_id")
     check.add_argument("--format", choices=("text", "json"), default="text")
     check.set_defaults(func=check_case)

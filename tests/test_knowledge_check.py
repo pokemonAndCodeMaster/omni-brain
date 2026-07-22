@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -217,6 +218,30 @@ class KnowledgeCheckTest(unittest.TestCase):
             "exactly one level-1 '# Citations' section",
             "\n".join(report["errors"]),
         )
+
+    def test_duplicate_product_view_body_fails(self) -> None:
+        self.make_valid_slice()
+        original = self.knowledge / "views/by-domain/quality.md"
+        duplicate = self.knowledge / "views/by-domain/index.md"
+        text = original.read_text(encoding="utf-8")
+        duplicate.write_text(
+            re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.DOTALL),
+            encoding="utf-8",
+        )
+        result, report = self.run_check()
+        self.assertEqual(1, result.returncode)
+        self.assertIn("duplicate product view body", "\n".join(report["errors"]))
+
+    def test_malformed_markdown_table_fails(self) -> None:
+        self.make_valid_slice()
+        page = self.knowledge / "domains/quality/policy.md"
+        page.write_text(
+            page.read_text(encoding="utf-8") + "\n| A | B |\n| one | two |\n",
+            encoding="utf-8",
+        )
+        result, report = self.run_check()
+        self.assertEqual(1, result.returncode)
+        self.assertIn("Markdown table lacks a header separator", "\n".join(report["errors"]))
 
 
 if __name__ == "__main__":

@@ -26,6 +26,8 @@ WIKI_LINK_RE = re.compile(r"\[\[[^\]\n]+\]\]")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$", re.MULTILINE)
 HTML_ANCHOR_RE = re.compile(r"<a\s+(?:name|id)=[\"']([^\"']+)[\"']\s*></a>", re.IGNORECASE)
 FORBIDDEN_EXTENSION_KEYS = {"stable_id", "home", "applies_to", "relations"}
+TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
+TABLE_SEPARATOR_RE = re.compile(r"^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$")
 
 
 @dataclass
@@ -61,6 +63,50 @@ def strip_code(text: str) -> str:
     text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
     text = re.sub(r"~~~.*?~~~", "", text, flags=re.DOTALL)
     return re.sub(r"`[^`\n]*`", "", text)
+
+
+def table_columns(line: str) -> int:
+    return max(0, len(re.findall(r"(?<!\\)\|", line)) - 1)
+
+
+def markdown_table_errors(paths: list[Path], root: Path) -> list[str]:
+    """Return malformed pipe-table errors without interpreting table content."""
+    errors: list[str] = []
+    for path in sorted(paths):
+        visible: list[tuple[int, str]] = []
+        in_fence = False
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_fence = not in_fence
+                continue
+            if not in_fence:
+                visible.append((number, line))
+        index = 0
+        while index < len(visible):
+            if not TABLE_ROW_RE.fullmatch(visible[index][1]):
+                index += 1
+                continue
+            block: list[tuple[int, str]] = []
+            while index < len(visible) and TABLE_ROW_RE.fullmatch(visible[index][1]):
+                block.append(visible[index])
+                index += 1
+            if len(block) < 2:
+                continue
+            label = path.relative_to(root).as_posix()
+            if not TABLE_SEPARATOR_RE.fullmatch(block[1][1]):
+                errors.append(f"{label}:{block[0][0]} Markdown table lacks a header separator")
+                continue
+            expected = table_columns(block[0][1])
+            for number, line in block[1:]:
+                if table_columns(line) != expected:
+                    errors.append(f"{label}:{number} Markdown table width differs from its header")
+    return errors
+
+
+def normalized_markdown_body(text: str) -> str:
+    body = FRONTMATTER_RE.sub("", text, count=1)
+    return re.sub(r"\s+", " ", body).strip()
 
 
 def parse_frontmatter(path: Path, text: str, report: Report) -> dict[str, Any] | None:
@@ -221,6 +267,23 @@ def validate_bundle(knowledge_root: Path, domain_map: Path) -> Report:
         parsed = parse_frontmatter(path, text, report)
         if parsed is not None:
             frontmatter[path.resolve()] = parsed
+
+    report.errors.extend(markdown_table_errors(markdown_files, root))
+
+    duplicate_view_bodies: dict[str, list[str]] = defaultdict(list)
+    for path, text in contents.items():
+        rel = relative(path, root)
+        if not rel.startswith("views/"):
+            continue
+        body = normalized_markdown_body(text)
+        if body:
+            duplicate_view_bodies[body].append(rel)
+    for locations in duplicate_view_bodies.values():
+        if len(locations) > 1:
+            report.errors.append(
+                "duplicate product view body; keep one typed view and make indexes link to it: "
+                + ", ".join(sorted(locations))
+            )
 
     domains_root = root / "domains"
     if domains_root.exists():

@@ -8,7 +8,7 @@
 - [内容完成契约](completion.yaml)
 - [开放问题](questions.md)
 
-## 本轮结果
+## Agent 内容声明（待人工审查）
 
 - **用户目标**：
 - **来源范围与基线**：
@@ -42,10 +42,13 @@
 | 材料/内容 | 理由 | 后续何时重新考虑 |
 |---|---|---|
 
-## 工作台检查
+## 结构门禁
 
 ```text
-<ingestion_workspace.py check 输出>
+ingestion-structure-check: <PASS 或 FAIL>
+content-review: PENDING_HUMAN
+machine source files: <机器盘点数量>
+agent coverage claims: <各声明状态数量>
 ```
 
 ## 人工门禁
