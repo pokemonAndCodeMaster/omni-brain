@@ -82,6 +82,18 @@ class HarnessContractTest(unittest.TestCase):
         )
         self.assertTrue(all(not (ROOT / path).exists() for path in retired_paths))
 
+    def test_skill_asset_markdown_table_headers_match_separators(self) -> None:
+        assets = ROOT / ".agents/skills/ingest-knowledge/assets"
+        for path in assets.glob("*.md"):
+            lines = path.read_text(encoding="utf-8").splitlines()
+            for previous, current in zip(lines, lines[1:]):
+                if re.fullmatch(r"\|(?:\s*:?-+:?\s*\|)+", current):
+                    self.assertEqual(
+                        previous.count("|"),
+                        current.count("|"),
+                        f"malformed Markdown table in {path.name}: {previous!r}",
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
