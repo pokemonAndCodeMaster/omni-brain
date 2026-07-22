@@ -33,7 +33,7 @@
 - 正式知识只发布到 `knowledge/`；候选只写入 `workspaces/knowledge-ingestion/<case-id>/`。
 - 来源保持只读并记录版本、实际读取范围、能证明和不能证明的事项。
 - 用户批准前不得修改正式 `knowledge/` 或 `config/knowledge-domains.yaml`。
-- 摄入案必须由 `python scripts/ingestion_workspace.py init` 建立；来源数量、逐文件身份和覆盖状态以机器账本为准，不手工猜测。
+- 摄入案必须先由 `python scripts/ingestion_workspace.py init` 建立；初始化前不递归枚举来源，来源数量、逐文件身份和覆盖状态以机器账本为准，不手工猜测。
 - 首批知识未同步形成领域位置视图和旅程/学习视图时，不得报告完成。
 - 跨域关系使用带业务解释的标准 Markdown 相对链接；禁止 Obsidian `[[...]]`、`file://`、本机绝对路径和未经批准的固定关系词表。
 - 公共能力只有在共同核心、领域差异、维护责任和人工批准都成立后才能抽取。
