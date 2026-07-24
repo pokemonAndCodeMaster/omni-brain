@@ -1,0 +1,10 @@
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_USE_MOCK: "true"
+        VITE_API_BASE_URL: "/api/v1"
+    ports:
+      - "8080:80"
+    restart: unless-stopped
