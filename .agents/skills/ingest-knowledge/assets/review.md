@@ -62,6 +62,8 @@ machine source files: <机器盘点数量>
 agent coverage claims: <各声明状态数量>
 ```
 
+这里必须同步最后一次检查的真实输出；最终交接不得保留 `PENDING_RUN` 或已经修复的旧错误。
+
 ## 人工决定
 
 - [ ] 内容范围和深度足以支持目标读者
