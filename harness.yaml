@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_content_first_v8_awaiting_forward_test
+  status: implemented_content_first_v9_awaiting_forward_test
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,14 +41,14 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_content_first_v8_awaiting_forward_test
+    adoption: implemented_content_first_v9_awaiting_forward_test
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
       - scripts/knowledge_check.py
     limits:
-      - V7 前向 Trial 证明可信消费和 Ratio 深度改善，但领域层级、公共能力归属、独立页深度和有效图表仍不稳定
-      - 第八版窄修知识区域职责、独立页完成标准和图表/模板质量，尚待同模型前向验证
+      - V8 前向 Trial 证明知识区域、有效图表和当前 Python 纵切改善，但批量读取会跳过关键设计材料
+      - 第九版只窄修来源主题地图、有界定向阅读、初稿内容回环和问题范围完整性，尚待同模型前向验证
       - 只读检查不判断业务真伪或内容充分性
       - 未取得 verified@slice 证据
   knowledge_query_and_context:
