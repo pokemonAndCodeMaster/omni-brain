@@ -1,0 +1,1 @@
+"""Manual quality-control domain."""

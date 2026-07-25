@@ -1,0 +1,12 @@
+.env
+.venv/
+.runtime/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

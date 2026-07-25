@@ -1,0 +1,27 @@
+app:
+  name: Quality Platform Lab
+  environment: local
+  schema_version: lab-v1
+
+logging:
+  level: ${QC_LOG_LEVEL:INFO}
+
+database:
+  default: primary
+  connections:
+    primary:
+      driver: postgresql
+      host: ${QC_DB_HOST:.runtime/postgres/socket}
+      port: ${QC_DB_PORT:55432}
+      database: ${QC_DB_NAME:quality_lab}
+      user: ${QC_DB_USER:quality_lab}
+      password: ${QC_DB_PASSWORD:}
+      schema: ${QC_DB_SCHEMA:manual_qc_lab}
+      min_size: 1
+      max_size: 5
+
+external_tasks:
+  mode: mock
+
+object_storage:
+  mode: disabled

@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from .config import ConfigManager
+from .database import DatabaseManager
+from .manual_qc.acceptance.models import SnapshotFilter
+from .manual_qc.acceptance.repository import SnapshotRepository
+from .manual_qc.acceptance.service import SnapshotQueryService
+
+
+def project_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _runtime() -> tuple[ConfigManager, DatabaseManager]:
+    config = ConfigManager(project_root=project_root())
+    config.setup_logging()
+    return config, DatabaseManager(config)
+
+
+def _execute_sql_directory(directory: Path) -> None:
+    _, manager = _runtime()
+    connector = manager.postgres()
+    try:
+        for file_path in sorted(directory.glob("*.sql")):
+            connector.execute_script(file_path.read_text(encoding="utf-8"))
+            print(f"applied {file_path.relative_to(project_root())}")
+    finally:
+        manager.close()
+
+
+def command_migrate() -> None:
+    _execute_sql_directory(project_root() / "migrations")
+
+
+def command_seed() -> None:
+    _execute_sql_directory(project_root() / "seeds")
+
+
+def command_health() -> None:
+    config, manager = _runtime()
+    try:
+        result = manager.postgres().health_check()
+        print(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "schema_version": config.get_nested("app.schema_version"),
+                    "database_alias": result.alias,
+                    "database": result.database,
+                    "postgres_version": result.server_version,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    finally:
+        manager.close()
+
+
+def command_verify() -> None:
+    _, manager = _runtime()
+    try:
+        service = SnapshotQueryService(SnapshotRepository(manager.postgres()))
+        filters = SnapshotFilter()
+        rows, total = service.list_rows(filters, limit=1000, offset=0)
+        scene = service.aggregate("scene", filters)
+        groups = service.aggregate("group", SnapshotFilter(scene_name="城区交互"))
+        employees = service.aggregate(
+            "employee",
+            SnapshotFilter(scene_name="城区交互", group_name="一组"),
+        )
+        assert total == 16, f"expected 16 rows, got {total}"
+        assert len(rows) == 16
+        assert len(scene) == 4, f"expected 4 date-scene rows, got {len(scene)}"
+        assert len(groups) == 4, f"expected 4 date-group rows, got {len(groups)}"
+        assert len(employees) == 4, (
+            f"expected 4 date-employee rows, got {len(employees)}"
+        )
+        print(
+            json.dumps(
+                {
+                    "status": "verified",
+                    "snapshot_rows": total,
+                    "date_scene_rows": len(scene),
+                    "city_date_group_rows": len(groups),
+                    "city_group_date_employee_rows": len(employees),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    finally:
+        manager.close()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Quality Platform Lab commands")
+    parser.add_argument("command", choices=("migrate", "seed", "health", "verify"))
+    args = parser.parse_args()
+    {
+        "migrate": command_migrate,
+        "seed": command_seed,
+        "health": command_health,
+        "verify": command_verify,
+    }[args.command]()
+
+
+if __name__ == "__main__":
+    main()
