@@ -42,6 +42,7 @@ dimensions:
     rationale: ''
 visuals:
 # visual status: provided | not_applicable
+# provided 仅用于含有效图类型声明、语法可渲染并有相邻解释的图表
   status: pending
   rationale: ''
   evidence_pages: []

@@ -20,16 +20,16 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_content_first_v7_is_implemented_but_not_claimed_verified(self) -> None:
+    def test_m1_content_first_v8_is_implemented_but_not_claimed_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_content_first_v7_awaiting_forward_test",
+            "implemented_content_first_v8_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_content_first_v7_awaiting_forward_test",
+            "implemented_content_first_v8_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -128,6 +128,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 核心对象和数据变化", software_architecture)
         self.assertIn("## 一次具体修改路径", software_architecture)
         self.assertIn("不要求先出现第二个外部领域", shared_capability)
+        self.assertIn("draft/knowledge/capabilities/", shared_capability)
+        self.assertNotIn("这里必须同步最后一次检查", review)
         self.assertLess(review.index("## 从这里开始看内容"), review.index("## 结构状态"))
 
     def test_retired_knowledge_layout_is_absent(self) -> None:
