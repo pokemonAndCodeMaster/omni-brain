@@ -1,7 +1,7 @@
 app:
   name: Quality Platform Lab
   environment: local
-  schema_version: lab-v1
+  schema_version: snapshot-jsonb-v20260709
 
 logging:
   level: ${QC_LOG_LEVEL:INFO}

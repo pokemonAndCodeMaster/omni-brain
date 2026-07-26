@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from quality_platform_lab.config import ConfigManager, ConfigurationError
+from src.config import ConfigManager, ConfigurationError
 
 
 def write_fixture(tmp_path: Path, yaml_text: str, env_text: str = "") -> ConfigManager:

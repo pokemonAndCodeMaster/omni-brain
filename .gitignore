@@ -7,6 +7,6 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
+src/frontend/node_modules/
+src/frontend/dist/
+src/frontend/.vite/
