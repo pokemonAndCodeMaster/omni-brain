@@ -4,7 +4,7 @@
 
 - [内容计划、逐层地图与读者问题](brief.md)
 - [读者问题逐题实答](reader-answers.md)
-- **推荐产品视图**：
+- **推荐产品视图**：[具名领域视图](draft/knowledge/views/by-domain/<slug>.md)；[具名旅程/学习视图](draft/knowledge/views/by-journey/<slug>.md)
 - **上级定位页**：
 - **主题全貌页**：
 - **用户焦点深挖页**：

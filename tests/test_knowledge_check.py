@@ -219,6 +219,22 @@ class KnowledgeCheckTest(unittest.TestCase):
             "\n".join(report["errors"]),
         )
 
+    def test_duplicate_frontmatter_keys_fail(self) -> None:
+        self.make_valid_slice()
+        page = self.knowledge / "domains/quality/policy.md"
+        text = page.read_text(encoding="utf-8")
+        page.write_text(
+            text.replace(
+                "type: Test Concept\n",
+                "type: Test Concept\ntype: Duplicate Concept\n",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        result, report = self.run_check()
+        self.assertEqual(1, result.returncode)
+        self.assertIn("duplicate key", "\n".join(report["errors"]))
+
     def test_duplicate_product_view_body_fails(self) -> None:
         self.make_valid_slice()
         original = self.knowledge / "views/by-domain/quality.md"

@@ -30,6 +30,33 @@ TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
 TABLE_SEPARATOR_RE = re.compile(r"^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$")
 
 
+class UniqueKeyLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate mapping keys."""
+
+
+def construct_unique_mapping(
+    loader: UniqueKeyLoader, node: yaml.nodes.MappingNode, deep: bool = False
+) -> dict[Any, Any]:
+    mapping: dict[Any, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"duplicate key: {key!r}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    construct_unique_mapping,
+)
+
+
 @dataclass
 class Report:
     knowledge_root: Path
@@ -116,7 +143,7 @@ def parse_frontmatter(path: Path, text: str, report: Report) -> dict[str, Any] |
         report.errors.append(f"{rel}: concept document lacks YAML frontmatter")
         return None
     try:
-        value = yaml.safe_load(match.group(1))
+        value = yaml.load(match.group(1), Loader=UniqueKeyLoader)
     except yaml.YAMLError as exc:
         report.errors.append(f"{rel}: invalid YAML frontmatter: {exc}")
         return None

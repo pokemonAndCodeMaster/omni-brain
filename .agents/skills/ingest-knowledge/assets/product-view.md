@@ -7,7 +7,13 @@ tags: [view]
 
 # <标题>
 
-> `index.md` 只链接本具名视图，不复制正文。
+> 本模板只用于具名视图，保存为
+> `draft/knowledge/views/by-domain/<slug>.md` 或
+> `draft/knowledge/views/by-journey/<slug>.md`。
+> 不要把本模板写入 `index.md`，也不要另建 `draft/views/`。
+
+同级 `index.md` 不带 frontmatter，只链接本具名视图；根 `draft/knowledge/index.md`
+和工作台的 `review.md`、`reader-answers.md` 也应链接同一页面。
 
 ## 读完能得到什么
 

@@ -786,6 +786,77 @@ def validate_review_links(root: Path, errors: list[str]) -> None:
             errors.append(f"review.md 缺少固定分层标题：{heading}")
 
 
+def candidate_concepts_exist(root: Path) -> bool:
+    knowledge = root / "draft" / "knowledge"
+    for area in ("domains", "capabilities", "systems"):
+        base = knowledge / area
+        if not base.exists():
+            continue
+        if any(path.name not in {"index.md", "log.md"} for path in base.rglob("*.md")):
+            return True
+    return False
+
+
+def named_candidate_view_links(root: Path, document: str, errors: list[str]) -> set[str]:
+    path = root / document
+    text = path.read_text(encoding="utf-8")
+    views: set[str] = set()
+    for _, raw in LINK_RE.findall(text):
+        target = unquote(raw.strip().strip("<>"))
+        path_part = target.partition("#")[0]
+        scheme = urlsplit(path_part).scheme.lower()
+        if scheme in {"http", "https", "mailto"}:
+            continue
+        if scheme == "file" or path_part.startswith("/"):
+            errors.append(f"{document} 使用不可移植链接：{raw}")
+            continue
+        resolved = (root / path_part).resolve()
+        try:
+            relative = resolved.relative_to(root).as_posix()
+        except ValueError:
+            errors.append(f"{document} 链接逃逸工作台：{raw}")
+            continue
+        if relative.startswith("draft/views/"):
+            errors.append(
+                f"{document} 使用已废弃的候选视图路径：{raw}；"
+                "请统一链接 draft/knowledge/views/ 下的具名视图"
+            )
+        if (
+            relative.startswith("draft/knowledge/views/")
+            and resolved.name != "index.md"
+        ):
+            views.add(relative)
+        if path_part.startswith("draft/") and not resolved.is_file():
+            errors.append(f"{document} 存在坏的候选链接：{raw}")
+    return views
+
+
+def validate_candidate_view_surface(root: Path, errors: list[str]) -> None:
+    draft = root / "draft"
+    if draft.is_dir():
+        unexpected = sorted(
+            path.name for path in draft.iterdir() if path.name not in {"knowledge", "config"}
+        )
+        if unexpected:
+            errors.append(
+                "draft/ 只允许 knowledge/ 和 config/；"
+                f"发现多余候选目录或文件：{', '.join(unexpected)}"
+            )
+
+    if not candidate_concepts_exist(root):
+        return
+    review_views = named_candidate_view_links(root, "review.md", errors)
+    reader_views = named_candidate_view_links(root, "reader-answers.md", errors)
+    if not any(path.startswith("draft/knowledge/views/by-domain/") for path in review_views):
+        errors.append("review.md 必须链接一个具名领域产品视图，不能只链接 index.md")
+    if not any(path.startswith("draft/knowledge/views/by-journey/") for path in review_views):
+        errors.append("review.md 必须链接一个具名旅程/学习产品视图，不能只链接 index.md")
+    if not any(path.startswith("draft/knowledge/views/by-journey/") for path in reader_views):
+        errors.append(
+            "reader-answers.md 必须链接实际消费的具名旅程/学习产品视图"
+        )
+
+
 def validate_completion(
     root: Path, errors: list[str], coverage_files: list[dict[str, Any]]
 ) -> None:
@@ -1160,6 +1231,7 @@ def check_case(args: argparse.Namespace) -> int:
     if all((root / name).is_file() for name in ("completion.yaml", "review.md")):
         validate_completion(root, errors, coverage_files)
         validate_review_links(root, errors)
+        validate_candidate_view_surface(root, errors)
     errors.extend(markdown_table_errors(list(root.glob("*.md")), root))
 
     knowledge_report = validate_bundle(

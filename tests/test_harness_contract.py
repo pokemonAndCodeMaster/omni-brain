@@ -20,16 +20,16 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_content_first_v11_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_content_first_v12_is_implemented_without_claiming_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_content_first_v11_awaiting_forward_test",
+            "implemented_content_first_v12_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_content_first_v11_awaiting_forward_test",
+            "implemented_content_first_v12_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -119,7 +119,11 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("代码地图、运行时序、核心类/数据关系", brief)
         self.assertIn("## 每个问题实际用了什么", inventory)
         self.assertIn("## 来源主题地图", inventory)
-        self.assertIn("## 来源主题与知识落点复核", inventory)
+        self.assertIn("## 已读内容与知识落点", inventory)
+        self.assertIn("不可丢失的机制、条件、边界、冲突或未知", inventory)
+        self.assertIn("完成这次落地再选择下一组来源", (
+            ROOT / ".agents/skills/ingest-knowledge/SKILL.md"
+        ).read_text(encoding="utf-8"))
         self.assertIn("source-select", brief)
         completion = (assets / "completion.yaml").read_text(encoding="utf-8")
         self.assertIn("knowledge_path:", completion)
@@ -130,6 +134,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 软件与代码事实源", inventory)
         self.assertIn("## 推荐路线：从全貌到细节", product_view)
         self.assertIn("## 按问题查找", product_view)
+        self.assertIn("draft/knowledge/views/by-domain/<slug>.md", product_view)
+        self.assertIn("不要另建 `draft/views/`", product_view)
         self.assertIn("## 逐题回答", reader_answers)
         self.assertIn("每个有效问题必须恰好对应一行", reader_answers)
         self.assertIn("最多三篇规范页", reader_answers)

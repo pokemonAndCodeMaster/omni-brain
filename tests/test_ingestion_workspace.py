@@ -547,6 +547,108 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(1, result.returncode)
         self.assertIn("固定入口被错误放入 assets/：brief.md", result.stdout)
 
+    def test_check_rejects_legacy_draft_views_tree(self) -> None:
+        case = self.init_case()
+        mark = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "screened",
+            "--reason",
+            "测试筛查",
+            "--all-unreviewed",
+        )
+        self.assertEqual(0, mark.returncode, mark.stderr)
+        self.complete_non_content_fields(case)
+        legacy = case / "draft" / "views"
+        legacy.mkdir()
+        (legacy / "index.md").write_text("# 错误候选视图\n", encoding="utf-8")
+        result = self.run_tool("check", "sample-case")
+        self.assertEqual(1, result.returncode)
+        self.assertIn(
+            "draft/ 只允许 knowledge/ 和 config/",
+            result.stdout,
+        )
+
+    def test_check_accepts_one_named_view_surface(self) -> None:
+        case = self.init_case()
+        mark = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "screened",
+            "--reason",
+            "测试筛查",
+            "--all-unreviewed",
+        )
+        self.assertEqual(0, mark.returncode, mark.stderr)
+        self.complete_non_content_fields(case)
+
+        knowledge = case / "draft" / "knowledge"
+        domain = knowledge / "domains" / "quality"
+        domain.mkdir()
+        concept = (
+            "---\ntype: Domain Overview\ntitle: 质检\n"
+            "description: 测试领域\n---\n\n# 质检\n"
+        )
+        (domain / "overview.md").write_text(concept, encoding="utf-8")
+        (domain / "index.md").write_text(
+            "# 质检\n\n- [领域概览](overview.md)\n", encoding="utf-8"
+        )
+        (case / "draft" / "config" / "knowledge-domains.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "schema_version": "0.1",
+                    "domains": [
+                        {
+                            "id": "quality",
+                            "title": "质检",
+                            "parent": None,
+                            "scope": "质量评价",
+                            "excludes": "生产执行",
+                        }
+                    ],
+                },
+                allow_unicode=True,
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+        view_body = (
+            "---\ntype: Navigation View\ntitle: {title}\n"
+            "description: 测试视图\n---\n\n# {title}\n\n"
+            "- [质检](../../domains/quality/overview.md)\n"
+        )
+        domain_view = knowledge / "views" / "by-domain" / "quality.md"
+        journey_view = knowledge / "views" / "by-journey" / "quality.md"
+        domain_view.write_text(
+            view_body.format(title="质检领域视图"), encoding="utf-8"
+        )
+        journey_view.write_text(
+            view_body.format(title="质检学习视图"), encoding="utf-8"
+        )
+        (knowledge / "views" / "by-domain" / "index.md").write_text(
+            "# 按领域浏览\n\n- [质检领域视图](quality.md)\n", encoding="utf-8"
+        )
+        (knowledge / "views" / "by-journey" / "index.md").write_text(
+            "# 按旅程浏览\n\n- [质检学习视图](quality.md)\n", encoding="utf-8"
+        )
+        (case / "review.md").write_text(
+            (case / "review.md").read_text(encoding="utf-8")
+            + "\n- [领域视图](draft/knowledge/views/by-domain/quality.md)\n"
+            + "- [旅程视图](draft/knowledge/views/by-journey/quality.md)\n",
+            encoding="utf-8",
+        )
+        (case / "reader-answers.md").write_text(
+            "# 逐题实答\n\n"
+            "- [旅程视图](draft/knowledge/views/by-journey/quality.md)\n",
+            encoding="utf-8",
+        )
+        result = self.run_tool("check", "sample-case")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
