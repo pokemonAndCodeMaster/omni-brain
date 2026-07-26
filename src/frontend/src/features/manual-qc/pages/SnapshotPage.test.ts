@@ -89,16 +89,25 @@ vi.mock('@/shared/dashboard/composables/useDashboardWorkspace', async () => {
       updateLayouts: vi.fn(),
       removeCard: vi.fn(),
       refreshCard: vi.fn(),
+      refreshAll: vi.fn(),
       save: vi.fn(),
     }),
   }
 })
 
 vi.mock('../utils/snapshotChart', () => ({
-  buildSnapshotChartCard: vi.fn(),
-  chartBuilderValueFromCard: vi.fn(),
-  createSnapshotChartBuilderOptions: () => ({ defaultSourceId: 'fixture' }),
+  createSnapshotChartBuilderOptions: () => ({
+    sourceId: 'fixture',
+    dimensions: [],
+    metrics: [],
+    questionOptions: {},
+  }),
+  defaultSnapshotChartCards: vi.fn(() => []),
+  duplicateSnapshotChartCard: vi.fn(),
+  nextSnapshotChartCard: vi.fn(),
+  normalizeSnapshotChartCard: vi.fn((card) => card),
   resolveSnapshotChartCard: vi.fn(),
+  restoreSnapshotChartPreset: vi.fn(),
 }))
 
 vi.mock('../utils/snapshotOverview', () => ({

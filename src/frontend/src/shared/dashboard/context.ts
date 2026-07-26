@@ -10,6 +10,8 @@ export interface DashboardContext {
   isLoading: (cardId: string) => boolean
   errorById: (cardId: string) => string
   edit: (card: DashboardChartCard) => void
+  duplicate: (card: DashboardChartCard) => void
+  restore: (card: DashboardChartCard) => void
   remove: (cardId: string) => void
   refresh: (card: DashboardChartCard) => void
   drill: (card: DashboardChartCard, category: string) => void

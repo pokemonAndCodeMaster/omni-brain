@@ -1,140 +1,240 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getSnapshotRows } from '../api/snapshot'
-import type { MetricState, SnapshotRow } from '../types/snapshot'
 import {
-  buildSnapshotChartCard,
+  postAnalysisFacets,
+  postAnalysisQuery,
+} from '../analysis/api/analysis'
+import { metricReferenceKey } from '../analysis/utils'
+import type {
+  AnalysisMetricReference,
+  AnalysisQuery,
+} from '../analysis/types/analysis'
+import type { SnapshotQuery } from '../types/snapshot'
+import type { LegacyDashboardChartCard } from '@/shared/dashboard/types'
+import {
+  defaultSnapshotChartCards,
+  normalizeSnapshotChartCard,
   resolveSnapshotChartCard,
 } from './snapshotChart'
 
-vi.mock('../api/snapshot', () => ({
-  getSnapshotRows: vi.fn(),
+vi.mock('../analysis/api/analysis', () => ({
+  postAnalysisQuery: vi.fn(),
+  postAnalysisFacets: vi.fn(),
 }))
 
-function metric(
-  actualComplete: number,
-  actualPass: number,
-  actualReject: number,
-): MetricState {
+const pageQuery: SnapshotQuery = {
+  stat_date_start: '2026-07-13',
+  stat_date_end: '2026-07-26',
+  project_name: '',
+  scene_name: '',
+  group_name: '',
+  employee_id: '',
+}
+
+function measureValue(
+  reference: AnalysisMetricReference,
+  task: string,
+): number {
+  const taskOffset = task === '任务-A' ? 0 : 5
   return {
-    annotation_total: 0,
-    annotation_submitted: 0,
-    expect_alloc: 0,
-    actual_alloc: actualComplete,
-    actual_complete: actualComplete,
-    correct: 0,
-    incorrect: 0,
-    expect_pass: 0,
-    expect_reject: 0,
-    actual_pass: actualPass,
-    actual_reject: actualReject,
-    conclusion: null,
-    exec_status: null,
+    'acceptance.allocated': 20 + taskOffset,
+    'acceptance.completed': 18 + taskOffset,
+    'acceptance.completion_rate': task === '任务-A' ? 90 : 92,
+    'acceptance.passed': 16 + taskOffset,
+    'acceptance.rejected': 2,
+    'acceptance.pass_rate': task === '任务-A' ? 88.9 : 91.3,
+    'annotation.good_submitted': 80 + taskOffset,
+    'annotation.bad_submitted': 20,
+    'annotation.good_rate': task === '任务-A' ? 80 : 81,
+  }[reference.id] ?? 0
+}
+
+function queryResult(query: AnalysisQuery) {
+  const rows = ['任务-A', '任务-B'].map((task, index) => ({
+    key: task,
+    dimensions: Object.fromEntries(
+      query.groupBy.map((dimension) => [
+        dimension,
+        dimension === 'task'
+          ? task
+          : dimension === 'project'
+            ? index === 0 ? '园区' : '城区/高速'
+            : `值-${index + 1}`,
+      ]),
+    ),
+    measures: Object.fromEntries(
+      query.measures.map((reference) => [
+        metricReferenceKey(reference),
+        measureValue(reference, task),
+      ]),
+    ),
+    computedAt: '2026-07-26T10:00:00Z',
+  }))
+  return {
+    sourceId: query.sourceId,
+    groupBy: query.groupBy,
+    rows,
+    total: rows.length,
+    page: query.page ?? { number: 1, size: 200 },
+    computedAt: '2026-07-26T10:00:00Z',
+    warnings: [],
   }
 }
 
-function row(
-  id: number,
-  statDate: string,
-  good: MetricState,
-  bad: MetricState,
-): SnapshotRow {
-  return {
-    id,
-    stat_date: statDate,
-    project_name: '城区/高速',
-    scene_name: '城区交互任务-A',
-    group_name: '一组',
-    employee_id: `E00${id}`,
-    annotation_total: 20,
-    annotation_submitted: 18,
-    good_metrics: good,
-    bad_metrics: bad,
-    option_metrics: {},
-    confirmed_by: null,
-    confirmed_at: null,
-    executed_by: null,
-    executed_at: null,
-    execution_note: null,
-    computed_at: `${statDate}T10:00:00Z`,
-    updated_at: `${statDate}T10:00:00Z`,
-  }
-}
-
-const rows = [
-  row(1, '2026-07-25', metric(4, 3, 1), metric(2, 1, 1)),
-  row(2, '2026-07-26', metric(8, 7, 1), metric(3, 2, 1)),
-]
-
-function builder(chartType: 'bar' | 'pie' | 'combo' = 'bar') {
-  return {
-    title: '当前表格结果',
-    description: '同一标注任务内比较',
-    sourceId: 'manual-qc-snapshot-employee-day',
-    chartType,
-    dimensionId: chartType === 'pie' ? 'stat_date' : 'scene_name',
-    measureIds: ['accept_completed', 'accept_rejected'],
-    filters: { project_name: '城区/高速' },
-    stacked: false,
-    showLegend: true,
-    showLabels: false,
-    smooth: true,
-    palette: 'quality' as const,
-    orientation: 'vertical' as const,
-    legendPosition: 'top' as const,
-    fontScale: 'medium' as const,
-    showArea: false,
-    sortDirection: 'natural' as const,
-    maxCategories: 20,
-  }
-}
-
-describe('snapshot dashboard card', () => {
+describe('snapshot chart V2', () => {
   beforeEach(() => {
-    vi.mocked(getSnapshotRows).mockResolvedValue({
-      schema_version: 'snapshot-jsonb-v20260709',
-      items: rows,
-      total: rows.length,
-      computed_at: '2026-07-26T10:00:00Z',
-    })
+    vi.mocked(postAnalysisQuery).mockImplementation(async (query) =>
+      queryResult(query),
+    )
+    vi.mocked(postAnalysisFacets).mockImplementation(async (request) => ({
+      dimensionId: request.dimensionId,
+      values:
+        request.dimensionId === 'question_label'
+          ? ['驾驶行为分类']
+          : ['CUT_IN', 'MERGE'],
+    }))
   })
 
-  it('保存可重新执行的数据定义，并用最新快照聚合', async () => {
-    const card = buildSnapshotChartCard(builder())
-    const result = await resolveSnapshotChartCard(card)
+  it('把数量与比例图层分别放入受控坐标轴', async () => {
+    const card = defaultSnapshotChartCards().find(
+      (item) => item.id === 'acceptance-progress',
+    )!
+    const result = await resolveSnapshotChartCard(card, pageQuery)
 
-    expect(card.query).toMatchObject({
-      dimensionId: 'scene_name',
-      filters: { project_name: '城区/高速' },
-    })
-    expect(card.layout).toMatchObject({ w: 6, h: 6 })
-    expect(result.categories).toEqual(['城区交互任务-A'])
-    expect(result.series.map((series) => series.values)).toEqual([[17], [4]])
-    expect(result.source).toMatchObject({
-      rowCount: 2,
-      filterSummary: '项目：城区/高速',
-    })
-  })
-
-  it('饼图只解析首个指标，避免多指标语义混乱', async () => {
-    const card = buildSnapshotChartCard(builder('pie'))
-    const result = await resolveSnapshotChartCard(card)
-
-    expect(result.categories).toEqual(['2026-07-25', '2026-07-26'])
-    expect(result.series).toHaveLength(1)
-    expect(result.series[0]?.values).toEqual([6, 11])
-  })
-
-  it('组合图把数量和比率分到不同坐标轴', async () => {
-    const value = builder('combo')
-    value.measureIds = ['accept_completed', 'completion_rate']
-    value.dimensionId = 'stat_date'
-    const card = buildSnapshotChartCard(value)
-    const result = await resolveSnapshotChartCard(card)
-
+    expect(postAnalysisQuery).toHaveBeenCalledTimes(3)
+    expect(result.categories).toEqual(['任务-A', '任务-B'])
     expect(result.series).toMatchObject([
-      { id: 'accept_completed', axis: 'count', renderAs: 'bar' },
-      { id: 'completion_rate', axis: 'rate', renderAs: 'line', unit: '%' },
+      {
+        id: 'allocated',
+        axisId: 'count-axis',
+        renderAs: 'bar',
+        values: [20, 25],
+      },
+      {
+        id: 'completed',
+        axisId: 'count-axis',
+        renderAs: 'bar',
+        values: [18, 23],
+      },
+      {
+        id: 'completion-rate',
+        axisId: 'rate-axis',
+        renderAs: 'line',
+        values: [90, 92],
+      },
     ])
-    expect(result.series[1]?.values).toEqual([100, 100])
+    expect(result.source.sourceLabel).toBe('人工质检受控分析接口')
+  })
+
+  it('把旧组合图迁移为多个普通图层并保留布局', () => {
+    const legacy: LegacyDashboardChartCard = {
+      id: 'legacy',
+      kind: 'chart',
+      title: '旧组合图',
+      description: '',
+      query: {
+        sourceId: 'manual-qc-snapshot-employee-day',
+        dimensionId: 'stat_date',
+        measureIds: ['accept_completed', 'completion_rate'],
+        filters: {
+          stat_date_start: '2026-07-13',
+          stat_date_end: '2026-07-26',
+        },
+        filterSummary: '',
+      },
+      style: {
+        chartType: 'combo',
+        stacked: false,
+        showLegend: true,
+        showLabels: false,
+        smooth: true,
+        palette: 'business',
+        orientation: 'vertical',
+        legendPosition: 'top',
+        fontScale: 'medium',
+        showArea: false,
+        sortDirection: 'natural',
+        maxCategories: 20,
+      },
+      layout: { x: 2, y: 3, w: 7, h: 6, minW: 3, minH: 4 },
+    }
+
+    const migrated = normalizeSnapshotChartCard(legacy)
+
+    expect(migrated.baseQuery).toMatchObject({
+      categoryDimension: 'date',
+      filters: [
+        {
+          target: { id: 'date' },
+          operator: 'between',
+          value: ['2026-07-13', '2026-07-26'],
+        },
+      ],
+    })
+    expect(migrated.layers).toMatchObject([
+      {
+        metric: { id: 'acceptance.completed' },
+        renderAs: 'bar',
+        axisId: 'count-axis',
+      },
+      {
+        metric: { id: 'acceptance.completion_rate' },
+        renderAs: 'line',
+        axisId: 'rate-axis',
+      },
+    ])
+    expect(migrated.layout).toMatchObject({ x: 2, y: 3, w: 7, h: 6 })
+  })
+
+  it('问题选项预设从受控 Facet 展开分类并按数量倒排', async () => {
+    vi.mocked(postAnalysisQuery).mockImplementation(async (query) => {
+      const reference = query.measures[0]!
+      const option = reference.parameters?.questionOption ?? ''
+      const value = option === 'CUT_IN' ? 36 : 18
+      return {
+        sourceId: query.sourceId,
+        groupBy: query.groupBy,
+        rows: [
+          {
+            key: '园区',
+            dimensions: { project: '园区' },
+            measures: { [metricReferenceKey(reference)]: value },
+            computedAt: '2026-07-26T10:00:00Z',
+          },
+        ],
+        total: 1,
+        page: query.page ?? { number: 1, size: 200 },
+        computedAt: '2026-07-26T10:00:00Z',
+        warnings: [],
+      }
+    })
+    const card = defaultSnapshotChartCards().find(
+      (item) => item.id === 'bad-options',
+    )!
+    const result = await resolveSnapshotChartCard(card, pageQuery)
+
+    expect(result.categories).toEqual([
+      '驾驶行为分类 / CUT_IN',
+      '驾驶行为分类 / MERGE',
+    ])
+    expect(result.series[0]?.values).toEqual([36, 18])
+    expect(postAnalysisFacets).toHaveBeenCalledTimes(2)
+  })
+
+  it('一个图层可以按项目拆成多条序列', async () => {
+    const card = defaultSnapshotChartCards().find(
+      (item) => item.id === 'acceptance-progress',
+    )!
+    card.layers = [card.layers[0]!]
+    card.layers[0]!.splitBy = { dimension: 'project' }
+    const result = await resolveSnapshotChartCard(card, pageQuery)
+
+    expect(result.series.map((item) => item.name)).toEqual([
+      '验收分配量 · 城区/高速',
+      '验收分配量 · 园区',
+    ])
+    expect(result.series.map((item) => item.values)).toEqual([
+      [null, 25],
+      [20, null],
+    ])
   })
 })

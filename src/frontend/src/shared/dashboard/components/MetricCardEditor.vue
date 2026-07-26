@@ -62,12 +62,17 @@ function resetForm(): void {
 
 watch(
   () => props.open,
-  async (open) => {
+  async (requestedOpen) => {
     await nextTick()
-    if (open && props.card && !dialog.value?.open) {
+    if (props.open !== requestedOpen) return
+    if (requestedOpen && props.card && !dialog.value?.open) {
       resetForm()
+      if (document.visibilityState !== 'visible' || !document.hasFocus()) {
+        emit('close')
+        return
+      }
       dialog.value?.showModal()
-    } else if (!open && dialog.value?.open) {
+    } else if (!requestedOpen && dialog.value?.open) {
       dialog.value.close()
     }
   },

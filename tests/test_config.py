@@ -186,6 +186,101 @@ def test_dashboard_config_accepts_composable_metric_card() -> None:
     assert "valueSize" not in persisted_card["style"]
 
 
+def test_dashboard_config_accepts_multi_layer_chart_card() -> None:
+    config = DashboardConfig.model_validate(
+        {
+            "schemaVersion": "dashboard-v2",
+            "cards": [
+                {
+                    "id": "acceptance-progress",
+                    "kind": "chart",
+                    "origin": {
+                        "type": "system-preset",
+                        "presetId": "manual-qc.acceptance-progress",
+                        "presetVersion": 2,
+                    },
+                    "title": "验收分配与完成",
+                    "baseQuery": {
+                        "sourceId": "manual_qc.snapshot.v20260709",
+                        "scopeMode": "inherit-page",
+                        "categoryDimension": "date",
+                        "timeGrain": "day",
+                        "questionLabels": [],
+                        "filters": [],
+                    },
+                    "axes": [
+                        {
+                            "id": "count-axis",
+                            "side": "left",
+                            "unit": "count",
+                            "label": "数量",
+                            "minimum": 0,
+                            "maximum": None,
+                        },
+                        {
+                            "id": "rate-axis",
+                            "side": "right",
+                            "unit": "percent",
+                            "label": "占比",
+                            "minimum": 0,
+                            "maximum": 100,
+                        },
+                    ],
+                    "layers": [
+                        {
+                            "id": "allocated",
+                            "label": "验收分配量",
+                            "metric": {"id": "acceptance.allocated"},
+                            "renderAs": "bar",
+                            "axisId": "count-axis",
+                            "splitBy": None,
+                            "filters": [],
+                            "stackGroup": None,
+                            "style": {},
+                        },
+                        {
+                            "id": "completion-rate",
+                            "label": "验收完成率",
+                            "metric": {"id": "acceptance.completion_rate"},
+                            "renderAs": "line",
+                            "axisId": "rate-axis",
+                            "splitBy": None,
+                            "filters": [],
+                            "stackGroup": None,
+                            "style": {},
+                        },
+                    ],
+                    "presentation": {
+                        "showLegend": True,
+                        "legendPosition": "top",
+                        "categorySort": "natural",
+                        "categoryLimit": 31,
+                        "orientation": "vertical",
+                        "fontScale": "medium",
+                    },
+                    "layout": {"x": 0, "y": 0, "w": 8, "h": 7},
+                }
+            ],
+        }
+    )
+
+    card = config.cards[0]
+    assert card.kind == "chart"
+    assert card.layers is not None
+    assert [layer.axis_id for layer in card.layers] == [
+        "count-axis",
+        "rate-axis",
+    ]
+    persisted = config.model_dump(
+        mode="json",
+        by_alias=True,
+        exclude_none=True,
+    )
+    persisted_card = persisted["cards"][0]
+    assert "query" not in persisted_card
+    assert "style" not in persisted_card
+
+
 def test_reload_can_switch_env_file_atomically(tmp_path: Path) -> None:
     manager = write_fixture(tmp_path, BASE, "TEST_DB_PORT=55432\n")
     alternative = tmp_path / ".env.alternative"

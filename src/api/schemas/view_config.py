@@ -47,16 +47,6 @@ class DashboardQuery(CamelModel):
     filter_summary: str = Field(default="", max_length=1000)
 
 
-class DashboardCard(CamelModel):
-    id: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,128}$")
-    kind: Literal["chart"] = "chart"
-    title: str = Field(min_length=1, max_length=160)
-    description: str = Field(default="", max_length=500)
-    query: DashboardQuery
-    style: DashboardChartStyle
-    layout: DashboardLayout
-
-
 class LegacyDashboardMetricStyle(CamelModel):
     accent_color: str = Field(default="#2458d3", pattern=r"^#[0-9A-Fa-f]{6}$")
     background_color: str = Field(
@@ -90,6 +80,127 @@ class DashboardMetricOrigin(CamelModel):
 class DashboardMetricReference(CamelModel):
     id: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,128}$")
     parameters: dict[str, str] = Field(default_factory=dict, max_length=8)
+
+
+class DashboardChartFilter(CamelModel):
+    target: DashboardMetricReference
+    operator: Literal[
+        "equals",
+        "in",
+        "contains",
+        "greater_than",
+        "less_than",
+        "between",
+    ]
+    value: str | int | float | list[str] | list[int] | list[float]
+
+
+class DashboardChartBaseQuery(CamelModel):
+    source_id: str = Field(min_length=1, max_length=128)
+    scope_mode: Literal["inherit-page"] = "inherit-page"
+    category_dimension: Literal[
+        "date",
+        "project",
+        "task",
+        "group",
+        "employee",
+        "question-option",
+    ]
+    time_grain: Literal["day"] | None = None
+    question_labels: list[str] = Field(default_factory=list, max_length=20)
+    filters: list[DashboardChartFilter] = Field(default_factory=list, max_length=12)
+
+
+class DashboardChartAxis(CamelModel):
+    id: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,128}$")
+    side: Literal["left", "right"]
+    unit: Literal["count", "percent"]
+    label: str = Field(min_length=1, max_length=80)
+    minimum: float | None = None
+    maximum: float | None = None
+
+
+class DashboardChartSplit(CamelModel):
+    dimension: Literal[
+        "project",
+        "task",
+        "group",
+        "employee",
+        "question-option",
+    ]
+    question_label: str | None = Field(default=None, max_length=256)
+    values: list[str] = Field(default_factory=list, max_length=20)
+
+
+class DashboardChartLayerStyle(CamelModel):
+    color: str = Field(default="#2458d3", pattern=r"^#[0-9A-Fa-f]{6}$")
+    smooth: bool = True
+    show_labels: bool = False
+
+
+class DashboardChartLayer(CamelModel):
+    id: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,128}$")
+    label: str = Field(min_length=1, max_length=120)
+    metric: DashboardMetricReference
+    render_as: Literal["bar", "line", "area"]
+    axis_id: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,128}$")
+    split_by: DashboardChartSplit | None = None
+    filters: list[DashboardChartFilter] = Field(default_factory=list, max_length=12)
+    stack_group: str | None = Field(default=None, max_length=80)
+    style: DashboardChartLayerStyle
+
+
+class DashboardChartPresentation(CamelModel):
+    show_legend: bool = True
+    legend_position: Literal["top", "bottom"] = "top"
+    category_sort: Literal["natural", "value-desc"] = "natural"
+    category_limit: int = Field(default=20, ge=0, le=200)
+    orientation: Literal["vertical", "horizontal"] = "vertical"
+    font_scale: Literal["small", "medium", "large"] = "medium"
+
+
+class DashboardCard(CamelModel):
+    id: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,128}$")
+    kind: Literal["chart"] = "chart"
+    title: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=500)
+    query: DashboardQuery | None = None
+    style: DashboardChartStyle | None = None
+    origin: DashboardMetricOrigin | None = None
+    base_query: DashboardChartBaseQuery | None = None
+    axes: list[DashboardChartAxis] | None = Field(default=None, max_length=4)
+    layers: list[DashboardChartLayer] | None = Field(default=None, max_length=8)
+    presentation: DashboardChartPresentation | None = None
+    layout: DashboardLayout
+
+    @model_validator(mode="after")
+    def validate_chart_version(self) -> "DashboardCard":
+        legacy = self.query is not None and self.style is not None
+        current = all(
+            value is not None
+            for value in (
+                self.origin,
+                self.base_query,
+                self.axes,
+                self.layers,
+                self.presentation,
+            )
+        )
+        if legacy == current:
+            raise ValueError("统计卡片必须且只能使用 V1 或 V2 一种结构")
+        if current:
+            assert self.axes is not None
+            assert self.layers is not None
+            if not self.axes:
+                raise ValueError("统计卡片至少需要一个坐标轴")
+            if not self.layers:
+                raise ValueError("统计卡片至少需要一个图层")
+            axis_ids = {axis.id for axis in self.axes}
+            if len(axis_ids) != len(self.axes):
+                raise ValueError("统计卡片坐标轴 ID 不能重复")
+            if any(layer.axis_id not in axis_ids for layer in self.layers):
+                raise ValueError("图层引用了不存在的坐标轴")
+        return self
 
 
 class DashboardMetricValueStyle(CamelModel):

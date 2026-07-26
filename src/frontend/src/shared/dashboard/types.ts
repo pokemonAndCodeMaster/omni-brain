@@ -18,10 +18,15 @@ export type DashboardJumpTarget =
 export interface ChartSeries {
   id: string
   name: string
-  values: number[]
+  values: Array<number | null>
   unit?: string
   axis?: 'count' | 'rate'
-  renderAs?: 'bar' | 'line'
+  axisId?: string
+  renderAs?: 'bar' | 'line' | 'area'
+  color?: string
+  stackGroup?: string | null
+  smooth?: boolean
+  showLabels?: boolean
 }
 
 export interface DashboardCardLayout {
@@ -56,13 +61,99 @@ export interface DashboardCardQuery {
   filterSummary: string
 }
 
-export interface DashboardChartCard {
+export interface LegacyDashboardChartCard {
   id: string
   kind: 'chart'
   title: string
   description: string
   query: DashboardCardQuery
   style: DashboardChartStyle
+  layout: DashboardCardLayout
+}
+
+export type DashboardChartDimension =
+  | 'date'
+  | 'project'
+  | 'task'
+  | 'group'
+  | 'employee'
+  | 'question-option'
+
+export type DashboardChartFilterOperator =
+  | 'equals'
+  | 'in'
+  | 'contains'
+  | 'greater_than'
+  | 'less_than'
+  | 'between'
+
+export interface DashboardChartFilter {
+  target: DashboardMetricReference
+  operator: DashboardChartFilterOperator
+  value: string | number | string[] | number[]
+}
+
+export interface DashboardChartBaseQuery {
+  sourceId: string
+  scopeMode: 'inherit-page'
+  categoryDimension: DashboardChartDimension
+  timeGrain: 'day' | null
+  questionLabels: string[]
+  filters: DashboardChartFilter[]
+}
+
+export interface DashboardChartAxis {
+  id: string
+  side: 'left' | 'right'
+  unit: 'count' | 'percent'
+  label: string
+  minimum: number | null
+  maximum: number | null
+}
+
+export interface DashboardChartSplit {
+  dimension: Exclude<DashboardChartDimension, 'date'>
+  questionLabel?: string
+  values?: string[]
+}
+
+export interface DashboardChartLayerStyle {
+  color: string
+  smooth: boolean
+  showLabels: boolean
+}
+
+export interface DashboardChartLayer {
+  id: string
+  label: string
+  metric: DashboardMetricReference
+  renderAs: 'bar' | 'line' | 'area'
+  axisId: string
+  splitBy: DashboardChartSplit | null
+  filters: DashboardChartFilter[]
+  stackGroup: string | null
+  style: DashboardChartLayerStyle
+}
+
+export interface DashboardChartPresentation {
+  showLegend: boolean
+  legendPosition: DashboardLegendPosition
+  categorySort: 'natural' | 'value-desc'
+  categoryLimit: number
+  orientation: DashboardOrientation
+  fontScale: DashboardFontScale
+}
+
+export interface DashboardChartCard {
+  id: string
+  kind: 'chart'
+  origin: DashboardMetricOrigin
+  title: string
+  description: string
+  baseQuery: DashboardChartBaseQuery
+  axes: DashboardChartAxis[]
+  layers: DashboardChartLayer[]
+  presentation: DashboardChartPresentation
   layout: DashboardCardLayout
 }
 
@@ -171,6 +262,7 @@ export interface DashboardMetricCard {
 
 export type DashboardCard =
   | DashboardChartCard
+  | LegacyDashboardChartCard
   | DashboardMetricCard
   | LegacyDashboardMetricCard
 
@@ -234,34 +326,15 @@ export interface ChartBuilderFilterField extends ChartBuilderField {
 }
 
 export interface ChartBuilderOptions {
-  sources: ChartBuilderField[]
-  dimensions: ChartBuilderField[]
-  measures: ChartBuilderField[]
-  filters: ChartBuilderFilterField[]
-  defaultSourceId: string
-  defaultDimensionId: string
-  defaultMeasureIds: string[]
-}
-
-export interface ChartBuilderValue {
-  title: string
-  description: string
   sourceId: string
-  chartType: DashboardChartType
-  dimensionId: string
-  measureIds: string[]
-  filters: Record<string, string>
-  stacked: boolean
-  showLegend: boolean
-  showLabels: boolean
-  smooth: boolean
-  palette: DashboardPalette
-  orientation: DashboardOrientation
-  legendPosition: DashboardLegendPosition
-  fontScale: DashboardFontScale
-  showArea: boolean
-  sortDirection: 'natural' | 'value-desc'
-  maxCategories: number
+  dimensions: Array<ChartBuilderField & { valueType: 'date' | 'text' }>
+  metrics: Array<
+    ChartBuilderField & {
+      unit: 'count' | 'percent'
+      requiresQuestionOption: boolean
+    }
+  >
+  questionOptions: Record<string, string[]>
 }
 
 export type DashboardCardResolver = (

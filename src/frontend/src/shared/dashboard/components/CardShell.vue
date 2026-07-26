@@ -1,5 +1,6 @@
 <script setup lang="ts">
 defineProps<{
+  anchorId?: string
   title: string
   description?: string
   removable?: boolean
@@ -10,7 +11,7 @@ const emit = defineEmits<{ remove: []; edit: [] }>()
 </script>
 
 <template>
-  <article class="card-shell">
+  <article :id="anchorId" class="card-shell">
     <header class="card-header">
       <span
         class="card-drag-handle"
@@ -147,6 +148,7 @@ const emit = defineEmits<{ remove: []; edit: [] }>()
 .card-content {
   min-width: 0;
   min-height: 0;
+  overflow: auto;
   padding: 10px 14px 12px;
 }
 

@@ -107,8 +107,11 @@ function setOpen(value: boolean): void {
   if (!value) return
   positionPopover()
   void nextTick().then(() => {
+    if (!open.value) return
     positionPopover()
-    firstInput.value?.focus()
+    if (document.visibilityState === 'visible' && document.hasFocus()) {
+      firstInput.value?.focus()
+    }
   })
 }
 

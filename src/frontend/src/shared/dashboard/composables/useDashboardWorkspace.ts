@@ -9,15 +9,21 @@ import {
   saveDashboardConfig,
 } from '../api/viewConfig'
 import type {
+  DashboardCard,
   DashboardCardLayout,
   DashboardCardResolver,
   DashboardChartCard,
   DashboardChartResult,
+  LegacyDashboardChartCard,
 } from '../types'
 
 export function useDashboardWorkspace(
   pageKey: string,
   resolveCard: DashboardCardResolver,
+  defaultCards: () => DashboardChartCard[],
+  normalizeCard: (
+    card: DashboardChartCard | LegacyDashboardChartCard,
+  ) => DashboardChartCard,
 ) {
   const cards = shallowRef<DashboardChartCard[]>([])
   const results = shallowRef<Record<string, DashboardChartResult>>({})
@@ -67,15 +73,33 @@ export function useDashboardWorkspace(
     notice.value = ''
     try {
       const saved = await getDashboardConfig(pageKey)
-      cards.value = (saved?.config.cards ?? []).filter(
-        (card): card is DashboardChartCard => card.kind === 'chart',
+      const savedCharts = (saved?.config.cards ?? []).filter(
+        (
+          card: DashboardCard,
+        ): card is DashboardChartCard | LegacyDashboardChartCard =>
+          card.kind === 'chart',
       )
+      const migrated =
+        saved?.config.schemaVersion === 'dashboard-v1' ||
+        savedCharts.some((card) => !('baseQuery' in card))
+      cards.value = !saved
+        ? defaultCards()
+        : migrated
+          ? [
+              ...defaultCards(),
+              ...savedCharts.map(normalizeCard),
+            ]
+          : savedCharts.map(normalizeCard)
       version.value = saved?.version ?? null
       updatedAt.value = saved?.updatedAt ?? null
-      dirty.value = false
+      dirty.value = migrated
       if (cards.value.length) {
         await refreshAll()
-        notice.value = `已恢复 ${cards.value.length} 张已保存卡片。`
+        notice.value = migrated
+          ? `已把旧统计卡片迁移到多图层结构，并补入 ${defaultCards().length} 张系统预设；请保存确认。`
+          : saved
+            ? `已恢复 ${cards.value.length} 张已保存卡片。`
+            : `已加载 ${cards.value.length} 张系统预设统计卡片。`
       }
     } catch (error) {
       notice.value = `看板恢复失败：${errorText(error)}`
@@ -133,7 +157,7 @@ export function useDashboardWorkspace(
     notice.value = ''
     try {
       const saved = await saveDashboardConfig(pageKey, {
-        schemaVersion: 'dashboard-v1',
+        schemaVersion: 'dashboard-v2',
         cards: cards.value,
       })
       version.value = saved.version

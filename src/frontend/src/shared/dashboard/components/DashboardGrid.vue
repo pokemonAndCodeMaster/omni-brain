@@ -37,6 +37,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   add: []
   edit: [card: DashboardChartCard]
+  duplicate: [card: DashboardChartCard]
+  restore: [card: DashboardChartCard]
   remove: [cardId: string]
   refresh: [card: DashboardChartCard]
   drill: [card: DashboardChartCard, category: string]
@@ -145,6 +147,8 @@ provide(DASHBOARD_CONTEXT, {
   isLoading: (cardId) => props.loadingCardIds.has(cardId),
   errorById: (cardId) => props.cardErrors[cardId] ?? '',
   edit: (card) => emit('edit', card),
+  duplicate: (card) => emit('duplicate', card),
+  restore: (card) => emit('restore', card),
   remove: (cardId) => emit('remove', cardId),
   refresh: (card) => emit('refresh', card),
   drill: (card, category) => emit('drill', card, category),

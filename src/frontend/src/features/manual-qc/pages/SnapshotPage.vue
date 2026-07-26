@@ -11,21 +11,23 @@ import MetricCardGrid from '@/shared/dashboard/components/MetricCardGrid.vue'
 import { useDashboardWorkspace } from '@/shared/dashboard/composables/useDashboardWorkspace'
 import { useMetricWorkspace } from '@/shared/dashboard/composables/useMetricWorkspace'
 import type {
-  ChartBuilderValue,
   DashboardChartCard,
+  DashboardChartFilter,
   DashboardMetricCard,
   DashboardMetricResult,
 } from '@/shared/dashboard/types'
 import SnapshotFilters from '../components/SnapshotFilters.vue'
-import SnapshotSummaryChart from '../components/SnapshotSummaryChart.vue'
 import TaskAnalysisWorkspace from '../analysis/components/TaskAnalysisWorkspace.vue'
 import { useAnalysisCatalog } from '../analysis/composables/useAnalysisCatalog'
 import { useSnapshotExplorer } from '../composables/useSnapshotExplorer'
 import {
-  buildSnapshotChartCard,
-  chartBuilderValueFromCard,
   createSnapshotChartBuilderOptions,
+  defaultSnapshotChartCards,
+  duplicateSnapshotChartCard,
+  nextSnapshotChartCard,
+  normalizeSnapshotChartCard,
   resolveSnapshotChartCard,
+  restoreSnapshotChartPreset,
 } from '../utils/snapshotChart'
 import {
   defaultOverviewCards,
@@ -86,10 +88,13 @@ const {
   updateLayouts,
   removeCard,
   refreshCard,
+  refreshAll,
   save: saveDashboard,
 } = useDashboardWorkspace(
   'manual-qc-snapshots',
-  resolveSnapshotChartCard,
+  (card) => resolveSnapshotChartCard(card, query),
+  defaultSnapshotChartCards,
+  normalizeSnapshotChartCard,
 )
 const builderOpen = ref(false)
 const editingCard = ref<DashboardChartCard | null>(null)
@@ -121,34 +126,33 @@ const freshness = computed(() => {
 })
 
 const chartBuilderOptions = computed(() =>
-  createSnapshotChartBuilderOptions(sceneOptions.value),
-)
-
-const pageFilterSnapshot = computed<Record<string, string>>(() =>
-  Object.fromEntries(
-    Object.entries(query)
-      .filter(([, value]) => value != null && value !== '')
-      .map(([key, value]) => [key, String(value)]),
+  createSnapshotChartBuilderOptions(
+    analysisCatalog.value,
+    snapshotRows.value,
   ),
 )
 
-const editingValue = computed(() =>
-  editingCard.value ? chartBuilderValueFromCard(editingCard.value) : null,
-)
-
 function openBuilder(card: DashboardChartCard | null = null): void {
-  editingCard.value = card
+  editingCard.value = card ?? nextSnapshotChartCard()
   builderOpen.value = true
 }
 
-function submitCard(value: ChartBuilderValue): void {
-  const card = buildSnapshotChartCard(value, editingCard.value)
-  if (editingCard.value) {
+function submitCard(card: DashboardChartCard): void {
+  if (cards.value.some((current) => current.id === card.id)) {
     updateCard(card)
   } else {
     addCard(card)
   }
   editingCard.value = null
+}
+
+function duplicateChartCard(card: DashboardChartCard): void {
+  addCard(duplicateSnapshotChartCard(card))
+}
+
+function restoreChartCard(card: DashboardChartCard): void {
+  const restored = restoreSnapshotChartPreset(card)
+  if (restored) updateCard(restored)
 }
 
 function openMetricEditor(card?: DashboardMetricCard): void {
@@ -208,49 +212,68 @@ function addTableChart<TData>(
     filtersSummary.value,
     request.filterSummary,
   ].filter(Boolean).join('；')
-  const filters = { ...pageFilterSnapshot.value }
+  const filters: DashboardChartFilter[] = []
   for (const item of request.filters) {
     if (item.id === 'stat_date') {
       const value = String(item.value ?? '')
       const [start = '', end = ''] = value.split('\u0000')
-      if (start) filters.stat_date_start = start
-      if (end) filters.stat_date_end = end
+      if (start && end) {
+        filters.push({
+          target: { id: 'date' },
+          operator: 'between',
+          value: [start, end],
+        })
+      }
     } else if (
       ['project', 'task', 'project_name', 'scene_name'].includes(item.id)
     ) {
       const value = exactDimensionFilterValue(item)
       if (value === null) continue
       const field = {
-        project: 'project_name',
-        task: 'scene_name',
-        project_name: 'project_name',
-        scene_name: 'scene_name',
+        project: 'project',
+        task: 'task',
+        project_name: 'project',
+        scene_name: 'task',
       }[item.id]
-      if (field) filters[field] = value
+      if (field) {
+        filters.push({
+          target: { id: field },
+          operator: 'equals',
+          value,
+        })
+      }
     }
   }
-  addCard(
-    buildSnapshotChartCard({
-      title: '当前表格筛选的验收完成与打回',
-      description: `来自明细表筛选：${filterSummary}`,
-      sourceId: chartBuilderOptions.value.defaultSourceId,
-      chartType: 'bar',
-      dimensionId: 'scene_name',
-      measureIds: ['accept_completed', 'accept_rejected'],
-      filters,
-      stacked: false,
-      showLegend: true,
-      showLabels: false,
-      smooth: true,
-      palette: 'quality',
-      orientation: 'vertical',
-      legendPosition: 'top',
-      fontScale: 'medium',
-      showArea: false,
-      sortDirection: 'natural',
-      maxCategories: 20,
-    }),
-  )
+  const card = nextSnapshotChartCard()
+  card.title = '当前表格筛选的验收完成与打回'
+  card.description = `来自明细表筛选：${filterSummary}`
+  card.baseQuery.categoryDimension = 'task'
+  card.baseQuery.filters = filters
+  card.layers = [
+    {
+      id: 'completed',
+      label: '验收完成量',
+      metric: { id: 'acceptance.completed' },
+      renderAs: 'bar',
+      axisId: 'count-axis',
+      splitBy: null,
+      filters: [],
+      stackGroup: null,
+      style: { color: '#268462', smooth: true, showLabels: false },
+    },
+    {
+      id: 'rejected',
+      label: '验收打回量',
+      metric: { id: 'acceptance.rejected' },
+      renderAs: 'bar',
+      axisId: 'count-axis',
+      splitBy: null,
+      filters: [],
+      stackGroup: null,
+      style: { color: '#d5535d', smooth: true, showLabels: false },
+    },
+  ]
+  addCard(card)
   tableScopeNotice.value =
     '已按当前全页范围和可转换的表头条件新增统计卡片；卡片拥有独立筛选，可继续编辑。'
 }
@@ -369,45 +392,31 @@ function exactDimensionFilterValue(
 
 async function loadPage(): Promise<void> {
   await load()
+  await refreshAll()
 }
 
 async function resetPage(): Promise<void> {
   await resetAndLoad()
 }
 
-async function drillToDetail(
-  field: 'project_name' | 'scene_name',
-  value: string,
-): Promise<void> {
-  if (field === 'project_name') {
-    query.project_name = value
-    query.scene_name = ''
-  } else {
-    query.scene_name = value
-  }
-  await loadPage()
-  await nextTick()
-  document
-    .querySelector('#snapshot-detail')
-    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
 async function drillFromCard(
   card: DashboardChartCard,
   category: string,
 ): Promise<void> {
-  const dimension = card.query.dimensionId
-  if (dimension === 'stat_date') {
+  const dimension = card.baseQuery.categoryDimension
+  if (dimension === 'date') {
     query.stat_date_start = category
     query.stat_date_end = category
-  } else if (
-    dimension === 'project_name' ||
-    dimension === 'scene_name' ||
-    dimension === 'group_name' ||
-    dimension === 'employee_id'
-  ) {
-    query[dimension] = category
-    if (dimension === 'project_name') query.scene_name = ''
+  } else if (dimension !== 'question-option') {
+    const field = {
+      project: 'project_name',
+      task: 'scene_name',
+      group: 'group_name',
+      employee: 'employee_id',
+    }[dimension]
+    if (!field) return
+    query[field as keyof typeof query] = category
+    if (dimension === 'project') query.scene_name = ''
   } else {
     return
   }
@@ -418,15 +427,6 @@ async function drillFromCard(
     ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-async function drillToDate(date: string): Promise<void> {
-  query.stat_date_start = date
-  query.stat_date_end = date
-  await loadPage()
-  await nextTick()
-  document
-    .querySelector('#snapshot-detail')
-    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
 </script>
 
 <template>
@@ -501,15 +501,6 @@ async function drillToDate(date: string): Promise<void> {
       @submit="submitMetricCard"
     />
 
-    <SnapshotSummaryChart
-      :rows="sceneRows"
-      :snapshot-rows="snapshotRows"
-      :filters-summary="filtersSummary"
-      @drill-task="drillToDetail('scene_name', $event)"
-      @drill-project="drillToDetail('project_name', $event)"
-      @drill-date="drillToDate"
-    />
-
     <DashboardGrid
       :cards="cards"
       :results="results"
@@ -522,6 +513,8 @@ async function drillToDate(date: string): Promise<void> {
       :notice="dashboardNotice"
       @add="openBuilder()"
       @edit="openBuilder"
+      @duplicate="duplicateChartCard"
+      @restore="restoreChartCard"
       @remove="removeCard"
       @refresh="refreshCard"
       @drill="drillFromCard"
@@ -531,10 +524,10 @@ async function drillToDate(date: string): Promise<void> {
 
     <ChartBuilderDialog
       :open="builderOpen"
+      :card="editingCard"
       :options="chartBuilderOptions"
-      :initial-value="editingValue"
-      :initial-filters="pageFilterSnapshot"
-      default-title="人工质检自定义统计"
+      :mode="cards.some((card) => card.id === editingCard?.id) ? 'edit' : 'create'"
+      :preview-resolver="(card) => resolveSnapshotChartCard(card, query)"
       @close="builderOpen = false; editingCard = null"
       @submit="submitCard"
     />
