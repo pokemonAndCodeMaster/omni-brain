@@ -46,8 +46,16 @@ const {
   resetAndLoad,
 } = useSnapshotExplorer()
 
-const taskAnalysis = useTaskAnalysis(query)
-const analysisCatalog = useAnalysisCatalog()
+const {
+  rows: taskAnalysisRows,
+  loading: taskAnalysisLoading,
+  error: taskAnalysisError,
+  total: taskAnalysisTotal,
+  load: loadTaskAnalysis,
+} = useTaskAnalysis(query)
+const {
+  catalog: analysisCatalog,
+} = useAnalysisCatalog()
 
 const {
   cards: overviewCards,
@@ -329,12 +337,12 @@ function tableFilterDescription(filter: { id: string; value: unknown }): string 
 }
 
 async function loadPage(): Promise<void> {
-  await Promise.all([load(), taskAnalysis.load()])
+  await Promise.all([load(), loadTaskAnalysis()])
 }
 
 async function resetPage(): Promise<void> {
   await resetAndLoad()
-  await taskAnalysis.load()
+  await loadTaskAnalysis()
 }
 
 async function drillToDetail(
@@ -500,16 +508,16 @@ async function drillToDate(date: string): Promise<void> {
     <p v-if="tableScopeNotice" class="table-scope-notice" role="status">
       {{ tableScopeNotice }}
     </p>
-    <div v-if="taskAnalysis.error" class="message error-message" role="alert">
+    <div v-if="taskAnalysisError" class="message error-message" role="alert">
       <strong>任务汇总读取失败</strong>
-      <span>{{ taskAnalysis.error }}</span>
+      <span>{{ taskAnalysisError }}</span>
     </div>
     <TaskAnalysisTable
       id="snapshot-detail"
-      :rows="taskAnalysis.rows"
-      :loading="taskAnalysis.loading"
-      :total="taskAnalysis.total"
-      :catalog="analysisCatalog.catalog"
+      :rows="taskAnalysisRows"
+      :loading="taskAnalysisLoading"
+      :total="taskAnalysisTotal"
+      :catalog="analysisCatalog"
       @create-chart="addTableChart"
       @apply-filters="applyTableFilters"
     />
