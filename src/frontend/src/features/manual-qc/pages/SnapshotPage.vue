@@ -3,10 +3,15 @@ import { computed, nextTick, ref } from 'vue'
 import type { WorkbenchAnalysisRequest } from '@/shared/data-workbench/types'
 import ChartBuilderDialog from '@/shared/dashboard/components/ChartBuilderDialog.vue'
 import DashboardGrid from '@/shared/dashboard/components/DashboardGrid.vue'
+import MetricCardEditor from '@/shared/dashboard/components/MetricCardEditor.vue'
+import MetricCardGrid from '@/shared/dashboard/components/MetricCardGrid.vue'
 import { useDashboardWorkspace } from '@/shared/dashboard/composables/useDashboardWorkspace'
+import { useMetricWorkspace } from '@/shared/dashboard/composables/useMetricWorkspace'
 import type {
   ChartBuilderValue,
   DashboardChartCard,
+  DashboardMetricCard,
+  DashboardMetricResult,
 } from '@/shared/dashboard/types'
 import SnapshotDataTable from '../components/SnapshotDataTable.vue'
 import SnapshotFilters from '../components/SnapshotFilters.vue'
@@ -19,6 +24,11 @@ import {
   createSnapshotChartBuilderOptions,
   resolveSnapshotChartCard,
 } from '../utils/snapshotChart'
+import {
+  defaultOverviewCards,
+  nextOverviewCard,
+  resolveOverviewMetric,
+} from '../utils/snapshotOverview'
 
 const {
   query,
@@ -26,6 +36,7 @@ const {
   error,
   notice,
   sceneRows,
+  snapshotRows,
   tree,
   loadingKeys,
   computedAt,
@@ -36,6 +47,22 @@ const {
   expand,
   resetAndLoad,
 } = useSnapshotExplorer()
+
+const {
+  cards: overviewCards,
+  loading: overviewLoading,
+  saving: overviewSaving,
+  dirty: overviewDirty,
+  notice: overviewNotice,
+  addCard: addOverviewCard,
+  updateCard: updateOverviewCard,
+  removeCard: removeOverviewCard,
+  updateLayouts: updateOverviewLayouts,
+  save: saveOverview,
+} = useMetricWorkspace(
+  'manual-qc-snapshot-overview',
+  defaultOverviewCards,
+)
 
 const {
   cards,
@@ -58,6 +85,18 @@ const {
 )
 const builderOpen = ref(false)
 const editingCard = ref<DashboardChartCard | null>(null)
+const metricEditorOpen = ref(false)
+const editingMetricCard = ref<DashboardMetricCard | null>(null)
+const tableScopeNotice = ref('')
+
+const overviewResults = computed<Record<string, DashboardMetricResult>>(() =>
+  Object.fromEntries(
+    overviewCards.value.map((card) => [
+      card.id,
+      resolveOverviewMetric(card, snapshotRows.value),
+    ]),
+  ),
+)
 
 const freshness = computed(() => {
   if (!computedAt.value) return '尚无快照结果'
@@ -100,9 +139,38 @@ function submitCard(value: ChartBuilderValue): void {
   editingCard.value = null
 }
 
+function openMetricEditor(card?: DashboardMetricCard): void {
+  editingMetricCard.value =
+    card ?? nextOverviewCard('annotation_quality')
+  metricEditorOpen.value = true
+}
+
+function submitMetricCard(card: DashboardMetricCard): void {
+  if (overviewCards.value.some((current) => current.id === card.id)) {
+    updateOverviewCard(card)
+  } else {
+    addOverviewCard(card)
+  }
+  editingMetricCard.value = null
+}
+
+function jumpFromMetric(card: DashboardMetricCard): void {
+  document
+    .querySelector(`#${card.jumpTarget}`)
+    ?.scrollIntoView({ behavior: 'auto', block: 'start' })
+}
+
 function addTableChart(
   request: WorkbenchAnalysisRequest<AggregateNode>,
 ): void {
+  const unsupportedFilters = request.filters.filter((item) =>
+    ['accept_completion_rate', 'accept_pass_rate'].includes(item.id),
+  )
+  if (unsupportedFilters.length) {
+    tableScopeNotice.value =
+      '完成率、通过率属于聚合后的明细条件，当前不能安全转换成可刷新图表的数据查询。请先用“应用到全页”收窄日期、项目或任务，再添加统计卡片。'
+    return
+  }
   const filterSummary = [
     filtersSummary.value,
     request.filterSummary,
@@ -139,8 +207,78 @@ function addTableChart(
       smooth: true,
       palette: 'quality',
       orientation: 'vertical',
+      legendPosition: 'top',
+      fontScale: 'medium',
+      showArea: false,
+      sortDirection: 'natural',
+      maxCategories: 20,
     }),
   )
+  tableScopeNotice.value =
+    '已按当前全页范围和可转换的表头条件新增统计卡片；卡片拥有独立筛选，可继续编辑。'
+}
+
+async function applyTableFilters(
+  request: WorkbenchAnalysisRequest<AggregateNode>,
+): Promise<void> {
+  const applied: string[] = []
+  const retained: string[] = []
+
+  for (const item of request.filters) {
+    const value = String(item.value ?? '')
+    if (!value) continue
+    if (item.id === 'stat_date') {
+      const [start = '', end = ''] = value.split('\u0000')
+      query.stat_date_start = start
+      query.stat_date_end = end
+      applied.push('日期')
+      continue
+    }
+    if (
+      ['project_name', 'scene_name', 'group_name', 'employee_id'].includes(
+        item.id,
+      )
+    ) {
+      const selected = value.split('\u0000').filter(Boolean)
+      if (selected.length === 1) {
+        query[item.id as keyof typeof query] = selected[0]
+        if (item.id === 'project_name') query.scene_name = ''
+        applied.push(
+          {
+            project_name: '项目',
+            scene_name: '标注任务',
+            group_name: '组',
+            employee_id: '员工',
+          }[item.id]!,
+        )
+      } else {
+        retained.push(`${item.id} 的多选条件`)
+      }
+      continue
+    }
+    retained.push(
+      {
+        accept_completion_rate: '完成率范围',
+        accept_pass_rate: '通过率范围',
+      }[item.id] ?? item.id,
+    )
+  }
+
+  if (applied.length) {
+    await load()
+    await nextTick()
+    document
+      .querySelector('#analysis-title')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  tableScopeNotice.value = applied.length
+    ? `已把${[...new Set(applied)].join('、')}应用到全页。${
+        retained.length
+          ? `${retained.join('、')}仍只影响明细，因为当前页面数据接口不支持这些聚合条件。`
+          : '概览、统计图和明细已使用同一范围。'
+      }`
+    : '当前表头条件无法无损转换为全页数据范围，已保留为明细筛选。'
 }
 
 async function drillToDetail(
@@ -179,6 +317,16 @@ async function drillFromCard(
   } else {
     return
   }
+  await load()
+  await nextTick()
+  document
+    .querySelector('#snapshot-detail')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+async function drillToDate(date: string): Promise<void> {
+  query.stat_date_start = date
+  query.stat_date_end = date
   await load()
   await nextTick()
   document
@@ -233,11 +381,35 @@ async function drillFromCard(
       正在读取本地 PostgreSQL 快照…
     </div>
 
+    <MetricCardGrid
+      :cards="overviewCards"
+      :results="overviewResults"
+      :loading="overviewLoading"
+      :saving="overviewSaving"
+      :dirty="overviewDirty"
+      :notice="overviewNotice"
+      @add="openMetricEditor()"
+      @edit="openMetricEditor"
+      @remove="removeOverviewCard"
+      @jump="jumpFromMetric"
+      @save="saveOverview"
+      @layout-change="updateOverviewLayouts"
+    />
+
+    <MetricCardEditor
+      :open="metricEditorOpen"
+      :card="editingMetricCard"
+      @close="metricEditorOpen = false; editingMetricCard = null"
+      @submit="submitMetricCard"
+    />
+
     <SnapshotSummaryChart
       :rows="sceneRows"
+      :snapshot-rows="snapshotRows"
       :filters-summary="filtersSummary"
       @drill-task="drillToDetail('scene_name', $event)"
       @drill-project="drillToDetail('project_name', $event)"
+      @drill-date="drillToDate"
     />
 
     <DashboardGrid
@@ -269,6 +441,9 @@ async function drillFromCard(
       @submit="submitCard"
     />
 
+    <p v-if="tableScopeNotice" class="table-scope-notice" role="status">
+      {{ tableScopeNotice }}
+    </p>
     <SnapshotDataTable
       id="snapshot-detail"
       :rows="tree"
@@ -276,6 +451,7 @@ async function drillFromCard(
       :scene-options="sceneOptions"
       :load-children="expand"
       @create-chart="addTableChart"
+      @apply-filters="applyTableFilters"
     />
   </div>
 </template>
@@ -390,6 +566,16 @@ async function drillFromCard(
   align-items: center;
   color: var(--color-primary);
   font-size: 12px;
+}
+
+.table-scope-notice {
+  margin: -10px 0 0;
+  padding: 9px 12px;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-ink-secondary);
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 .loading-strip span {

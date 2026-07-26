@@ -50,6 +50,11 @@ function emptyValue(): ChartBuilderValue {
     smooth: true,
     palette: 'business',
     orientation: 'vertical',
+    legendPosition: 'top',
+    fontScale: 'medium',
+    showArea: false,
+    sortDirection: 'natural',
+    maxCategories: 20,
   }
 }
 
@@ -188,6 +193,7 @@ function submit(): void {
               >
                 <option value="bar">柱状图</option>
                 <option value="line">折线图</option>
+                <option value="combo">柱线双轴（数量 + 比率）</option>
                 <option value="pie">饼图（单指标）</option>
               </select>
             </label>
@@ -248,7 +254,7 @@ function submit(): void {
             <h3 id="card-style-title">呈现方式</h3>
             <p>样式只改变表达，不改变数据口径。</p>
           </div>
-          <div class="field-row">
+          <div class="field-row three-columns">
             <label>
               <span>配色</span>
               <select
@@ -270,6 +276,38 @@ function submit(): void {
                 <option value="horizontal">横向</option>
               </select>
             </label>
+            <label>
+              <span>图例位置</span>
+              <select v-model="form.legendPosition" class="select-field">
+                <option value="top">顶部</option>
+                <option value="bottom">底部</option>
+              </select>
+            </label>
+            <label>
+              <span>文字大小</span>
+              <select v-model="form.fontScale" class="select-field">
+                <option value="small">紧凑</option>
+                <option value="medium">标准</option>
+                <option value="large">醒目</option>
+              </select>
+            </label>
+            <label>
+              <span>分组顺序</span>
+              <select v-model="form.sortDirection" class="select-field">
+                <option value="natural">名称 / 日期顺序</option>
+                <option value="value-desc">按首个指标倒排</option>
+              </select>
+            </label>
+            <label>
+              <span>最多显示分组</span>
+              <select v-model.number="form.maxCategories" class="select-field">
+                <option :value="0">不限制</option>
+                <option :value="5">前 5</option>
+                <option :value="10">前 10</option>
+                <option :value="20">前 20</option>
+                <option :value="50">前 50</option>
+              </select>
+            </label>
           </div>
           <fieldset>
             <legend>图形细节</legend>
@@ -288,6 +326,13 @@ function submit(): void {
             <label v-if="form.chartType === 'line'" class="check-option">
               <input v-model="form.smooth" type="checkbox" />
               <span>平滑曲线</span>
+            </label>
+            <label
+              v-if="form.chartType === 'line' || form.chartType === 'combo'"
+              class="check-option"
+            >
+              <input v-model="form.showArea" type="checkbox" />
+              <span>曲线下方着色</span>
             </label>
           </fieldset>
         </section>

@@ -65,7 +65,7 @@ const rows = [
   row(2, '2026-07-26', metric(8, 7, 1), metric(3, 2, 1)),
 ]
 
-function builder(chartType: 'bar' | 'pie' = 'bar') {
+function builder(chartType: 'bar' | 'pie' | 'combo' = 'bar') {
   return {
     title: '当前表格结果',
     description: '同一标注任务内比较',
@@ -80,6 +80,11 @@ function builder(chartType: 'bar' | 'pie' = 'bar') {
     smooth: true,
     palette: 'quality' as const,
     orientation: 'vertical' as const,
+    legendPosition: 'top' as const,
+    fontScale: 'medium' as const,
+    showArea: false,
+    sortDirection: 'natural' as const,
+    maxCategories: 20,
   }
 }
 
@@ -117,5 +122,19 @@ describe('snapshot dashboard card', () => {
     expect(result.categories).toEqual(['2026-07-25', '2026-07-26'])
     expect(result.series).toHaveLength(1)
     expect(result.series[0]?.values).toEqual([6, 11])
+  })
+
+  it('组合图把数量和比率分到不同坐标轴', async () => {
+    const value = builder('combo')
+    value.measureIds = ['accept_completed', 'completion_rate']
+    value.dimensionId = 'stat_date'
+    const card = buildSnapshotChartCard(value)
+    const result = await resolveSnapshotChartCard(card)
+
+    expect(result.series).toMatchObject([
+      { id: 'accept_completed', axis: 'count', renderAs: 'bar' },
+      { id: 'completion_rate', axis: 'rate', renderAs: 'line', unit: '%' },
+    ])
+    expect(result.series[1]?.values).toEqual([100, 100])
   })
 })

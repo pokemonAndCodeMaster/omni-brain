@@ -67,7 +67,9 @@ export function useDashboardWorkspace(
     notice.value = ''
     try {
       const saved = await getDashboardConfig(pageKey)
-      cards.value = saved?.config.cards ?? []
+      cards.value = (saved?.config.cards ?? []).filter(
+        (card): card is DashboardChartCard => card.kind === 'chart',
+      )
       version.value = saved?.version ?? null
       updatedAt.value = saved?.updatedAt ?? null
       dirty.value = false

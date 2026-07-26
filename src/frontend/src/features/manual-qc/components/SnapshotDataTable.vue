@@ -7,6 +7,7 @@ import type { WorkbenchAnalysisRequest } from '@/shared/data-workbench/types'
 import {
   dateRangeFilter,
   multiSelectFilter,
+  numberRangeFilter,
 } from '@/shared/data-workbench/types'
 import type { AggregateNode } from '../types/snapshot'
 
@@ -19,12 +20,26 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   createChart: [request: WorkbenchAnalysisRequest<AggregateNode>]
+  applyFilters: [request: WorkbenchAnalysisRequest<AggregateNode>]
 }>()
 
 const columnHelper = createColumnHelper<AggregateNode>()
 
 function countCell(value: number) {
   return h('span', { class: value === 0 ? 'zero-count' : 'count-value' }, value)
+}
+
+function percentageCell(value: number | null) {
+  if (value == null) return h('span', { class: 'zero-count' }, '—')
+  return h(
+    'span',
+    { class: value < 80 ? 'rate-value is-low' : 'rate-value' },
+    `${value.toFixed(1)}%`,
+  )
+}
+
+function percentage(numerator: number, denominator: number): number | null {
+  return denominator ? (numerator / denominator) * 100 : null
 }
 
 function statusCell(node: AggregateNode) {
@@ -100,18 +115,21 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
     id: 'annotation_submitted',
     header: '标注提交',
     size: 105,
+    sortDescFirst: true,
     cell: (context) => countCell(context.getValue()),
   }),
   columnHelper.accessor((row) => row.good_metrics.annotation_submitted, {
     id: 'good_annotation_submitted',
     header: 'Good 提交',
     size: 105,
+    sortDescFirst: true,
     cell: (context) => countCell(context.getValue()),
   }),
   columnHelper.accessor((row) => row.bad_metrics.annotation_submitted, {
     id: 'bad_annotation_submitted',
     header: 'Bad 提交',
     size: 105,
+    sortDescFirst: true,
     cell: (context) => countCell(context.getValue()),
   }),
   columnHelper.accessor(
@@ -120,6 +138,7 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
     id: 'total_accept_assigned',
     header: '验收分配',
     size: 105,
+    sortDescFirst: true,
     cell: (context) => countCell(context.getValue()),
     },
   ),
@@ -129,7 +148,25 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
     id: 'total_accept_completed',
     header: '验收完成',
     size: 105,
+    sortDescFirst: true,
     cell: (context) => countCell(context.getValue()),
+    },
+  ),
+  columnHelper.accessor(
+    (row) =>
+      percentage(
+        row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
+        row.good_metrics.actual_alloc + row.bad_metrics.actual_alloc,
+      ),
+    {
+      id: 'accept_completion_rate',
+      header: '完成率',
+      size: 96,
+      sortDescFirst: true,
+      sortUndefined: 'last',
+      filterFn: numberRangeFilter,
+      meta: { filter: { type: 'number-range' } },
+      cell: (context) => percentageCell(context.getValue()),
     },
   ),
   columnHelper.accessor(
@@ -138,6 +175,7 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
     id: 'total_accept_passed',
     header: '验收通过',
     size: 105,
+    sortDescFirst: true,
     cell: (context) => countCell(context.getValue()),
     },
   ),
@@ -147,7 +185,25 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
     id: 'total_accept_rejected',
     header: '验收打回',
     size: 105,
+    sortDescFirst: true,
     cell: (context) => countCell(context.getValue()),
+    },
+  ),
+  columnHelper.accessor(
+    (row) =>
+      percentage(
+        row.good_metrics.actual_pass + row.bad_metrics.actual_pass,
+        row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
+      ),
+    {
+      id: 'accept_pass_rate',
+      header: '通过率',
+      size: 96,
+      sortDescFirst: true,
+      sortUndefined: 'last',
+      filterFn: numberRangeFilter,
+      meta: { filter: { type: 'number-range' } },
+      cell: (context) => percentageCell(context.getValue()),
     },
   ),
   columnHelper.accessor((row) => row.good_metrics.actual_complete, {
@@ -208,6 +264,7 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
       enable-analysis
       empty-text="当前筛选没有人工质检快照。"
       @create-chart="emit('createChart', $event)"
+      @apply-filters="emit('applyFilters', $event)"
     />
   </section>
 </template>
@@ -261,6 +318,16 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
 :deep(.zero-count) {
   color: #b0bac5;
   font-family: var(--font-mono);
+}
+
+:deep(.rate-value) {
+  color: var(--color-success);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+:deep(.rate-value.is-low) {
+  color: var(--color-danger);
 }
 
 :deep(.load-status) {

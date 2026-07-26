@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from src.config import ConfigManager, ConfigurationError
+from src.api.schemas.view_config import DashboardConfig
 
 
 def write_fixture(tmp_path: Path, yaml_text: str, env_text: str = "") -> ConfigManager:
@@ -80,6 +81,43 @@ def test_pickle_reloads_from_same_sources(tmp_path: Path) -> None:
     manager = write_fixture(tmp_path, BASE)
     restored = pickle.loads(pickle.dumps(manager))
     assert restored.get_database_by_alias()["database"] == "quality_lab"
+
+
+def test_dashboard_config_accepts_chart_and_metric_cards() -> None:
+    config = DashboardConfig.model_validate(
+        {
+            "schemaVersion": "dashboard-v1",
+            "cards": [
+                {
+                    "id": "overview-annotation",
+                    "kind": "metric",
+                    "title": "标注产出",
+                    "metricId": "annotation_quality",
+                    "jumpTarget": "annotation-quality",
+                    "style": {},
+                    "layout": {"x": 0, "y": 0, "w": 4, "h": 4},
+                },
+                {
+                    "id": "daily-completion",
+                    "kind": "chart",
+                    "title": "每日完成",
+                    "query": {
+                        "sourceId": "manual-qc",
+                        "dimensionId": "stat_date",
+                        "measureIds": [
+                            "accept_completed",
+                            "completion_rate",
+                        ],
+                    },
+                    "style": {"chartType": "combo"},
+                    "layout": {"x": 4, "y": 0, "w": 8, "h": 6},
+                },
+            ],
+        }
+    )
+
+    assert [card.kind for card in config.cards] == ["metric", "chart"]
+    assert config.cards[1].style.chart_type == "combo"
 
 
 def test_reload_can_switch_env_file_atomically(tmp_path: Path) -> None:

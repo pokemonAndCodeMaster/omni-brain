@@ -3,6 +3,7 @@ import { createColumnHelper } from '@tanstack/vue-table'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import DataWorkbench from './DataWorkbench.vue'
+import { numberRangeFilter } from '../types'
 
 interface TestRow {
   id: string
@@ -52,6 +53,13 @@ const baseRows: TestRow[] = [
 afterEach(cleanup)
 
 describe('DataWorkbench', () => {
+  it('数值范围筛选支持仅上限、仅下限和闭区间', () => {
+    const row = { getValue: () => 78.5 }
+    expect(numberRangeFilter(row as never, 'rate', '\u000080')).toBe(true)
+    expect(numberRangeFilter(row as never, 'rate', '79\u0000')).toBe(false)
+    expect(numberRangeFilter(row as never, 'rate', '70\u000080')).toBe(true)
+  })
+
   it('只渲染一个可横向滚动的表格视口', () => {
     const { container } = render(DataWorkbench<TestRow>, {
       props: {
@@ -176,6 +184,28 @@ describe('DataWorkbench', () => {
     )
 
     const event = result.emitted().createChart?.[0]?.[0] as {
+      rows: TestRow[]
+      filterSummary: string
+    }
+    expect(event.rows.map((row) => row.id)).toEqual(['parent-b'])
+    expect(event.filterSummary).toBe('组别=二组')
+  })
+
+  it('明确把表头条件交给全页筛选动作', async () => {
+    const result = render(DataWorkbench<TestRow>, {
+      props: {
+        rows: baseRows,
+        columns,
+        canExpand: (row) => Boolean(row.hasChildren),
+        enableAnalysis: true,
+      },
+    })
+
+    await fireEvent.click(screen.getByRole('button', { name: '组别筛选' }))
+    await fireEvent.update(screen.getByRole('searchbox'), '二组')
+    await fireEvent.click(screen.getByRole('button', { name: '应用到全页' }))
+
+    const event = result.emitted().applyFilters?.[0]?.[0] as {
       rows: TestRow[]
       filterSummary: string
     }

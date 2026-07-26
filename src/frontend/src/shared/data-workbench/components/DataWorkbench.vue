@@ -57,6 +57,7 @@ const emit = defineEmits<{
   stateChange: [state: WorkbenchViewState]
   rowExpand: [row: TData]
   createChart: [request: WorkbenchAnalysisRequest<TData>]
+  applyFilters: [request: WorkbenchAnalysisRequest<TData>]
 }>()
 
 const sorting = ref<SortingState>([])
@@ -256,13 +257,20 @@ function getColumnLabel(columnId: string): string {
 }
 
 function readableFilterValue(columnId: string, value: unknown): string {
-  const parts = String(value ?? '').split('\u0000').filter(Boolean)
+  const rawParts = String(value ?? '').split('\u0000')
+  const parts = rawParts.filter(Boolean)
   const type = getFilterSpec(columnId)?.type
   if (type === 'date-range') return parts.join(' 至 ')
+  if (type === 'number-range') {
+    const [minimum = '', maximum = ''] = rawParts
+    if (minimum && maximum) return `${minimum} 至 ${maximum}`
+    if (minimum) return `≥ ${minimum}`
+    if (maximum) return `≤ ${maximum}`
+  }
   return parts.join('、')
 }
 
-function createChart(): void {
+function analysisRequest(): WorkbenchAnalysisRequest<TData> {
   const filters = cloneSerializable(columnFilters.value)
   const filterSummary = filters
     .map((filter) => {
@@ -271,11 +279,19 @@ function createChart(): void {
     })
     .filter(Boolean)
     .join('；')
-  emit('createChart', {
+  return {
     rows: [...filteredRows.value],
     filterSummary: filterSummary || '表格内无额外筛选',
     filters,
-  })
+  }
+}
+
+function createChart(): void {
+  emit('createChart', analysisRequest())
+}
+
+function applyFilters(): void {
+  emit('applyFilters', analysisRequest())
 }
 
 function canEdit(row: TData, columnId: string): boolean {
@@ -343,6 +359,7 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
       @toggle-column="toggleColumn"
       @move-column="moveColumn"
       @create-chart="createChart"
+      @apply-filters="applyFilters"
     />
 
     <div class="table-scroll" data-testid="table-scroll">

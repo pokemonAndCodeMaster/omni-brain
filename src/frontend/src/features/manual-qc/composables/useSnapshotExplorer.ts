@@ -5,6 +5,7 @@ import {
   getGroupAggregate,
   getProjectAggregate,
   getSceneAggregate,
+  getSnapshotRows,
 } from '../api/snapshot'
 import type {
   AggregateLevel,
@@ -14,6 +15,7 @@ import type {
   ProjectAggregate,
   SceneAggregate,
   SnapshotQuery,
+  SnapshotRow,
 } from '../types/snapshot'
 
 function formatLocalDate(value: Date): string {
@@ -90,6 +92,7 @@ export function useSnapshotExplorer() {
   const error = shallowRef('')
   const notice = shallowRef('')
   const sceneRows = shallowRef<SceneAggregate[]>([])
+  const snapshotRows = shallowRef<SnapshotRow[]>([])
   const tree = shallowRef<AggregateNode[]>([])
   const loadedKeys = shallowRef<Set<string>>(new Set())
   const loadingKeys = shallowRef<Set<string>>(new Set())
@@ -144,11 +147,13 @@ export function useSnapshotExplorer() {
     loadedKeys.value = new Set()
     loadingKeys.value = new Set()
     try {
-      const [projectResponse, sceneResponse] = await Promise.all([
+      const [projectResponse, sceneResponse, rowResponse] = await Promise.all([
         getProjectAggregate(apiQuery()),
         getSceneAggregate(apiQuery()),
+        getSnapshotRows(apiQuery()),
       ])
       sceneRows.value = sceneResponse.items
+      snapshotRows.value = rowResponse.items
       tree.value = projectResponse.items.map((item) => toNode(item, 'project'))
       computedAt.value =
         [projectResponse.computed_at, sceneResponse.computed_at]
@@ -161,6 +166,7 @@ export function useSnapshotExplorer() {
     } catch (caught) {
       error.value = errorMessage(caught)
       sceneRows.value = []
+      snapshotRows.value = []
       tree.value = []
       computedAt.value = null
     } finally {
@@ -251,6 +257,7 @@ export function useSnapshotExplorer() {
     error: readonly(error),
     notice: readonly(notice),
     sceneRows: readonly(sceneRows),
+    snapshotRows: readonly(snapshotRows),
     tree: readonly(tree),
     loadingKeys: readonly(loadingKeys),
     computedAt: readonly(computedAt),

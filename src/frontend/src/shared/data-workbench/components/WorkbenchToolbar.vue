@@ -18,6 +18,7 @@ const emit = defineEmits<{
   toggleColumn: [payload: { id: string; visible: boolean }]
   moveColumn: [payload: { id: string; direction: -1 | 1 }]
   createChart: []
+  applyFilters: []
 }>()
 </script>
 
@@ -27,11 +28,12 @@ const emit = defineEmits<{
       <span class="badge"><strong>{{ rowCount }}</strong>&nbsp;个顶层对象</span>
       <span class="badge">已选择&nbsp;<strong>{{ selectedCount }}</strong>&nbsp;行</span>
       <span v-if="activeFilterCount > 0" class="badge filter-badge">
-        {{ activeFilterCount }} 个筛选
+        {{ activeFilterCount }} 个明细筛选
         <button type="button" class="link-button" @click="emit('clearFilters')">
           清除
         </button>
       </span>
+      <span class="scope-note">表头筛选默认只影响明细</span>
       <button
         v-if="hasExpandedRows"
         class="button compact"
@@ -43,6 +45,14 @@ const emit = defineEmits<{
     </div>
 
     <div class="toolbar-actions">
+      <button
+        v-if="analysisEnabled && activeFilterCount > 0"
+        class="button compact"
+        type="button"
+        @click="emit('applyFilters')"
+      >
+        应用到全页
+      </button>
       <button
         v-if="analysisEnabled"
         class="button compact analysis-button"
@@ -119,6 +129,11 @@ const emit = defineEmits<{
   background: transparent;
   color: var(--color-primary);
   font-size: 11px;
+}
+
+.scope-note {
+  color: var(--color-muted);
+  font-size: 10px;
 }
 
 .column-manager {

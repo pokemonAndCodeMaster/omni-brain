@@ -24,7 +24,7 @@ export interface ColumnEditorSpec<TData> {
 }
 
 export interface WorkbenchFilterSpec {
-  type: 'text' | 'select' | 'date-range'
+  type: 'text' | 'select' | 'date-range' | 'number-range'
   options?: string[]
 }
 
@@ -62,6 +62,24 @@ export const dateRangeFilter: FilterFn<unknown> = (
   const value = String(row.getValue(columnId) ?? '')
   if (!value) return false
   return (!start || value >= start) && (!end || value <= end)
+}
+
+export const numberRangeFilter: FilterFn<unknown> = (
+  row,
+  columnId,
+  filterValue,
+) => {
+  const [minimum = '', maximum = ''] = String(filterValue ?? '').split('\u0000')
+  const rawValue = row.getValue(columnId)
+  if (rawValue == null || rawValue === '') return false
+  const value = Number(rawValue)
+  if (!Number.isFinite(value)) return false
+  const lowerBound = minimum === '' ? null : Number(minimum)
+  const upperBound = maximum === '' ? null : Number(maximum)
+  return (
+    (lowerBound == null || value >= lowerBound) &&
+    (upperBound == null || value <= upperBound)
+  )
 }
 
 declare module '@tanstack/vue-table' {

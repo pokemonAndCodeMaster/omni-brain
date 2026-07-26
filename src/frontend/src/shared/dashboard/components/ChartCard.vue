@@ -28,6 +28,11 @@ const palettes = {
   quality: ['#15805f', '#d5535d', '#e09b2d', '#5272bb', '#8b5a9f'],
   contrast: ['#173e9e', '#e24a33', '#2a9d8f', '#f2a900', '#6f42c1'],
 }
+const fontSizes = {
+  small: { axis: 9, legend: 9, label: 8 },
+  medium: { axis: 10, legend: 10, label: 9 },
+  large: { axis: 12, legend: 12, label: 11 },
+}
 
 const generatedAt = computed(() => {
   const value = props.result?.source.generatedAt
@@ -42,6 +47,8 @@ const option = computed<EChartsOption>(() => {
   const categories = props.result?.categories ?? []
   const series = props.result?.series ?? []
   const style = props.card.style
+  const fontSize = fontSizes[style.fontScale]
+  const legendAtBottom = style.legendPosition === 'bottom'
   const shared: EChartsOption = {
     animationDuration: 280,
     aria: { enabled: true },
@@ -49,9 +56,10 @@ const option = computed<EChartsOption>(() => {
     tooltip: { trigger: 'axis', confine: true },
     legend: style.showLegend
       ? {
-          top: 2,
+          ...(legendAtBottom ? { bottom: 2 } : { top: 2 }),
           left: 0,
-          textStyle: { color: '#526274', fontSize: 10 },
+          type: 'scroll',
+          textStyle: { color: '#526274', fontSize: fontSize.legend },
         }
       : { show: false },
   }
@@ -66,19 +74,27 @@ const option = computed<EChartsOption>(() => {
       ...shared,
       tooltip: { trigger: 'item', confine: true },
       legend: style.showLegend
-        ? { type: 'scroll', bottom: 0, left: 'center' }
+        ? {
+            type: 'scroll',
+            ...(legendAtBottom ? { bottom: 0 } : { top: 0 }),
+            left: 'center',
+            textStyle: { fontSize: fontSize.legend },
+          }
         : { show: false },
       series: [
         {
           type: 'pie',
           name: selected?.name ?? '统计值',
           radius: ['42%', '68%'],
-          center: ['50%', style.showLegend ? '44%' : '50%'],
+            center: [
+              '50%',
+              style.showLegend && legendAtBottom ? '44%' : '52%',
+            ],
           data,
           label: {
             show: style.showLabels,
             formatter: '{b}\n{c}',
-            fontSize: 10,
+            fontSize: fontSize.label,
           },
         } satisfies PieSeriesOption,
       ],
@@ -87,12 +103,15 @@ const option = computed<EChartsOption>(() => {
 
   const horizontal =
     style.chartType === 'bar' && style.orientation === 'horizontal'
+  const hasCountAxis = series.some((item) => item.axis !== 'rate')
+  const hasRateAxis = series.some((item) => item.axis === 'rate')
+  const dualAxis = !horizontal && hasCountAxis && hasRateAxis
   const categoryAxis = {
     type: 'category' as const,
     data: categories,
     axisLabel: {
       color: '#667789',
-      fontSize: 10,
+      fontSize: fontSize.axis,
       interval: 0,
       rotate: !horizontal && categories.length > 6 ? 24 : 0,
     },
@@ -100,33 +119,67 @@ const option = computed<EChartsOption>(() => {
   const valueAxis = {
     type: 'value' as const,
     minInterval: 1,
-    axisLabel: { color: '#667789', fontSize: 10 },
+    name: '数量',
+    axisLabel: { color: '#667789', fontSize: fontSize.axis },
     splitLine: { lineStyle: { color: '#e7ebf0' } },
+  }
+  const rateAxis = {
+    type: 'value' as const,
+    name: '占比',
+    min: 0,
+    max: 100,
+    alignTicks: true,
+    axisLabel: {
+      color: '#667789',
+      fontSize: fontSize.axis,
+      formatter: '{value}%',
+    },
+    splitLine: { show: false },
   }
   return {
     ...shared,
     grid: {
       left: horizontal ? 112 : 48,
       right: 18,
-      top: style.showLegend ? 42 : 18,
-      bottom: horizontal ? 30 : 58,
+      top: style.showLegend && !legendAtBottom ? 42 : 26,
+      bottom:
+        horizontal || !style.showLegend || !legendAtBottom ? 58 : 78,
       containLabel: false,
     },
     xAxis: horizontal ? valueAxis : categoryAxis,
-    yAxis: horizontal ? categoryAxis : valueAxis,
+    yAxis: horizontal
+      ? categoryAxis
+      : dualAxis
+        ? [valueAxis, rateAxis]
+        : hasRateAxis
+          ? rateAxis
+          : valueAxis,
     series: series.map((item) => ({
       id: item.id,
       name: item.name,
-      type: style.chartType,
+      type:
+        item.renderAs ??
+        (style.chartType === 'line' ? 'line' : 'bar'),
       data: item.values,
-      smooth: style.chartType === 'line' && style.smooth,
+      yAxisIndex: dualAxis && item.axis === 'rate' ? 1 : 0,
+      smooth:
+        (item.renderAs === 'line' || style.chartType === 'line') &&
+        style.smooth,
       symbolSize: 7,
       barMaxWidth: 28,
-      stack: style.stacked ? 'total' : undefined,
+      stack:
+        style.stacked && item.axis !== 'rate' ? 'total' : undefined,
+      areaStyle:
+        style.showArea &&
+        (item.renderAs === 'line' || style.chartType === 'line')
+          ? { opacity: 0.08 }
+          : undefined,
       label: {
         show: style.showLabels,
         position: horizontal ? 'right' : 'top',
-        fontSize: 9,
+        fontSize: fontSize.label,
+        formatter:
+          item.unit === '%' ? '{c}%' : '{c}',
       },
     })),
   }

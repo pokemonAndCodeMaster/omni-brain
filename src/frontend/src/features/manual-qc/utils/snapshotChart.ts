@@ -20,6 +20,7 @@ const dimensionLabels: Record<string, string> = {
   group_name: '组',
   employee_id: '标注员',
   result_type: 'Good / Bad',
+  question_label: '问题标签',
   question_option: '问题标签 / 选项',
 }
 
@@ -48,6 +49,40 @@ const measures: ChartMeasure[] = [
     }),
   },
   {
+    id: 'good_annotation_submitted',
+    name: 'Good 标注',
+    unit: '条',
+    value: (row) => ({
+      numerator: row.good_metrics.annotation_submitted,
+    }),
+  },
+  {
+    id: 'bad_annotation_submitted',
+    name: 'Bad 标注',
+    unit: '条',
+    value: (row) => ({
+      numerator: row.bad_metrics.annotation_submitted,
+    }),
+  },
+  {
+    id: 'good_rate',
+    name: 'Good 占比',
+    unit: '%',
+    value: (row) => ({
+      numerator: row.good_metrics.annotation_submitted,
+      denominator: row.annotation_submitted,
+    }),
+  },
+  {
+    id: 'bad_rate',
+    name: 'Bad 占比',
+    unit: '%',
+    value: (row) => ({
+      numerator: row.bad_metrics.annotation_submitted,
+      denominator: row.annotation_submitted,
+    }),
+  },
+  {
     id: 'accept_allocated',
     name: '验收分配',
     unit: '条',
@@ -65,6 +100,22 @@ const measures: ChartMeasure[] = [
       numerator:
         metric?.actual_complete ??
         row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
+    }),
+  },
+  {
+    id: 'accept_pending',
+    name: '验收未完成',
+    unit: '条',
+    value: (row, metric) => ({
+      numerator: metric
+        ? Math.max(0, metric.actual_alloc - metric.actual_complete)
+        : Math.max(
+            0,
+            row.good_metrics.actual_alloc +
+              row.bad_metrics.actual_alloc -
+              row.good_metrics.actual_complete -
+              row.bad_metrics.actual_complete,
+          ),
     }),
   },
   {
@@ -108,6 +159,19 @@ const measures: ChartMeasure[] = [
       numerator:
         metric?.actual_pass ??
         row.good_metrics.actual_pass + row.bad_metrics.actual_pass,
+      denominator:
+        metric?.actual_complete ??
+        row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
+    }),
+  },
+  {
+    id: 'reject_rate',
+    name: '验收打回率',
+    unit: '%',
+    value: (row, metric) => ({
+      numerator:
+        metric?.actual_reject ??
+        row.good_metrics.actual_reject + row.bad_metrics.actual_reject,
       denominator:
         metric?.actual_complete ??
         row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
@@ -223,6 +287,11 @@ export function buildSnapshotChartCard(
       smooth: builder.smooth,
       palette: builder.palette,
       orientation: builder.orientation,
+      legendPosition: builder.legendPosition,
+      fontScale: builder.fontScale,
+      showArea: builder.showArea,
+      sortDirection: builder.sortDirection,
+      maxCategories: builder.maxCategories,
     },
     layout: existing?.layout ?? {
       x: 0,
@@ -252,6 +321,11 @@ export function chartBuilderValueFromCard(
     smooth: card.style.smooth,
     palette: card.style.palette,
     orientation: card.style.orientation,
+    legendPosition: card.style.legendPosition,
+    fontScale: card.style.fontScale,
+    showArea: card.style.showArea,
+    sortDirection: card.style.sortDirection,
+    maxCategories: card.style.maxCategories,
   }
 }
 
@@ -278,6 +352,17 @@ function dimensionContributions(
       if (questionLabel && label !== questionLabel) continue
       for (const [option, metric] of Object.entries(options)) {
         values.push({ category: `${label} / ${option}`, metric })
+      }
+    }
+    return values
+  }
+
+  if (dimensionId === 'question_label') {
+    const values: DimensionContribution[] = []
+    for (const [label, options] of Object.entries(row.option_metrics)) {
+      if (questionLabel && label !== questionLabel) continue
+      for (const metric of Object.values(options)) {
+        values.push({ category: label, metric })
       }
     }
     return values
@@ -339,11 +424,23 @@ export async function resolveSnapshotChartCard(
 
   const fixedOrder =
     card.query.dimensionId === 'result_type' ? ['Good', 'Bad'] : null
-  const categories = fixedOrder
+  let categories = fixedOrder
     ? fixedOrder.filter((category) => buckets.has(category))
     : [...buckets.keys()].sort((left, right) =>
         left.localeCompare(right, 'zh-CN'),
       )
+  if (card.style.sortDirection === 'value-desc' && chartMeasures[0]) {
+    const firstMeasure = chartMeasures[0]
+    categories = [...categories].sort((left, right) => {
+      const leftValue = buckets.get(left)?.get(firstMeasure.id)?.numerator ?? 0
+      const rightValue =
+        buckets.get(right)?.get(firstMeasure.id)?.numerator ?? 0
+      return rightValue - leftValue
+    })
+  }
+  if (card.style.maxCategories > 0) {
+    categories = categories.slice(0, card.style.maxCategories)
+  }
 
   return {
     categories,
@@ -351,6 +448,15 @@ export async function resolveSnapshotChartCard(
       id: measure.id,
       name: measure.name,
       unit: measure.unit,
+      axis: measure.unit === '%' ? 'rate' : 'count',
+      renderAs:
+        card.style.chartType === 'combo'
+          ? measure.unit === '%'
+            ? 'line'
+            : 'bar'
+          : card.style.chartType === 'line'
+            ? 'line'
+            : 'bar',
       values: categories.map((category) => {
         const value = buckets.get(category)?.get(measure.id)
         if (!value) return 0

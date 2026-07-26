@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -25,13 +25,18 @@ class DashboardLayout(CamelModel):
 
 
 class DashboardChartStyle(CamelModel):
-    chart_type: Literal["bar", "line", "pie"] = "bar"
+    chart_type: Literal["bar", "line", "pie", "combo"] = "bar"
     stacked: bool = False
     show_legend: bool = True
     show_labels: bool = False
     smooth: bool = True
     palette: Literal["business", "quality", "contrast"] = "business"
     orientation: Literal["vertical", "horizontal"] = "vertical"
+    legend_position: Literal["top", "bottom"] = "top"
+    font_scale: Literal["small", "medium", "large"] = "medium"
+    show_area: bool = False
+    sort_direction: Literal["natural", "value-desc"] = "natural"
+    max_categories: int = Field(default=20, ge=0, le=100)
 
 
 class DashboardQuery(CamelModel):
@@ -52,9 +57,50 @@ class DashboardCard(CamelModel):
     layout: DashboardLayout
 
 
+class DashboardMetricStyle(CamelModel):
+    accent_color: str = Field(default="#2458d3", pattern=r"^#[0-9A-Fa-f]{6}$")
+    background_color: str = Field(
+        default="#ffffff",
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+    )
+    text_color: str = Field(default="#17212b", pattern=r"^#[0-9A-Fa-f]{6}$")
+    title_size: int = Field(default=14, ge=11, le=28)
+    value_size: int = Field(default=34, ge=22, le=64)
+    density: Literal["compact", "comfortable"] = "comfortable"
+    show_project_breakdown: bool = True
+
+
+class DashboardMetricCard(CamelModel):
+    id: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,128}$")
+    kind: Literal["metric"] = "metric"
+    title: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=500)
+    metric_id: Literal[
+        "annotation_quality",
+        "acceptance_allocation",
+        "acceptance_completion",
+        "acceptance_result",
+    ]
+    jump_target: Literal[
+        "annotation-quality",
+        "bad-options",
+        "acceptance-progress",
+        "acceptance-result",
+        "snapshot-detail",
+    ]
+    style: DashboardMetricStyle
+    layout: DashboardLayout
+
+
+DashboardCardUnion = Annotated[
+    DashboardCard | DashboardMetricCard,
+    Field(discriminator="kind"),
+]
+
+
 class DashboardConfig(CamelModel):
     schema_version: Literal["dashboard-v1"] = "dashboard-v1"
-    cards: list[DashboardCard] = Field(default_factory=list, max_length=80)
+    cards: list[DashboardCardUnion] = Field(default_factory=list, max_length=80)
 
 
 class DashboardConfigResponse(CamelModel):

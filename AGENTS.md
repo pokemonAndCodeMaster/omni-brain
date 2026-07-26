@@ -7,7 +7,8 @@
 - 本地 ConfigManager 与 PostgreSQL 连接器；
 - `V20260709_01` JSONB 版人工质检快照表、固定种子和四级聚合 API；
 - 一站式平台外壳、DataWorkbench、标注→验收总览和项目→标注任务→组→员工下钻；
-- 可编辑、拖拽缩放并保存到本地 PostgreSQL 的统计卡片。
+- 可编辑、拖拽缩放并保存到本地 PostgreSQL 的业务总览与统计卡片；
+- 数量—比率双轴图、按天趋势、Bad 问题排行和明细数值范围筛选。
 
 后续才加入采样预览、确认执行、状态回查和其他人工质检页面。
 
@@ -23,6 +24,8 @@
 
 - 后端按 Router → Service → Repository → PostgreSQL 分层；SQL 只在 Repository；
 - Vue 使用 Composition API、`<script setup lang="ts">`、typed props/emits；
+- 顶部筛选定义全页数据范围，表头筛选默认只影响明细；只有用户显式点击
+  “应用到全页”时才转换可无损表达的条件，不得悄悄改变所有图表；
 - 优先验证真实数据库、API 和页面路径；单元测试只覆盖纯逻辑和稳定边界；
 - 修改数据字段时按 DDL/SQL → Pydantic → TypeScript → 页面逐层对齐；
 - 每次交付说明用户怎样启动、打开哪里、看到什么和如何判断通过。

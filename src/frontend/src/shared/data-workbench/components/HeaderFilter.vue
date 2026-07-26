@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <div v-else class="date-range-fields">
+      <div v-else-if="spec.type === 'date-range'" class="date-range-fields">
         <label class="filter-field">
           <span>起始日期</span>
           <input
@@ -156,6 +156,34 @@ onBeforeUnmount(() => {
           <input
             type="date"
             :value="range[1] ?? ''"
+            @input="
+              setRange(1, ($event.target as HTMLInputElement).value)
+            "
+          />
+        </label>
+      </div>
+
+      <div v-else class="date-range-fields">
+        <label class="filter-field">
+          <span>最小值</span>
+          <input
+            ref="firstInput"
+            type="number"
+            inputmode="decimal"
+            :value="range[0] ?? ''"
+            placeholder="不限"
+            @input="
+              setRange(0, ($event.target as HTMLInputElement).value)
+            "
+          />
+        </label>
+        <label class="filter-field">
+          <span>最大值</span>
+          <input
+            type="number"
+            inputmode="decimal"
+            :value="range[1] ?? ''"
+            placeholder="不限"
             @input="
               setRange(1, ($event.target as HTMLInputElement).value)
             "

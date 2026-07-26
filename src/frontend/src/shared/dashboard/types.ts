@@ -1,12 +1,27 @@
-export type DashboardChartType = 'bar' | 'line' | 'pie'
+export type DashboardChartType = 'bar' | 'line' | 'pie' | 'combo'
 export type DashboardPalette = 'business' | 'quality' | 'contrast'
 export type DashboardOrientation = 'vertical' | 'horizontal'
+export type DashboardLegendPosition = 'top' | 'bottom'
+export type DashboardFontScale = 'small' | 'medium' | 'large'
+export type DashboardMetricId =
+  | 'annotation_quality'
+  | 'acceptance_allocation'
+  | 'acceptance_completion'
+  | 'acceptance_result'
+export type DashboardJumpTarget =
+  | 'annotation-quality'
+  | 'bad-options'
+  | 'acceptance-progress'
+  | 'acceptance-result'
+  | 'snapshot-detail'
 
 export interface ChartSeries {
   id: string
   name: string
   values: number[]
   unit?: string
+  axis?: 'count' | 'rate'
+  renderAs?: 'bar' | 'line'
 }
 
 export interface DashboardCardLayout {
@@ -26,6 +41,11 @@ export interface DashboardChartStyle {
   smooth: boolean
   palette: DashboardPalette
   orientation: DashboardOrientation
+  legendPosition: DashboardLegendPosition
+  fontScale: DashboardFontScale
+  showArea: boolean
+  sortDirection: 'natural' | 'value-desc'
+  maxCategories: number
 }
 
 export interface DashboardCardQuery {
@@ -46,6 +66,42 @@ export interface DashboardChartCard {
   layout: DashboardCardLayout
 }
 
+export interface DashboardMetricCardStyle {
+  accentColor: string
+  backgroundColor: string
+  textColor: string
+  titleSize: number
+  valueSize: number
+  density: 'compact' | 'comfortable'
+  showProjectBreakdown: boolean
+}
+
+export interface DashboardMetricCard {
+  id: string
+  kind: 'metric'
+  title: string
+  description: string
+  metricId: DashboardMetricId
+  jumpTarget: DashboardJumpTarget
+  style: DashboardMetricCardStyle
+  layout: DashboardCardLayout
+}
+
+export type DashboardCard = DashboardChartCard | DashboardMetricCard
+
+export interface DashboardMetricBreakdown {
+  projectName: string
+  primaryValue: number
+  details: Array<{ label: string; value: string }>
+}
+
+export interface DashboardMetricResult {
+  primaryValue: number
+  primaryUnit: string
+  details: Array<{ label: string; value: string }>
+  projects: DashboardMetricBreakdown[]
+}
+
 export interface ChartSourceContext {
   sourceId: string
   sourceLabel: string
@@ -62,7 +118,7 @@ export interface DashboardChartResult {
 
 export interface DashboardConfig {
   schemaVersion: 'dashboard-v1'
-  cards: DashboardChartCard[]
+  cards: DashboardCard[]
 }
 
 export interface DashboardConfigResponse {
@@ -111,6 +167,11 @@ export interface ChartBuilderValue {
   smooth: boolean
   palette: DashboardPalette
   orientation: DashboardOrientation
+  legendPosition: DashboardLegendPosition
+  fontScale: DashboardFontScale
+  showArea: boolean
+  sortDirection: 'natural' | 'value-desc'
+  maxCategories: number
 }
 
 export type DashboardCardResolver = (
