@@ -145,6 +145,8 @@ src/
 scripts/postgres.sh     隔离数据库生命周期
 ```
 
-详细边界见 [`docs/component-map.md`](docs/component-map.md)，最新表结构见
-[`docs/snapshot-contract.md`](docs/snapshot-contract.md)，页面的信息顺序、图表和
-后续切片见 [`docs/snapshot-page-plan.md`](docs/snapshot-page-plan.md)。
+后续模型从 [`docs/handoff.md`](docs/handoff.md) 续接。详细边界见
+[`docs/component-map.md`](docs/component-map.md)，最新表结构见
+[`docs/snapshot-contract.md`](docs/snapshot-contract.md)，真实验证证据见
+[`docs/verification-report.md`](docs/verification-report.md)。已经实施完毕的设计与页面
+规划位于 [`docs/archive/`](docs/archive/README.md)，只用于追溯历史取舍。

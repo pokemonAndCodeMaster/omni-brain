@@ -1,5 +1,8 @@
 # 人工质检快照页规划
 
+> 归档说明：本文保存页面信息架构从规划到实现的历史记录，不再代表下一阶段任务。
+> 当前状态与后续入口见 [`../handoff.md`](../handoff.md)。
+>
 > 当前实现和既有页面说明保留在本文。V2 技术方案已经确认，且“任务级查询与指标目录”
 > “任务优先明细和指标详情”“总览卡片 V2”“多图层统计图 V2”已经完成；后续以
 > [`manual-qc-analysis-workbench-v2-design.md`](manual-qc-analysis-workbench-v2-design.md)

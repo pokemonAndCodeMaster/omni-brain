@@ -1,5 +1,8 @@
 # 人工质检分析工作台 V2 技术设计
 
+> 归档说明：本文记录已经完成的 V2 设计、实施切片和取舍依据，不再作为当前执行计划。
+> 当前状态与后续入口见 [`../handoff.md`](../handoff.md)。
+>
 > 状态：**已确认；切片一至五已实现，并通过数据库、HTTP、组件、生产构建和真实浏览器用户路径验证**
 >
 > 适用范围：人工质检快照页的任务明细、业务总览和统计图表
@@ -66,16 +69,16 @@ TanStack Table 表格，但用户仍然很难按真实工作顺序完成下面�
 
 | 当前入口 | 已有能力 | V2 需要改变的地方 |
 |---|---|---|
-| [`snapshot_service.py`](../src/manual_qc/snapshot/snapshot_service.py) 与 [`repository.py`](../src/manual_qc/snapshot/repository.py) | 日期参与固定四级聚合 | 增加跨日期任务聚合和受控指标筛选；旧接口迁移期保留 |
-| [`snapshotChart.ts`](../src/frontend/src/features/manual-qc/utils/snapshotChart.ts) | 浏览器聚合固定维度和指标 | 主要聚合移到后端，前端只组装查询和呈现结果 |
+| [`snapshot_service.py`](../../src/manual_qc/snapshot/snapshot_service.py) 与 [`repository.py`](../../src/manual_qc/snapshot/repository.py) | 日期参与固定四级聚合 | 增加跨日期任务聚合和受控指标筛选；旧接口迁移期保留 |
+| [`snapshotChart.ts`](../../src/frontend/src/features/manual-qc/utils/snapshotChart.ts) | 浏览器聚合固定维度和指标 | 主要聚合移到后端，前端只组装查询和呈现结果 |
 | V1 日期—项目表（切片五已删除） | TanStack 表格、部分列筛选和懒加载 | 已由任务优先四级表替代 |
-| [`snapshotOverview.ts`](../src/frontend/src/features/manual-qc/utils/snapshotOverview.ts) | 四种固定总览口径 | 转换为内容块和通用拆分定义 |
-| [`dashboard/types.ts`](../src/frontend/src/shared/dashboard/types.ts) | V1 总览和图表配置 | 迁移为独立的 V2 总览、图表、表格配置 |
+| [`snapshotOverview.ts`](../../src/frontend/src/features/manual-qc/utils/snapshotOverview.ts) | 四种固定总览口径 | 转换为内容块和通用拆分定义 |
+| [`dashboard/types.ts`](../../src/frontend/src/shared/dashboard/types.ts) | V1 总览和图表配置 | 迁移为独立的 V2 总览、图表、表格配置 |
 | V1 固定细分统计（切片五已删除） | 不可编辑的固定统计 | 已转换为可编辑系统预设 |
-| [`t_portal_view_config`](../migrations/004_create_portal_view_config.sql) | 保存 JSONB 视图定义 | 继续复用，增加 V2 配置类型与严格校验 |
+| [`t_portal_view_config`](../../migrations/004_create_portal_view_config.sql) | 保存 JSONB 视图定义 | 继续复用，增加 V2 配置类型与严格校验 |
 
 当前快照字段和业务粒度仍以
-[`snapshot-contract.md`](snapshot-contract.md) 为准。本设计只改变分析和呈现方式，不修改
+[`snapshot-contract.md`](../snapshot-contract.md) 为准。本设计只改变分析和呈现方式，不修改
 `V20260709_01` 的 18 个顶层字段。
 
 ## 2. 技术选项与取舍
@@ -904,7 +907,7 @@ src/frontend/src/
 通过率低于 80% 的任务返回“复杂掉头任务-12”“拥堵跟车任务-08”；23 个有 Bad 提交
 的任务可查询 `驾驶行为分类 / CUT_IN` 占 Bad 比例，顶层数量与动态问题指标同时查询时
 不会被 JSONB 选项展开放大。详细命令与边界见
-[`verification-report.md`](verification-report.md)。
+[`verification-report.md`](../verification-report.md)。
 
 ### 切片二：任务优先明细和指标详情
 

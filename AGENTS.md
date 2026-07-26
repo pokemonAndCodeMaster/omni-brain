@@ -6,8 +6,8 @@
 
 - 本地 ConfigManager 与 PostgreSQL 连接器；
 - `V20260709_01` JSONB 版人工质检快照表、固定种子和四级聚合 API；
-- 已验证的 V2 前四个切片：指标目录与受控查询、任务优先四级明细、可组合总览卡片、
-  可叠加多图层统计图；
+- 已验证并收口的 V2 五个切片：指标目录与受控查询、任务优先四级明细、可组合总览卡片、
+  可叠加多图层统计图、V1 死代码清理与整页回归；
 - 一站式平台外壳、DataWorkbench 与标注→验收总览；V1 的项目→任务→组→员工 API 保留为迁移基线，页面根表已切换为 V2 跨周期任务汇总；
 - 由指标块、说明块和项目/任务/组拆分块组成，可编辑、复制、恢复、拖拽缩放并保存到
   本地 PostgreSQL 的业务总览；
@@ -37,4 +37,6 @@
 - 修改数据字段时按 DDL/SQL → Pydantic → TypeScript → 页面逐层对齐；
 - 每次交付说明用户怎样启动、打开哪里、看到什么和如何判断通过。
 
-项目入口见 `README.md`，组件边界见 `docs/component-map.md`，契约见 `docs/snapshot-contract.md`。
+新会话先读 `docs/handoff.md`，项目入口见 `README.md`，组件边界见
+`docs/component-map.md`，契约见 `docs/snapshot-contract.md`。已经完成的历史设计位于
+`docs/archive/`，不得把归档中的“下一步”直接当作当前任务。

@@ -92,5 +92,6 @@ npm run build
 总览和统计图已经使用 V2 配置模型，不再挂载 V1 固定图或日期—项目表；仍未实现
 验收覆盖矩阵、预期/实际配额对照，以及采样—确认—执行—回查的操作闭环。
 V1 配置迁移与旧四级 API 仍作为有意保留的回退边界。这些边界与后续选择见
-`docs/manual-qc-analysis-workbench-v2-design.md`，不能把当前结果描述为
-完整人工质检平台。
+[`handoff.md`](handoff.md)；已经完成的 V2 设计依据归档在
+[`archive/manual-qc-analysis-workbench-v2-design.md`](archive/manual-qc-analysis-workbench-v2-design.md)。
+不能把当前结果描述为完整人工质检平台。
