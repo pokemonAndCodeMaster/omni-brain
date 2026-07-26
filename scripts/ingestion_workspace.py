@@ -24,7 +24,7 @@ import yaml
 from knowledge_check import markdown_table_errors, validate_bundle
 
 
-SCHEMA_VERSION = "0.3"
+SCHEMA_VERSION = "0.4"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 SOURCE_ID_RE = CASE_ID_RE
 LINK_RE = re.compile(r"(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)")
@@ -61,7 +61,6 @@ COVERAGE_STATES = {
 STRONG_READ_STATES = {"read_full", "read_targeted"}
 COMPLETION_STATES = {"covered", "unknown", "not_applicable"}
 COMPLETION_DIMENSIONS = {
-    "placement_and_scope",
     "operating_model",
     "information_model",
     "system_and_software",
@@ -69,6 +68,7 @@ COMPLETION_DIMENSIONS = {
     "shared_dependencies",
     "history_conflicts_and_unknowns",
 }
+KNOWLEDGE_LEVELS = {"parent", "subject", "focus"}
 
 
 class IngestionWorkspaceError(Exception):
@@ -548,6 +548,60 @@ def source_read(args: argparse.Namespace) -> int:
     return 0
 
 
+def select_source(args: argparse.Namespace) -> int:
+    root = case_root(args)
+    validate_id(args.source_id, "source id")
+    resolve_registered_source_file(root, args.source_id, args.path)
+    levels = set(args.level)
+    if not levels:
+        raise IngestionWorkspaceError("source-select 至少需要一个 --level")
+    if not args.reason.strip():
+        raise IngestionWorkspaceError("--reason 不能为空")
+
+    coverage = load_yaml(root / "coverage.yaml", "coverage.yaml")
+    item = find_coverage_entry(coverage, args.source_id, args.path)
+    selection = item.get("selection")
+    if selection is None:
+        selection = {
+            "assertion": "agent_declared",
+            "levels": [],
+            "reasons": [],
+        }
+    if not isinstance(selection, dict):
+        raise IngestionWorkspaceError("coverage.yaml selection 必须是 mapping")
+    existing = selection.get("levels")
+    reasons = selection.get("reasons")
+    if not isinstance(existing, list) or not isinstance(reasons, list):
+        raise IngestionWorkspaceError(
+            "coverage.yaml selection.levels/reasons 必须是列表"
+        )
+    selection.update(
+        {
+            "assertion": "agent_declared",
+            "levels": sorted({str(value) for value in existing} | levels),
+            "reasons": list(dict.fromkeys([*(str(value) for value in reasons), args.reason.strip()])),
+            "updated_at": utc_now(),
+        }
+    )
+    item["selection"] = selection
+    dump_yaml(root / "coverage.yaml", coverage)
+    print(
+        json.dumps(
+            {
+                "case_id": args.case_id,
+                "source_id": args.source_id,
+                "path": args.path,
+                "levels": selection["levels"],
+                "assertion": "agent_declared",
+                "next": "use source-read, then mark read_full or unread_blocked",
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
 def mark_coverage(args: argparse.Namespace) -> int:
     root = case_root(args)
     validate_id(args.source_id, "source id")
@@ -732,7 +786,9 @@ def validate_review_links(root: Path, errors: list[str]) -> None:
             errors.append(f"review.md 缺少固定分层标题：{heading}")
 
 
-def validate_completion(root: Path, errors: list[str]) -> None:
+def validate_completion(
+    root: Path, errors: list[str], coverage_files: list[dict[str, Any]]
+) -> None:
     value = load_yaml(root / "completion.yaml", "completion.yaml")
     if value.get("claim_owner") != "agent":
         errors.append("completion.yaml claim_owner 必须保持为 agent")
@@ -742,6 +798,119 @@ def validate_completion(root: Path, errors: list[str]) -> None:
         current = value.get(field)
         if not isinstance(current, str) or not current.strip() or current.startswith("<"):
             errors.append(f"completion.yaml {field} 未填写")
+    knowledge_path = value.get("knowledge_path")
+    if not isinstance(knowledge_path, list):
+        errors.append("completion.yaml knowledge_path 必须是列表")
+        knowledge_path = []
+    coverage_by_key = {
+        (item.get("source_id"), item.get("path")): item
+        for item in coverage_files
+        if isinstance(item, dict)
+    }
+    found_levels: set[str] = set()
+    primary_pages: dict[str, str] = {}
+    knowledge_root = (root / "draft" / "knowledge").resolve()
+    for item in knowledge_path:
+        if not isinstance(item, dict):
+            errors.append("completion.yaml knowledge_path 条目必须是 mapping")
+            continue
+        level = str(item.get("level", ""))
+        if level not in KNOWLEDGE_LEVELS:
+            errors.append(f"completion.yaml knowledge_path 无效层次：{level!r}")
+            continue
+        if level in found_levels:
+            errors.append(f"completion.yaml knowledge_path 重复层次：{level}")
+            continue
+        found_levels.add(level)
+        status = item.get("status")
+        if status not in COMPLETION_STATES:
+            errors.append(f"completion.yaml knowledge_path {level} 未完成：{status}")
+            continue
+        topic = item.get("topic")
+        if not isinstance(topic, str) or not topic.strip() or topic.startswith("<"):
+            errors.append(f"completion.yaml knowledge_path {level} 未填写 topic")
+        if status == "covered":
+            source_files = item.get("source_files")
+            if not isinstance(source_files, list) or not source_files:
+                errors.append(
+                    f"completion.yaml knowledge_path {level} 已覆盖但没有 source_files"
+                )
+            else:
+                for raw_source in source_files:
+                    if not isinstance(raw_source, dict):
+                        errors.append(
+                            f"completion.yaml knowledge_path {level} source_files 条目必须是 mapping"
+                        )
+                        continue
+                    key = (raw_source.get("source_id"), raw_source.get("path"))
+                    coverage_item = coverage_by_key.get(key)
+                    if coverage_item is None:
+                        errors.append(
+                            f"completion.yaml knowledge_path {level} 来源不存在：{key}"
+                        )
+                        continue
+                    selection = coverage_item.get("selection")
+                    selected_levels = (
+                        selection.get("levels") if isinstance(selection, dict) else None
+                    )
+                    if (
+                        not isinstance(selected_levels, list)
+                        or level not in selected_levels
+                    ):
+                        errors.append(
+                            f"completion.yaml knowledge_path {level} 来源未用 "
+                            f"source-select 绑定该层次：{key}"
+                        )
+                    if coverage_item.get("status") != "read_full":
+                        errors.append(
+                            f"completion.yaml knowledge_path {level} 来源没有完成全文阅读：{key}"
+                        )
+            primary_page = item.get("primary_page")
+            if not isinstance(primary_page, str) or not primary_page.strip():
+                errors.append(
+                    f"completion.yaml knowledge_path {level} 已覆盖但没有 primary_page"
+                )
+            else:
+                target = (knowledge_root / primary_page).resolve()
+                try:
+                    target.relative_to(knowledge_root)
+                except ValueError:
+                    errors.append(
+                        f"completion.yaml knowledge_path {level} 主落点逃逸知识 Bundle："
+                        f"{primary_page}"
+                    )
+                else:
+                    if not target.is_file():
+                        errors.append(
+                            f"completion.yaml knowledge_path {level} 主落点不存在："
+                            f"{primary_page}"
+                        )
+                    previous = primary_pages.get(primary_page)
+                    if previous is not None:
+                        errors.append(
+                            "completion.yaml knowledge_path 不同层次共用同一主落点："
+                            f"{previous}, {level} -> {primary_page}；"
+                            "若两层确实合并，请把其中一层标为 not_applicable 并说明理由"
+                        )
+                    primary_pages[primary_page] = level
+            if level != "focus":
+                relation = item.get("relation_to_next")
+                if not isinstance(relation, str) or not relation.strip():
+                    errors.append(
+                        f"completion.yaml knowledge_path {level} 缺少 relation_to_next"
+                    )
+        else:
+            rationale = item.get("rationale")
+            if not isinstance(rationale, str) or not rationale.strip():
+                errors.append(
+                    f"completion.yaml knowledge_path {level} 需要说明 {status} 理由"
+                )
+    missing_levels = sorted(KNOWLEDGE_LEVELS - found_levels)
+    if missing_levels:
+        errors.append(
+            "completion.yaml knowledge_path 缺少层次："
+            + ", ".join(missing_levels)
+        )
     dimensions = value.get("dimensions")
     if not isinstance(dimensions, list):
         errors.append("completion.yaml dimensions 必须是列表")
@@ -854,6 +1023,8 @@ def check_case(args: argparse.Namespace) -> int:
     missing_assertions: list[tuple[Any, Any]] = []
     unbound_read_evidence: list[tuple[Any, Any]] = []
     unverified_full_reads: list[tuple[Any, Any]] = []
+    selected_unresolved: list[tuple[Any, Any]] = []
+    invalid_selections: list[tuple[Any, Any]] = []
     for item in coverage_files:
         if not isinstance(item, dict):
             errors.append("coverage.yaml file entry 必须是 mapping")
@@ -896,6 +1067,28 @@ def check_case(args: argparse.Namespace) -> int:
                     or display.get("displayed_complete") is not True
                 ):
                     unverified_full_reads.append(key)
+        selection = item.get("selection")
+        if selection is not None:
+            if not isinstance(selection, dict):
+                invalid_selections.append(key)
+            else:
+                levels = selection.get("levels")
+                reasons = selection.get("reasons")
+                valid_levels = (
+                    isinstance(levels, list)
+                    and bool(levels)
+                    and all(level in KNOWLEDGE_LEVELS for level in levels)
+                )
+                if (
+                    selection.get("assertion") != "agent_declared"
+                    or not valid_levels
+                    or not isinstance(reasons, list)
+                    or not reasons
+                    or any(not isinstance(reason, str) or not reason.strip() for reason in reasons)
+                ):
+                    invalid_selections.append(key)
+                if status not in {"read_full", "unread_blocked"}:
+                    selected_unresolved.append(key)
     if unreviewed:
         errors.append(
             f"coverage.yaml 尚未分类 {len(unreviewed)} 项；示例：{unreviewed[:10]}"
@@ -928,6 +1121,16 @@ def check_case(args: argparse.Namespace) -> int:
             "没有完整机器展示事实；"
             f"示例：{unverified_full_reads[:10]}"
         )
+    if invalid_selections:
+        errors.append(
+            f"coverage.yaml 有 {len(invalid_selections)} 个无效来源选择声明；"
+            f"示例：{invalid_selections[:10]}"
+        )
+    if selected_unresolved:
+        errors.append(
+            f"coverage.yaml 有 {len(selected_unresolved)} 个已选择关键来源尚未阅读或阻塞；"
+            f"示例：{selected_unresolved[:10]}"
+        )
     if coverage_keys != expected_keys:
         missing_coverage = expected_keys - coverage_keys
         extra_coverage = coverage_keys - expected_keys
@@ -955,7 +1158,7 @@ def check_case(args: argparse.Namespace) -> int:
         errors.append("正式 knowledge/ 或 config/ 在人工批准前发生变化")
 
     if all((root / name).is_file() for name in ("completion.yaml", "review.md")):
-        validate_completion(root, errors)
+        validate_completion(root, errors, coverage_files)
         validate_review_links(root, errors)
     errors.extend(markdown_table_errors(list(root.glob("*.md")), root))
 
@@ -1020,6 +1223,11 @@ def status_case(args: argparse.Namespace) -> int:
         and isinstance(item.get("display"), dict)
         and item["display"].get("displayed_complete") is True
     )
+    selected_sources = sum(
+        1
+        for item in files
+        if isinstance(item, dict) and isinstance(item.get("selection"), dict)
+    )
     print(
         json.dumps(
             {
@@ -1041,6 +1249,7 @@ def status_case(args: argparse.Namespace) -> int:
                 ),
                 "agent_coverage_claims": dict(sorted(counts.items())),
                 "machine_displayed_complete": displayed_complete,
+                "selected_sources": selected_sources,
                 "content_review": "pending_human",
                 "review": str(root / "review.md"),
             },
@@ -1110,6 +1319,26 @@ def build_parser() -> argparse.ArgumentParser:
     read.add_argument("source_id")
     read.add_argument("--path", required=True)
     read.set_defaults(func=source_read)
+
+    select = subparsers.add_parser(
+        "source-select",
+        help="把一个精确来源绑定为三层知识主线的必读依据",
+        description=(
+            "选择是 Agent 的注意力契约，不判断来源是否正确。"
+            "被选择的来源在最终检查前必须 read_full 或 unread_blocked。"
+        ),
+    )
+    select.add_argument("case_id")
+    select.add_argument("source_id")
+    select.add_argument("--path", required=True)
+    select.add_argument(
+        "--level",
+        action="append",
+        default=[],
+        choices=sorted(KNOWLEDGE_LEVELS),
+    )
+    select.add_argument("--reason", required=True)
+    select.set_defaults(func=select_source)
 
     check = subparsers.add_parser(
         "check",

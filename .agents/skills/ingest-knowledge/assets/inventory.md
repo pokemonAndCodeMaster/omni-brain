@@ -5,6 +5,9 @@
 - [逐文件来源身份](source-manifest.jsonl)
 - [Agent 阅读声明](coverage.yaml)
 
+`coverage.yaml` 中的 `selection` 是 Agent 自己选择的关键来源及其用途；
+被选择的来源不能再用批量 `screened` 结束，必须全文阅读或登记明确阻塞。
+
 ## 来源主题地图
 
 先用标题、摘要、目录或代码符号定位，再做正文阅读。实质材料分别记录；只有主题、现实形态和影响相同的小文件才可合并成一组。

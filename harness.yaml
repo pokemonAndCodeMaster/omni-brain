@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_content_first_v10_awaiting_forward_test
+  status: implemented_content_first_v11_awaiting_forward_test
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,7 +41,7 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_content_first_v10_awaiting_forward_test
+    adoption: implemented_content_first_v11_awaiting_forward_test
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
@@ -49,9 +49,10 @@ capabilities:
     limits:
       - V10 已实现 source-read 有界连续展示与机器 displayed_complete，且 read_full 受该事实约束
       - displayed_complete 只证明脚本完整输出，不证明 Agent 已理解或知识已经充分内化
-      - V10 尚未经过 Luna 前向 Trial，不能据此声明内容闭环改善
+      - V10 已在 K0 Luna 工况验证完整展示，但关键来源选择与知识层级仍失败
+      - V11 新增 source-select 与三层 knowledge_path 自洽约束，尚未经过前向 Trial
       - 只读检查不判断业务真伪或内容充分性
-      - 未取得 verified@slice 证据
+      - 只有来源完整展示取得 verified@slice，知识摄入结果尚未取得
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:

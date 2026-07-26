@@ -20,16 +20,16 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_content_first_v10_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_content_first_v11_is_implemented_without_claiming_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_content_first_v10_awaiting_forward_test",
+            "implemented_content_first_v11_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_content_first_v10_awaiting_forward_test",
+            "implemented_content_first_v11_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -120,6 +120,12 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 每个问题实际用了什么", inventory)
         self.assertIn("## 来源主题地图", inventory)
         self.assertIn("## 来源主题与知识落点复核", inventory)
+        self.assertIn("source-select", brief)
+        completion = (assets / "completion.yaml").read_text(encoding="utf-8")
+        self.assertIn("knowledge_path:", completion)
+        self.assertIn("level: parent", completion)
+        self.assertIn("level: subject", completion)
+        self.assertIn("level: focus", completion)
         self.assertIn("工具输出不可完整看见时不得声明 `read_full`", inventory)
         self.assertIn("## 软件与代码事实源", inventory)
         self.assertIn("## 推荐路线：从全貌到细节", product_view)
