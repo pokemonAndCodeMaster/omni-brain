@@ -34,8 +34,6 @@
 |---|---|---|
 | `useSnapshotExplorer` | 管理查询、加载、错误、树数据和四级懒加载 | 输出只读状态与 `load/reset/expand` 动作 |
 | `SnapshotFilters.vue` | 编辑日期、项目、标注任务、组和员工筛选 | `modelValue`；发出 `submit`、`reset` |
-| `SnapshotSummaryChart.vue` | V1 固定统计图的迁移期回退实现；当前页面不再挂载 | 不再扩展，切片五确认回退后删除 |
-| `SnapshotDataTable.vue` | 保留 V1 日期—项目根表实现，作为切片二迁移时的字段与懒加载参考；当前页面不再挂载 | 继续作为当前用户入口或复制领域公式到共享组件 |
 | `TaskAnalysisWorkspace.vue` | 组合任务树、指标详情和表格配置，并协调固定问题选项列 | 接收顶部范围和指标目录；发出当前表格分析请求 |
 | `TaskAnalysisTable.vue` | 显示任务 → 日期 → 组 → 标注员树，并按“路径→标注→验收进度→验收结果→固定选项”组织业务列 | 接收树节点、指标目录与列配置；发出下钻、详情、筛选和保存动作 |
 | `TaskMetricDetailDrawer.vue` | 展示所点指标的整体、Good/Bad、按日趋势和问题标签—选项明细 | 接收当前对象和查询结果；发出关闭与固定选项列动作 |

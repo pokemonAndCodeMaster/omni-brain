@@ -205,7 +205,7 @@ function addTableChart<TData>(
     tableScopeNotice.value =
       `当前表格包含${nonTransferableFilters
         .map((item) => tableFilterDescription(item))
-        .join('、')}等聚合条件，不能安全转换为 V1 统计卡片的数据范围。请先用项目或任务收窄全页范围，或等待 V2 图表切片支持同口径查询。`
+        .join('、')}等聚合条件，不能无损转换为统计卡片的基础数据范围。请先用日期、单个项目或单个任务收窄范围，再生成独立卡片。`
     return
   }
   const filterSummary = [

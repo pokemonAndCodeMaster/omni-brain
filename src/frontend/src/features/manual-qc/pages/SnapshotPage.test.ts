@@ -143,7 +143,6 @@ describe('SnapshotPage', () => {
           MetricCardEditor: true,
           MetricCardGrid: true,
           SnapshotFilters: true,
-          SnapshotSummaryChart: true,
           TaskAnalysisWorkspace: TaskAnalysisWorkspaceStub,
         },
       },
