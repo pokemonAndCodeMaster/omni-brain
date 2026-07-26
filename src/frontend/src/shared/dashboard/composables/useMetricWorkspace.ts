@@ -6,11 +6,15 @@ import {
 import type {
   DashboardCardLayout,
   DashboardMetricCard,
+  LegacyDashboardMetricCard,
 } from '../types'
 
 export function useMetricWorkspace(
   pageKey: string,
   createDefaults: () => DashboardMetricCard[],
+  normalizeCard: (
+    card: DashboardMetricCard | LegacyDashboardMetricCard,
+  ) => DashboardMetricCard,
 ) {
   const cards = shallowRef<DashboardMetricCard[]>([])
   const loading = shallowRef(false)
@@ -31,13 +35,23 @@ export function useMetricWorkspace(
     notice.value = ''
     try {
       const saved = await getDashboardConfig(pageKey)
-      const savedCards = (saved?.config.cards ?? []).filter(
-        (card): card is DashboardMetricCard => card.kind === 'metric',
+      const rawCards = (saved?.config.cards ?? []).filter(
+        (
+          card,
+        ): card is DashboardMetricCard | LegacyDashboardMetricCard =>
+          card.kind === 'metric',
       )
+      const savedCards = rawCards.map(normalizeCard)
+      const migrated =
+        rawCards.length > 0 &&
+        (saved?.config.schemaVersion !== 'dashboard-v2' ||
+          rawCards.some((card) => !('blocks' in card)))
       cards.value = savedCards.length ? savedCards : createDefaults()
-      dirty.value = false
+      dirty.value = migrated
       if (savedCards.length) {
-        notice.value = `已恢复 ${savedCards.length} 张总览卡片。`
+        notice.value = migrated
+          ? `已把 ${savedCards.length} 张旧总览迁移为可组合卡片，请保存确认。`
+          : `已恢复 ${savedCards.length} 张总览卡片。`
       }
     } catch (error) {
       cards.value = createDefaults()
@@ -88,7 +102,7 @@ export function useMetricWorkspace(
     notice.value = ''
     try {
       await saveDashboardConfig(pageKey, {
-        schemaVersion: 'dashboard-v1',
+        schemaVersion: 'dashboard-v2',
         cards: cards.value,
       })
       dirty.value = false

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { MetricState, SnapshotRow } from '../types/snapshot'
-import { defaultOverviewCards, resolveOverviewMetric } from './snapshotOverview'
+import type { LegacyDashboardMetricCard } from '@/shared/dashboard/types'
+import {
+  defaultOverviewCards,
+  duplicateOverviewCard,
+  normalizeOverviewCard,
+  resolveOverviewMetric,
+  restoreOverviewPreset,
+} from './snapshotOverview'
 
 function metric(
   submitted: number,
@@ -71,16 +78,72 @@ describe('业务总览指标', () => {
     const card = defaultOverviewCards()[0]!
     const result = resolveOverviewMetric(card, rows)
 
-    expect(result.primaryValue).toBe(150)
-    expect(result.details).toEqual([
-      { label: 'Good', value: '125' },
-      { label: 'Bad', value: '25' },
-      { label: 'Good 占比', value: '83.3%' },
-    ])
-    expect(result.projects).toHaveLength(2)
-    expect(result.projects.map((item) => item.projectName)).toEqual([
+    expect(result.values.submitted).toMatchObject({
+      value: 150,
+      formattedValue: '150',
+    })
+    expect(result.values.good).toMatchObject({
+      value: 125,
+      formattedValue: '125',
+    })
+    expect(result.values['good-rate']).toMatchObject({
+      formattedValue: '83.3%',
+    })
+    expect(result.breakdowns['by-project']).toHaveLength(2)
+    expect(result.breakdowns['by-project']?.map((item) => item.label)).toEqual([
       '城区/高速',
       '园区',
     ])
+  })
+
+  it('把旧总览配置迁移成指标块并保留用户样式和布局', () => {
+    const legacy: LegacyDashboardMetricCard = {
+      id: 'legacy-card',
+      kind: 'metric',
+      title: '我的验收进度',
+      description: '旧配置',
+      metricId: 'acceptance_completion',
+      jumpTarget: 'acceptance-progress',
+      style: {
+        accentColor: '#123456',
+        backgroundColor: '#ffffff',
+        textColor: '#111111',
+        titleSize: 17,
+        valueSize: 42,
+        density: 'compact',
+        showProjectBreakdown: false,
+      },
+      layout: { x: 2, y: 1, w: 5, h: 4, minW: 3, minH: 3 },
+    }
+
+    const migrated = normalizeOverviewCard(legacy)
+    expect(migrated.title).toBe('我的验收进度')
+    expect(migrated.origin).toMatchObject({
+      type: 'user',
+      presetId: 'manual-qc.acceptance-progress-overview',
+    })
+    expect(migrated.blocks.some((block) => block.kind === 'breakdown')).toBe(false)
+    expect(
+      migrated.blocks.find(
+        (block) =>
+          block.kind === 'metric-value' && block.emphasis === 'primary',
+      ),
+    ).toMatchObject({ style: { valueSize: 42 } })
+  })
+
+  it('复制品脱离系统预设，恢复默认只重置原卡内容并保留布局', () => {
+    const card = defaultOverviewCards()[0]!
+    const copy = duplicateOverviewCard(card)
+    expect(copy.origin).toEqual({ type: 'user' })
+    expect(copy.title).toContain('副本')
+
+    const edited = structuredClone(card)
+    edited.origin.type = 'user'
+    edited.title = '已修改标题'
+    edited.layout.x = 6
+    const restored = restoreOverviewPreset(edited)
+    expect(restored?.title).toBe('标注产出与质量构成')
+    expect(restored?.layout.x).toBe(6)
+    expect(copy.title).toContain('副本')
   })
 })

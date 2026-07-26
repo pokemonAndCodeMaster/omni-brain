@@ -34,6 +34,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   add: []
   edit: [card: DashboardMetricCard]
+  duplicate: [card: DashboardMetricCard]
+  restore: [card: DashboardMetricCard]
   remove: [cardId: string]
   jump: [card: DashboardMetricCard]
   save: []
@@ -147,6 +149,8 @@ provide(METRIC_DASHBOARD_CONTEXT, {
   cardById: (cardId) => props.cards.find((card) => card.id === cardId),
   resultById: (cardId) => props.results[cardId],
   edit: (card) => emit('edit', card),
+  duplicate: (card) => emit('duplicate', card),
+  restore: (card) => emit('restore', card),
   remove: (cardId) => emit('remove', cardId),
   jump: (card) => emit('jump', card),
   nudge: (card, value) => void nudgeCard(card, value),
@@ -193,7 +197,7 @@ onMounted(async () => {
       <div>
         <p>业务总览</p>
         <h2 id="metric-workspace-title">选定周期的关键结果</h2>
-        <span>每张卡先显示全量，再按项目拆分；点击卡片进入对应细分图。</span>
+        <span>指标、说明与项目/任务/组拆分可组合；点击卡片进入对应细分图。</span>
       </div>
       <div class="metric-toolbar">
         <span v-if="dirty" class="dirty-state">有未保存修改</span>

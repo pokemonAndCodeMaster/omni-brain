@@ -3,7 +3,7 @@ export type DashboardPalette = 'business' | 'quality' | 'contrast'
 export type DashboardOrientation = 'vertical' | 'horizontal'
 export type DashboardLegendPosition = 'top' | 'bottom'
 export type DashboardFontScale = 'small' | 'medium' | 'large'
-export type DashboardMetricId =
+export type LegacyDashboardMetricId =
   | 'annotation_quality'
   | 'acceptance_allocation'
   | 'acceptance_completion'
@@ -66,7 +66,7 @@ export interface DashboardChartCard {
   layout: DashboardCardLayout
 }
 
-export interface DashboardMetricCardStyle {
+export interface LegacyDashboardMetricCardStyle {
   accentColor: string
   backgroundColor: string
   textColor: string
@@ -76,30 +76,120 @@ export interface DashboardMetricCardStyle {
   showProjectBreakdown: boolean
 }
 
-export interface DashboardMetricCard {
+export interface LegacyDashboardMetricCard {
   id: string
   kind: 'metric'
   title: string
   description: string
-  metricId: DashboardMetricId
+  metricId: LegacyDashboardMetricId
   jumpTarget: DashboardJumpTarget
+  style: LegacyDashboardMetricCardStyle
+  layout: DashboardCardLayout
+}
+
+export interface DashboardMetricOrigin {
+  type: 'system-preset' | 'user'
+  presetId?: string
+  presetVersion?: number
+}
+
+export interface DashboardMetricReference {
+  id: string
+  parameters?: Record<string, string>
+}
+
+export type DashboardMetricBlockWidth = 'full' | 'half' | 'third'
+
+export interface DashboardMetricValueStyle {
+  valueSize: number
+  valueColor: string
+  labelSize: number
+  labelColor: string
+}
+
+export interface DashboardMetricValueBlock {
+  id: string
+  kind: 'metric-value'
+  metric: DashboardMetricReference
+  label: string
+  emphasis: 'primary' | 'supporting'
+  width: DashboardMetricBlockWidth
+  style: DashboardMetricValueStyle
+}
+
+export interface DashboardMetricTextBlock {
+  id: string
+  kind: 'text'
+  content: string
+  width: DashboardMetricBlockWidth
+  style: {
+    fontSize: number
+    color: string
+  }
+}
+
+export interface DashboardMetricBreakdownBlock {
+  id: string
+  kind: 'breakdown'
+  dimension: 'project' | 'task' | 'group'
+  metrics: DashboardMetricReference[]
+  limit: number
+  width: DashboardMetricBlockWidth
+}
+
+export type DashboardMetricBlock =
+  | DashboardMetricValueBlock
+  | DashboardMetricTextBlock
+  | DashboardMetricBreakdownBlock
+
+export interface DashboardMetricCardStyle {
+  accentColor: string
+  backgroundColor: string
+  textColor: string
+  titleSize: number
+  density: 'compact' | 'comfortable'
+}
+
+export interface DashboardMetricCard {
+  id: string
+  kind: 'metric'
+  origin: DashboardMetricOrigin
+  title: string
+  description: string
+  query: {
+    scopeMode: 'inherit-page'
+    filters: Array<Record<string, unknown>>
+  }
+  blocks: DashboardMetricBlock[]
+  action: {
+    type: 'jump'
+    targetCardId: DashboardJumpTarget
+  } | null
   style: DashboardMetricCardStyle
   layout: DashboardCardLayout
 }
 
-export type DashboardCard = DashboardChartCard | DashboardMetricCard
+export type DashboardCard =
+  | DashboardChartCard
+  | DashboardMetricCard
+  | LegacyDashboardMetricCard
 
-export interface DashboardMetricBreakdown {
-  projectName: string
-  primaryValue: number
-  details: Array<{ label: string; value: string }>
+export interface DashboardMetricValueResult {
+  metricId: string
+  label: string
+  value: number | null
+  formattedValue: string
+  unit: 'count' | 'percent'
+}
+
+export interface DashboardMetricBreakdownResult {
+  label: string
+  values: DashboardMetricValueResult[]
 }
 
 export interface DashboardMetricResult {
-  primaryValue: number
-  primaryUnit: string
-  details: Array<{ label: string; value: string }>
-  projects: DashboardMetricBreakdown[]
+  values: Record<string, DashboardMetricValueResult>
+  breakdowns: Record<string, DashboardMetricBreakdownResult[]>
 }
 
 export interface ChartSourceContext {
@@ -117,7 +207,7 @@ export interface DashboardChartResult {
 }
 
 export interface DashboardConfig {
-  schemaVersion: 'dashboard-v1'
+  schemaVersion: 'dashboard-v1' | 'dashboard-v2'
   cards: DashboardCard[]
 }
 

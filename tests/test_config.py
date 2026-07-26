@@ -120,6 +120,72 @@ def test_dashboard_config_accepts_chart_and_metric_cards() -> None:
     assert config.cards[1].style.chart_type == "combo"
 
 
+def test_dashboard_config_accepts_composable_metric_card() -> None:
+    config = DashboardConfig.model_validate(
+        {
+            "schemaVersion": "dashboard-v2",
+            "cards": [
+                {
+                    "id": "overview-annotation",
+                    "kind": "metric",
+                    "origin": {
+                        "type": "system-preset",
+                        "presetId": "manual-qc.annotation-overview",
+                        "presetVersion": 2,
+                    },
+                    "title": "标注产出",
+                    "query": {"scopeMode": "inherit-page", "filters": []},
+                    "blocks": [
+                        {
+                            "id": "submitted",
+                            "kind": "metric-value",
+                            "metric": {"id": "annotation.submitted"},
+                            "label": "标注提交",
+                            "emphasis": "primary",
+                            "width": "full",
+                            "style": {},
+                        },
+                        {
+                            "id": "by-project",
+                            "kind": "breakdown",
+                            "dimension": "project",
+                            "metrics": [
+                                {"id": "annotation.submitted"},
+                                {"id": "annotation.good_rate"},
+                            ],
+                            "limit": 8,
+                            "width": "full",
+                        },
+                    ],
+                    "action": {
+                        "type": "jump",
+                        "targetCardId": "annotation-quality",
+                    },
+                    "style": {},
+                    "layout": {"x": 0, "y": 0, "w": 4, "h": 4},
+                }
+            ],
+        }
+    )
+
+    card = config.cards[0]
+    assert card.kind == "metric"
+    assert card.blocks is not None
+    assert [block.kind for block in card.blocks] == [
+        "metric-value",
+        "breakdown",
+    ]
+    persisted = config.model_dump(
+        mode="json",
+        by_alias=True,
+        exclude_none=True,
+    )
+    persisted_card = persisted["cards"][0]
+    assert "metricId" not in persisted_card
+    assert "jumpTarget" not in persisted_card
+    assert "valueSize" not in persisted_card["style"]
+
+
 def test_reload_can_switch_env_file_atomically(tmp_path: Path) -> None:
     manager = write_fixture(tmp_path, BASE, "TEST_DB_PORT=55432\n")
     alternative = tmp_path / ".env.alternative"

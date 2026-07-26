@@ -44,7 +44,7 @@
 | `useTaskTableWorkspace` | 恢复和保存列显隐、顺序、宽度及最多 5 个固定问题选项指标 | 不保存临时筛选、排序或展开状态 |
 | `useAnalysisCatalog` | 读取后端指标目录，作为表头名称和后续编辑器字段来源 | 输出只读目录、加载状态、错误和 `load` 动作；不维护领域公式副本 |
 | `snapshotChart.ts` | 按日期、项目、标注任务、组、员工和结果层级聚合指标 | 保存的查询卡片；返回用最新快照计算的图表结果 |
-| `snapshotOverview.ts` | 计算全量及各项目的总览指标 | 总览卡片定义和最小快照行；返回标注/验收结果 |
+| `snapshotOverview.ts` | 解析指标块与项目/任务/组拆分块，并迁移 V1 总览预设 | V2 总览定义、指标目录和当前快照行；返回逐块结果 |
 
 ## 共享组件
 
@@ -60,8 +60,8 @@
 | `ChartCard.vue` | 把卡片定义渲染为 ECharts 与可读数据表 | 卡片及运行结果；发出编辑、刷新、删除和图表点击 |
 | `ChartBuilderDialog.vue` | 编辑标题、数据源、分组、指标、筛选、图形与样式 | 初始卡片；发出完整卡片配置 |
 | `useDashboardWorkspace` | 恢复、重算、修改并持久化页面看板 | 页面键和卡片解析器；输出卡片、结果和保存状态 |
-| `MetricCard / MetricCardEditor` | 展示和编辑项目拆分总览、跳转目标、文字与颜色 | 总览定义与计算结果；发出编辑、删除和跳转 |
-| `MetricCardGrid / useMetricWorkspace` | 管理总览卡片布局和持久化 | 页面键、总览卡片；输出保存状态与布局变更 |
+| `MetricCard / MetricCardEditor` | 按顺序展示和编辑指标、说明与一层拆分块，管理逐块样式和主指标 | V2 总览定义与逐块结果；发出编辑、复制、恢复、删除和跳转 |
+| `MetricCardGrid / useMetricWorkspace` | 管理总览布局、V1→V2 恢复迁移和 V2 持久化 | 页面键、总览卡片；输出保存状态与布局变更 |
 
 **表格状态：** TanStack Table 负责排序、筛选、列顺序、列宽、选择和展开状态；Vue
 组件负责交互与视觉。每个可见叶子列通过 `colgroup` 独立绑定宽度，拖动一列不会重分配

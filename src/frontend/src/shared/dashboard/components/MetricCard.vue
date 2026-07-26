@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type {
   DashboardMetricCard,
   DashboardMetricResult,
+  DashboardMetricValueBlock,
 } from '../types'
 
 const props = defineProps<{
@@ -12,6 +13,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   edit: []
+  duplicate: []
+  restore: []
   remove: []
   jump: []
   nudge: [value: { dx?: number; dy?: number; dw?: number; dh?: number }]
@@ -22,8 +25,16 @@ const cardStyle = computed(() => ({
   '--metric-background': props.card.style.backgroundColor,
   '--metric-text': props.card.style.textColor,
   '--metric-title-size': `${props.card.style.titleSize}px`,
-  '--metric-value-size': `${props.card.style.valueSize}px`,
 }))
+
+function metricBlockStyle(block: DashboardMetricValueBlock) {
+  return {
+    '--block-value-size': `${block.style.valueSize}px`,
+    '--block-value-color': block.style.valueColor,
+    '--block-label-size': `${block.style.labelSize}px`,
+    '--block-label-color': block.style.labelColor,
+  }
+}
 </script>
 
 <template>
@@ -65,45 +76,77 @@ const cardStyle = computed(() => ({
         <button type="button" aria-label="编辑总览卡片" @click="emit('edit')">
           ✎
         </button>
+        <button type="button" aria-label="复制总览卡片" @click="emit('duplicate')">
+          ⧉
+        </button>
+        <button
+          v-if="card.origin.presetId"
+          type="button"
+          aria-label="恢复系统默认总览"
+          @click="emit('restore')"
+        >
+          ↺
+        </button>
         <button type="button" aria-label="删除总览卡片" @click="emit('remove')">
           ×
         </button>
       </div>
     </header>
 
-    <button class="metric-body" type="button" @click="emit('jump')">
-      <span class="primary-metric">
-        <strong>{{ result?.primaryValue ?? 0 }}</strong>
-        <small>{{ result?.primaryUnit ?? '' }}</small>
-      </span>
-      <span class="metric-details">
-        <span v-for="item in result?.details ?? []" :key="item.label">
-          <small>{{ item.label }}</small>
-          <strong>{{ item.value }}</strong>
-        </span>
-      </span>
+    <button
+      class="metric-body"
+      type="button"
+      :disabled="!card.action"
+      @click="emit('jump')"
+    >
+      <span class="block-grid">
+        <template v-for="block in card.blocks" :key="block.id">
+          <span
+            v-if="block.kind === 'metric-value'"
+            class="content-block metric-value-block"
+            :class="[
+              `width-${block.width}`,
+              { primary: block.emphasis === 'primary' },
+            ]"
+            :style="metricBlockStyle(block)"
+          >
+            <small>{{ block.label }}</small>
+            <strong>
+              {{ result?.values[block.id]?.formattedValue ?? '—' }}
+            </strong>
+          </span>
 
-      <span
-        v-if="card.style.showProjectBreakdown"
-        class="project-breakdown"
-      >
-        <span
-          v-for="project in result?.projects ?? []"
-          :key="project.projectName"
-          class="project-metric"
-        >
-          <span class="project-title">
-            <strong>{{ project.projectName }}</strong>
-            <b>{{ project.primaryValue }}</b>
+          <span
+            v-else-if="block.kind === 'text'"
+            class="content-block text-block"
+            :class="`width-${block.width}`"
+            :style="{ fontSize: `${block.style.fontSize}px`, color: block.style.color }"
+          >
+            {{ block.content }}
           </span>
-          <span class="project-details">
-            <small v-for="detail in project.details" :key="detail.label">
-              {{ detail.label }} <b>{{ detail.value }}</b>
-            </small>
+
+          <span
+            v-else
+            class="content-block breakdown-block"
+            :class="`width-${block.width}`"
+          >
+            <span
+              v-for="item in result?.breakdowns[block.id] ?? []"
+              :key="item.label"
+              class="breakdown-item"
+            >
+              <strong>{{ item.label }}</strong>
+              <span>
+                <small v-for="value in item.values" :key="value.metricId">
+                  {{ value.label }}
+                  <b>{{ value.formattedValue }}</b>
+                </small>
+              </span>
+            </span>
           </span>
-        </span>
+        </template>
       </span>
-      <span class="jump-hint">查看细分统计 →</span>
+      <span v-if="card.action" class="jump-hint">查看细分统计 →</span>
     </button>
   </article>
 </template>
@@ -225,69 +268,78 @@ const cardStyle = computed(() => ({
   display: grid;
   min-width: 0;
   align-content: start;
-  gap: 9px;
+  gap: 7px;
   padding: 3px 13px 12px;
+  overflow: auto;
   border: 0;
   background: transparent;
   color: inherit;
   text-align: left;
 }
 
-.metric-body:hover,
-.metric-body:focus-visible {
+.metric-body:not(:disabled):hover,
+.metric-body:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--metric-accent) 6%, transparent);
 }
 
-.primary-metric {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-}
-
-.primary-metric strong {
-  color: var(--metric-accent);
-  font-family: var(--font-mono);
-  font-size: var(--metric-value-size);
-  line-height: 1;
-}
-
-.primary-metric small {
-  color: color-mix(in srgb, var(--metric-text) 68%, transparent);
-  font-size: 10px;
-}
-
-.metric-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-
-.metric-details > span {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-}
-
-.metric-details small,
-.project-details small {
-  color: color-mix(in srgb, var(--metric-text) 65%, transparent);
-  font-size: 9px;
-}
-
-.metric-details strong,
-.project-details b {
-  color: var(--metric-text);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-.project-breakdown {
+.block-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  min-width: 0;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.content-block {
+  min-width: 0;
+}
+
+.width-full {
+  grid-column: span 6;
+}
+
+.width-half {
+  grid-column: span 3;
+}
+
+.width-third {
+  grid-column: span 2;
+}
+
+.metric-value-block {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+
+.metric-value-block small {
+  color: var(--block-label-color);
+  font-size: var(--block-label-size);
+}
+
+.metric-value-block strong {
+  overflow: hidden;
+  color: var(--block-value-color);
+  font-family: var(--font-mono);
+  font-size: var(--block-value-size);
+  line-height: 1.05;
+  text-overflow: ellipsis;
+}
+
+.metric-value-block.primary strong {
+  color: var(--block-value-color, var(--metric-accent));
+}
+
+.text-block {
+  line-height: 1.5;
+}
+
+.breakdown-block {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   gap: 6px;
 }
 
-.project-metric {
+.breakdown-item {
   display: grid;
   gap: 4px;
   padding: 7px 8px;
@@ -296,23 +348,25 @@ const cardStyle = computed(() => ({
   background: color-mix(in srgb, var(--metric-background) 80%, white);
 }
 
-.project-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
+.breakdown-item > strong {
   font-size: 10px;
 }
 
-.project-title b {
-  color: var(--metric-accent);
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
-.project-details {
+.breakdown-item > span {
   display: flex;
   flex-wrap: wrap;
   gap: 3px 8px;
+}
+
+.breakdown-item small {
+  color: color-mix(in srgb, var(--metric-text) 65%, transparent);
+  font-size: 9px;
+}
+
+.breakdown-item b {
+  color: var(--metric-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
 }
 
 .jump-hint {
@@ -326,7 +380,7 @@ const cardStyle = computed(() => ({
 }
 
 .density-compact .metric-body {
-  gap: 5px;
+  gap: 4px;
   padding-block-end: 7px;
 }
 </style>

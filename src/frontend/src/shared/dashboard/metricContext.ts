@@ -8,6 +8,8 @@ export interface MetricDashboardContext {
   cardById: (cardId: string) => DashboardMetricCard | undefined
   resultById: (cardId: string) => DashboardMetricResult | undefined
   edit: (card: DashboardMetricCard) => void
+  duplicate: (card: DashboardMetricCard) => void
+  restore: (card: DashboardMetricCard) => void
   remove: (cardId: string) => void
   jump: (card: DashboardMetricCard) => void
   nudge: (

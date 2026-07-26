@@ -102,9 +102,12 @@ vi.mock('../utils/snapshotChart', () => ({
 }))
 
 vi.mock('../utils/snapshotOverview', () => ({
-  defaultOverviewCards: [],
+  defaultOverviewCards: vi.fn(() => []),
+  duplicateOverviewCard: vi.fn(),
   nextOverviewCard: vi.fn(),
+  normalizeOverviewCard: vi.fn((card) => card),
   resolveOverviewMetric: vi.fn(),
+  restoreOverviewPreset: vi.fn(),
 }))
 
 import SnapshotPage from './SnapshotPage.vue'

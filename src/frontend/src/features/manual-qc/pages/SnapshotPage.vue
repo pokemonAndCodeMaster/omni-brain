@@ -29,8 +29,11 @@ import {
 } from '../utils/snapshotChart'
 import {
   defaultOverviewCards,
+  duplicateOverviewCard,
   nextOverviewCard,
+  normalizeOverviewCard,
   resolveOverviewMetric,
+  restoreOverviewPreset,
 } from '../utils/snapshotOverview'
 
 const {
@@ -66,6 +69,7 @@ const {
 } = useMetricWorkspace(
   'manual-qc-snapshot-overview',
   defaultOverviewCards,
+  normalizeOverviewCard,
 )
 
 const {
@@ -97,7 +101,11 @@ const overviewResults = computed<Record<string, DashboardMetricResult>>(() =>
   Object.fromEntries(
     overviewCards.value.map((card) => [
       card.id,
-      resolveOverviewMetric(card, snapshotRows.value),
+      resolveOverviewMetric(
+        card,
+        snapshotRows.value,
+        analysisCatalog.value?.metrics ?? [],
+      ),
     ]),
   ),
 )
@@ -158,9 +166,19 @@ function submitMetricCard(card: DashboardMetricCard): void {
   editingMetricCard.value = null
 }
 
+function duplicateMetricCard(card: DashboardMetricCard): void {
+  addOverviewCard(duplicateOverviewCard(card))
+}
+
+function restoreMetricCard(card: DashboardMetricCard): void {
+  const restored = restoreOverviewPreset(card)
+  if (restored) updateOverviewCard(restored)
+}
+
 function jumpFromMetric(card: DashboardMetricCard): void {
+  if (!card.action) return
   document
-    .querySelector(`#${card.jumpTarget}`)
+    .querySelector(`#${card.action.targetCardId}`)
     ?.scrollIntoView({ behavior: 'auto', block: 'start' })
 }
 
@@ -467,6 +485,8 @@ async function drillToDate(date: string): Promise<void> {
       :notice="overviewNotice"
       @add="openMetricEditor()"
       @edit="openMetricEditor"
+      @duplicate="duplicateMetricCard"
+      @restore="restoreMetricCard"
       @remove="removeOverviewCard"
       @jump="jumpFromMetric"
       @save="saveOverview"
@@ -476,6 +496,7 @@ async function drillToDate(date: string): Promise<void> {
     <MetricCardEditor
       :open="metricEditorOpen"
       :card="editingMetricCard"
+      :metrics="analysisCatalog?.metrics.filter((metric) => !metric.requiresQuestionOption) ?? []"
       @close="metricEditorOpen = false; editingMetricCard = null"
       @submit="submitMetricCard"
     />

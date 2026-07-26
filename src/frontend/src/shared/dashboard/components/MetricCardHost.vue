@@ -19,6 +19,8 @@ const result = computed(() => dashboard.resultById(props.cardId))
     :card="card"
     :result="result"
     @edit="dashboard.edit(card)"
+    @duplicate="dashboard.duplicate(card)"
+    @restore="dashboard.restore(card)"
     @remove="dashboard.remove(card.id)"
     @jump="dashboard.jump(card)"
     @nudge="dashboard.nudge(card, $event)"

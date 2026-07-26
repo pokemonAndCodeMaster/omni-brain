@@ -22,6 +22,7 @@ PageKey = Annotated[str, Path(pattern=r"^[A-Za-z0-9_.:-]{1,128}$")]
 @router.get(
     "/dashboard/{page_key}",
     response_model=DashboardConfigResponse,
+    response_model_exclude_none=True,
     responses={204: {"description": "尚未保存个人看板"}},
 )
 def get_dashboard(
@@ -37,6 +38,7 @@ def get_dashboard(
 @router.put(
     "/dashboard/{page_key}",
     response_model=DashboardConfigResponse,
+    response_model_exclude_none=True,
 )
 def save_dashboard(
     page_key: PageKey,
@@ -46,7 +48,11 @@ def save_dashboard(
     try:
         row = service.save_dashboard(
             page_key,
-            payload.model_dump(mode="json", by_alias=True),
+            payload.model_dump(
+                mode="json",
+                by_alias=True,
+                exclude_none=True,
+            ),
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
