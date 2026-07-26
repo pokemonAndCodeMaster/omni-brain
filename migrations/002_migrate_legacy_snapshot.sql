@@ -100,27 +100,33 @@ BEGIN
                 'actual_reject', legacy.bad_accept_rejected,
                 'exec_status', NULL
             ),
-            COALESCE((
-                SELECT jsonb_object_agg(
-                    metric.key,
-                    jsonb_build_object(
-                        'annotation_total', metric.value::integer,
-                        'annotation_submitted', metric.value::integer,
-                        'expect_alloc', 0,
-                        'actual_alloc', 0,
-                        'actual_complete', 0,
-                        'correct', 0,
-                        'incorrect', 0,
-                        'conclusion', NULL,
-                        'expect_pass', 0,
-                        'expect_reject', 0,
-                        'actual_pass', 0,
-                        'actual_reject', 0,
-                        'exec_status', NULL
-                    )
+            CASE
+                WHEN legacy.option_metrics = '{}'::jsonb THEN '{}'::jsonb
+                ELSE jsonb_build_object(
+                    '待确认问题标签',
+                    COALESCE((
+                        SELECT jsonb_object_agg(
+                            metric.key,
+                            jsonb_build_object(
+                                'annotation_total', metric.value::integer,
+                                'annotation_submitted', metric.value::integer,
+                                'expect_alloc', 0,
+                                'actual_alloc', 0,
+                                'actual_complete', 0,
+                                'correct', 0,
+                                'incorrect', 0,
+                                'conclusion', NULL,
+                                'expect_pass', 0,
+                                'expect_reject', 0,
+                                'actual_pass', 0,
+                                'actual_reject', 0,
+                                'exec_status', NULL
+                            )
+                        )
+                        FROM jsonb_each_text(legacy.option_metrics) AS metric
+                    ), '{}'::jsonb)
                 )
-                FROM jsonb_each_text(legacy.option_metrics) AS metric
-            ), '{}'::jsonb),
+            END,
             legacy.confirmed_by,
             legacy.confirmed_at,
             legacy.executed_by,

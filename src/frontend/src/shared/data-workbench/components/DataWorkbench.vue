@@ -26,6 +26,7 @@ import HeaderFilter from './HeaderFilter.vue'
 import WorkbenchToolbar from './WorkbenchToolbar.vue'
 import type {
   ColumnEditorSpec,
+  WorkbenchAnalysisRequest,
   WorkbenchColumnControl,
   WorkbenchFilterSpec,
   WorkbenchViewState,
@@ -39,12 +40,14 @@ const props = withDefaults(
     emptyText?: string
     canExpand?: (row: TData) => boolean
     loadChildren?: (row: TData) => Promise<boolean>
+    enableAnalysis?: boolean
   }>(),
   {
     editors: () => ({}),
     emptyText: '没有符合条件的数据',
     canExpand: undefined,
     loadChildren: undefined,
+    enableAnalysis: false,
   },
 )
 
@@ -53,6 +56,7 @@ const emit = defineEmits<{
   selectionChange: [rows: TData[]]
   stateChange: [state: WorkbenchViewState]
   rowExpand: [row: TData]
+  createChart: [request: WorkbenchAnalysisRequest<TData>]
 }>()
 
 const sorting = ref<SortingState>([])
@@ -147,6 +151,10 @@ const table = useVueTable<TData>({
 
 const selectedRows = computed(() =>
   table.getSelectedRowModel().flatRows.map((row) => row.original),
+)
+
+const filteredRows = computed(() =>
+  table.getFilteredRowModel().rows.map((row) => row.original),
 )
 
 const hasExpandedRows = computed(() =>
@@ -247,6 +255,29 @@ function getColumnLabel(columnId: string): string {
   return typeof header === 'string' ? header : columnId
 }
 
+function readableFilterValue(columnId: string, value: unknown): string {
+  const parts = String(value ?? '').split('\u0000').filter(Boolean)
+  const type = getFilterSpec(columnId)?.type
+  if (type === 'date-range') return parts.join(' 至 ')
+  return parts.join('、')
+}
+
+function createChart(): void {
+  const filters = cloneSerializable(columnFilters.value)
+  const filterSummary = filters
+    .map((filter) => {
+      const value = readableFilterValue(filter.id, filter.value)
+      return value ? `${getColumnLabel(filter.id)}=${value}` : ''
+    })
+    .filter(Boolean)
+    .join('；')
+  emit('createChart', {
+    rows: [...filteredRows.value],
+    filterSummary: filterSummary || '表格内无额外筛选',
+    filters,
+  })
+}
+
 function canEdit(row: TData, columnId: string): boolean {
   const editor = props.editors[columnId]
   return Boolean(editor && (!editor.canEdit || editor.canEdit(row)))
@@ -305,10 +336,13 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
       :active-filter-count="columnFilters.length"
       :columns="columnControls"
       :has-expanded-rows="hasExpandedRows"
+      :analysis-enabled="enableAnalysis"
+      :analysis-row-count="filteredRows.length"
       @clear-filters="table.resetColumnFilters()"
       @collapse-all="table.toggleAllRowsExpanded(false)"
       @toggle-column="toggleColumn"
       @move-column="moveColumn"
+      @create-chart="createChart"
     />
 
     <div class="table-scroll" data-testid="table-scroll">

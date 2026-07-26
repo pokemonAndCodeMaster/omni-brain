@@ -73,7 +73,7 @@ class SnapshotRowOut(BaseModel):
     annotation_submitted: int = Field(ge=0)
     good_metrics: MetricState
     bad_metrics: MetricState
-    option_metrics: dict[str, MetricState]
+    option_metrics: dict[str, dict[str, MetricState]]
     confirmed_by: str | None = None
     confirmed_at: datetime | None = None
     executed_by: str | None = None

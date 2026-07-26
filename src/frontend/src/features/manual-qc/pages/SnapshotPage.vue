@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import type { WorkbenchAnalysisRequest } from '@/shared/data-workbench/types'
+import ChartBuilderDialog from '@/shared/dashboard/components/ChartBuilderDialog.vue'
+import DashboardGrid from '@/shared/dashboard/components/DashboardGrid.vue'
+import { useDashboardCards } from '@/shared/dashboard/composables/useDashboardCards'
+import type { ChartBuilderValue } from '@/shared/dashboard/types'
 import SnapshotDataTable from '../components/SnapshotDataTable.vue'
 import SnapshotFilters from '../components/SnapshotFilters.vue'
 import SnapshotSummaryChart from '../components/SnapshotSummaryChart.vue'
 import { useSnapshotExplorer } from '../composables/useSnapshotExplorer'
+import type { AggregateNode } from '../types/snapshot'
+import {
+  buildSnapshotChartCard,
+  snapshotChartBuilderOptions,
+} from '../utils/snapshotChart'
 
 const {
   query,
@@ -21,6 +31,14 @@ const {
   resetAndLoad,
 } = useSnapshotExplorer()
 
+const {
+  cards,
+  addCard,
+  removeCard,
+  changeChartType,
+} = useDashboardCards()
+const builderOpen = ref(false)
+
 const freshness = computed(() => {
   if (!computedAt.value) return '尚无快照结果'
   const parsed = new Date(computedAt.value)
@@ -30,6 +48,39 @@ const freshness = computed(() => {
     timeStyle: 'medium',
   }).format(parsed)
 })
+
+function addBuiltCard(value: ChartBuilderValue): void {
+  addCard(
+    buildSnapshotChartCard(
+      sceneRows.value,
+      value,
+      filtersSummary.value,
+      '验收快照页面筛选结果',
+    ),
+  )
+}
+
+function addTableChart(
+  request: WorkbenchAnalysisRequest<AggregateNode>,
+): void {
+  const filterSummary = [
+    filtersSummary.value,
+    request.filterSummary,
+  ].filter(Boolean).join('；')
+  addCard(
+    buildSnapshotChartCard(
+      request.rows,
+      {
+        title: '当前表格筛选的验收完成与打回',
+        chartType: 'bar',
+        dimensionId: 'scene_name',
+        measureIds: ['accept_completed', 'accept_rejected'],
+      },
+      filterSummary,
+      '验收快照明细表',
+    ),
+  )
+}
 </script>
 
 <template>
@@ -82,11 +133,30 @@ const freshness = computed(() => {
       :filters-summary="filtersSummary"
     />
 
+    <DashboardGrid
+      :cards="cards"
+      :can-add="sceneRows.length > 0"
+      @add="builderOpen = true"
+      @remove="removeCard"
+      @chart-type-change="
+        changeChartType($event.cardId, $event.chartType)
+      "
+    />
+
+    <ChartBuilderDialog
+      :open="builderOpen"
+      :options="snapshotChartBuilderOptions"
+      default-title="验收快照自定义统计"
+      @close="builderOpen = false"
+      @submit="addBuiltCard"
+    />
+
     <SnapshotDataTable
       :rows="tree"
       :loading-keys="loadingKeys"
       :scene-options="sceneOptions"
       :load-children="expand"
+      @create-chart="addTableChart"
     />
   </div>
 </template>

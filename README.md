@@ -9,7 +9,8 @@
 1. 在项目 `.runtime/` 中启动隔离的 PostgreSQL 16；
 2. 创建 `V20260709_01` JSONB 版快照表并写入可手工核算的实验数据；
 3. 用 FastAPI 查询快照行和场景、组、员工三级聚合；
-4. 在 Vue 页面查看验收图表、筛选并逐级下钻。
+4. 在 Vue 页面查看验收图表、筛选并逐级下钻；
+5. 主动添加 ECharts 统计卡片，或把表格当前筛选结果一键转成卡片。
 
 ## 快速开始
 
@@ -79,6 +80,10 @@ QC_DB_PASSWORD='请替换为你自己的本地密码' scripts/postgres.sh enable
 | SSL | 关闭 |
 
 连接后在 `quality_lab` 数据库的 `manual_qc_lab` schema 中查看 `t_qc_daily_snapshot`。密码只用于修改数据库角色，不写入项目文件；TCP 只监听本机回环地址。使用完可关闭：
+
+如果日志提示 `user "quality_lab", database "postgres"` 被拒绝，说明 Navicat
+的“初始数据库”仍填成了 `postgres`；改为 `quality_lab` 即可，不需要放宽
+`pg_hba.conf`。
 
 ```bash
 scripts/postgres.sh disable-tcp

@@ -157,4 +157,29 @@ describe('DataWorkbench', () => {
     expect(screen.getByText('场景 B')).toBeTruthy()
     expect(screen.getByRole('button', { name: '组别（已筛选）筛选' })).toBeTruthy()
   })
+
+  it('只把当前表格筛选结果交给统计卡片动作', async () => {
+    const result = render(DataWorkbench<TestRow>, {
+      props: {
+        rows: baseRows,
+        columns,
+        canExpand: (row) => Boolean(row.hasChildren),
+        enableAnalysis: true,
+      },
+    })
+
+    await fireEvent.click(screen.getByRole('button', { name: '组别筛选' }))
+    await fireEvent.update(screen.getByRole('searchbox'), '二组')
+    await waitFor(() => expect(screen.queryByText('场景 A')).toBeNull())
+    await fireEvent.click(
+      screen.getByRole('button', { name: /生成统计卡片/ }),
+    )
+
+    const event = result.emitted().createChart?.[0]?.[0] as {
+      rows: TestRow[]
+      filterSummary: string
+    }
+    expect(event.rows.map((row) => row.id)).toEqual(['parent-b'])
+    expect(event.filterSummary).toBe('组别=二组')
+  })
 })

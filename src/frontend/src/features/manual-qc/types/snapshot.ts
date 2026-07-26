@@ -61,7 +61,7 @@ export interface SnapshotRow {
   annotation_submitted: number
   good_metrics: MetricState
   bad_metrics: MetricState
-  option_metrics: Record<string, MetricState>
+  option_metrics: Record<string, Record<string, MetricState>>
   confirmed_by: string | null
   confirmed_at: string | null
   executed_by: string | null

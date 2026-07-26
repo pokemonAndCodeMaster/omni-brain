@@ -3,6 +3,7 @@ import { computed, h } from 'vue'
 import { createColumnHelper } from '@tanstack/vue-table'
 import type { ColumnDef } from '@tanstack/vue-table'
 import DataWorkbench from '@/shared/data-workbench/components/DataWorkbench.vue'
+import type { WorkbenchAnalysisRequest } from '@/shared/data-workbench/types'
 import {
   dateRangeFilter,
   multiSelectFilter,
@@ -14,6 +15,10 @@ const props = defineProps<{
   loadingKeys: Set<string>
   sceneOptions: string[]
   loadChildren: (node: AggregateNode) => Promise<boolean>
+}>()
+
+const emit = defineEmits<{
+  createChart: [request: WorkbenchAnalysisRequest<AggregateNode>]
 }>()
 
 const columnHelper = createColumnHelper<AggregateNode>()
@@ -182,7 +187,9 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
       :columns="columns"
       :can-expand="(row) => row.hasChildren"
       :load-children="loadChildren"
+      enable-analysis
       empty-text="当前筛选没有验收快照。"
+      @create-chart="emit('createChart', $event)"
     />
   </section>
 </template>

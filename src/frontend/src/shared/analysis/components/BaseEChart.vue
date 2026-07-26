@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
-import { BarChart } from 'echarts/charts'
+import { BarChart, LineChart, PieChart } from 'echarts/charts'
 import {
   AriaComponent,
   GridComponent,
@@ -13,6 +13,8 @@ import type { ECharts, EChartsOption } from 'echarts'
 
 use([
   BarChart,
+  LineChart,
+  PieChart,
   AriaComponent,
   GridComponent,
   LegendComponent,
@@ -20,7 +22,13 @@ use([
   CanvasRenderer,
 ])
 
-const props = defineProps<{ option: EChartsOption }>()
+const props = withDefaults(
+  defineProps<{ option: EChartsOption; ariaLabel?: string; minHeight?: number }>(),
+  {
+    ariaLabel: '统计图表',
+    minHeight: 280,
+  },
+)
 const host = useTemplateRef<HTMLDivElement>('host')
 let chart: ECharts | null = null
 let observer: ResizeObserver | null = null
@@ -47,13 +55,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="host" class="chart-host" role="img" aria-label="验收场景对比图"></div>
+  <div
+    ref="host"
+    class="chart-host"
+    role="img"
+    :aria-label="ariaLabel"
+    :style="{ minHeight: `${minHeight}px` }"
+  ></div>
 </template>
 
 <style scoped>
 .chart-host {
   width: 100%;
   height: 100%;
-  min-height: 280px;
 }
 </style>

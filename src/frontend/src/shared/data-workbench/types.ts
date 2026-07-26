@@ -36,6 +36,12 @@ export interface WorkbenchColumnControl {
   canMoveRight: boolean
 }
 
+export interface WorkbenchAnalysisRequest<TData> {
+  rows: TData[]
+  filterSummary: string
+  filters: ColumnFiltersState
+}
+
 export const multiSelectFilter: FilterFn<unknown> = (
   row,
   columnId,

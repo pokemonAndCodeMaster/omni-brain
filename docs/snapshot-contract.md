@@ -34,7 +34,7 @@ stat_date × scene_name × group_name × employee_id
 | 8 | `annotation_submitted` | integer | 已提交标注量 |
 | 9 | `good_metrics` | jsonb | Good 维度的标注、验收、结论与执行状态 |
 | 10 | `bad_metrics` | jsonb | Bad 维度的标注、验收、结论与执行状态 |
-| 11 | `option_metrics` | jsonb | 以选项为 key 的同构指标对象 |
+| 11 | `option_metrics` | jsonb | 问题标签 → 选项 → 同构指标对象 |
 | 12 | `confirmed_by` | varchar(64) | 确认人 |
 | 13 | `confirmed_at` | timestamptz | 确认时间 |
 | 14 | `executed_by` | varchar(64) | 执行人 |
@@ -43,7 +43,21 @@ stat_date × scene_name × group_name × employee_id
 | 17 | `computed_at` | timestamptz | 指标计算时间 |
 | 18 | `updated_at` | timestamptz | 行更新时间 |
 
-`good_metrics`、`bad_metrics` 以及 `option_metrics.<option>` 使用同一结构：
+`option_metrics` 必须保留实际业务中的问题标签层级：
+
+```json
+{
+  "驾驶行为分类": {
+    "CUT_IN": {
+      "annotation_total": 12,
+      "annotation_submitted": 12
+    }
+  }
+}
+```
+
+`good_metrics`、`bad_metrics` 以及
+`option_metrics.<question_label>.<option_name>` 的叶子节点使用同一结构：
 
 ```json
 {
@@ -64,6 +78,11 @@ stat_date × scene_name × group_name × employee_id
 ```
 
 原始资料把这一组描述为“12 计数键 + exec_status”，但其显式字段清单实际包含 **11 个数值键、`conclusion` 和 `exec_status`**；本地 Pydantic 与 TypeScript 契约按显式字段清单实现。
+
+关于 `option_metrics` 的两份来源存在一层与两层结构冲突；2026-07-26 经业务方
+明确确认，实际业务必须保留“问题标签”层，故当前契约采用两层 key。旧数据迁移
+无法判断标签时统一进入 `待确认问题标签`，避免由代码虚构业务含义。
+数据库约束会拒绝把指标对象直接放在 `option_metrics.<option_name>` 的旧式平层写法。
 
 ## 计数不变量
 

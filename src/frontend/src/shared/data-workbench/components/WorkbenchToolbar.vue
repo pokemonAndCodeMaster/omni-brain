@@ -8,6 +8,8 @@ defineProps<{
   activeFilterCount: number
   columns: WorkbenchColumnControl[]
   hasExpandedRows: boolean
+  analysisEnabled: boolean
+  analysisRowCount: number
 }>()
 
 const emit = defineEmits<{
@@ -15,6 +17,7 @@ const emit = defineEmits<{
   collapseAll: []
   toggleColumn: [payload: { id: string; visible: boolean }]
   moveColumn: [payload: { id: string; direction: -1 | 1 }]
+  createChart: []
 }>()
 </script>
 
@@ -39,39 +42,52 @@ const emit = defineEmits<{
       </button>
     </div>
 
-    <details class="column-manager">
-      <summary class="button compact">列配置</summary>
-      <div class="column-popover">
-        <p class="popover-title">显示与顺序</p>
-        <div v-for="column in columns" :key="column.id" class="column-row">
-          <BaseCheckbox
-            :model-value="column.visible"
-            :label="column.label"
-            @update:model-value="
-              emit('toggleColumn', { id: column.id, visible: $event })
-            "
-          />
-          <span class="move-actions">
-            <button
-              type="button"
-              :disabled="!column.canMoveLeft"
-              :aria-label="`${column.label} 左移`"
-              @click="emit('moveColumn', { id: column.id, direction: -1 })"
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              :disabled="!column.canMoveRight"
-              :aria-label="`${column.label} 右移`"
-              @click="emit('moveColumn', { id: column.id, direction: 1 })"
-            >
-              →
-            </button>
-          </span>
+    <div class="toolbar-actions">
+      <button
+        v-if="analysisEnabled"
+        class="button compact analysis-button"
+        type="button"
+        :disabled="analysisRowCount === 0"
+        @click="emit('createChart')"
+      >
+        生成统计卡片
+        <small>{{ analysisRowCount }} 行</small>
+      </button>
+
+      <details class="column-manager">
+        <summary class="button compact">列配置</summary>
+        <div class="column-popover">
+          <p class="popover-title">显示与顺序</p>
+          <div v-for="column in columns" :key="column.id" class="column-row">
+            <BaseCheckbox
+              :model-value="column.visible"
+              :label="column.label"
+              @update:model-value="
+                emit('toggleColumn', { id: column.id, visible: $event })
+              "
+            />
+            <span class="move-actions">
+              <button
+                type="button"
+                :disabled="!column.canMoveLeft"
+                :aria-label="`${column.label} 左移`"
+                @click="emit('moveColumn', { id: column.id, direction: -1 })"
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                :disabled="!column.canMoveRight"
+                :aria-label="`${column.label} 右移`"
+                @click="emit('moveColumn', { id: column.id, direction: 1 })"
+              >
+                →
+              </button>
+            </span>
+          </div>
         </div>
-      </div>
-    </details>
+      </details>
+    </div>
   </div>
 </template>
 
@@ -107,6 +123,27 @@ const emit = defineEmits<{
 
 .column-manager {
   position: relative;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.analysis-button {
+  border-color: #9fb2e5;
+  background: var(--color-primary-soft);
+  color: #24499f;
+  font-weight: 700;
+}
+
+.analysis-button small {
+  margin-left: 5px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
 }
 
 .column-manager summary {
