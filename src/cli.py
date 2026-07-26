@@ -6,6 +6,16 @@ from pathlib import Path
 
 from src.config import ConfigManager
 from src.database import DatabaseManager
+from src.manual_qc.analysis import AnalysisQueryService, AnalysisRepository
+from src.manual_qc.analysis.catalog import SOURCE_ID
+from src.manual_qc.analysis.models import (
+    AnalysisFilter,
+    AnalysisPage,
+    AnalysisQuery,
+    AnalysisScope,
+    AnalysisSort,
+    MetricReference,
+)
 from src.manual_qc.snapshot.models import SnapshotFilter
 from src.manual_qc.snapshot.repository import SnapshotRepository
 from src.manual_qc.snapshot.snapshot_service import SnapshotQueryService
@@ -65,6 +75,7 @@ def command_verify() -> None:
     _, manager = _runtime()
     try:
         service = SnapshotQueryService(SnapshotRepository(manager.postgres()))
+        analysis_service = AnalysisQueryService(AnalysisRepository(manager.postgres()))
         filters = SnapshotFilter()
         rows, total = service.list_rows(filters, limit=1000, offset=0)
         projects = service.aggregate("project", filters)
@@ -95,6 +106,86 @@ def command_verify() -> None:
         assert len(employees) == 2, (
             f"expected 2 date-employee rows, got {len(employees)}"
         )
+        task_result = analysis_service.query(
+            AnalysisQuery(
+                source_id=SOURCE_ID,
+                scope=AnalysisScope(),
+                group_by=("project", "task"),
+                measures=(
+                    MetricReference("annotation.submitted"),
+                    MetricReference("annotation.good_rate"),
+                    MetricReference("acceptance.pass_rate"),
+                ),
+                sort=(
+                    AnalysisSort(
+                        MetricReference("annotation.submitted"),
+                        "descending",
+                    ),
+                ),
+                page=AnalysisPage(),
+            )
+        )
+        assert task_result.total == 4, (
+            f"expected 4 period-task rows, got {task_result.total}"
+        )
+        task_totals = {row.key: row.measures for row in task_result.rows}
+        assert task_totals["城区/高速::城区交互任务-A"]["annotation.submitted"] == 447
+        assert task_totals["城区/高速::城区交互任务-A"]["annotation.good_rate"] == 75.3915
+
+        low_pass_result = analysis_service.query(
+            AnalysisQuery(
+                source_id=SOURCE_ID,
+                scope=AnalysisScope(),
+                group_by=("project", "task"),
+                measures=(
+                    MetricReference("annotation.submitted"),
+                    MetricReference("acceptance.pass_rate"),
+                ),
+                filters=(
+                    AnalysisFilter(
+                        MetricReference("acceptance.pass_rate"),
+                        "less_than",
+                        80,
+                    ),
+                ),
+                sort=(
+                    AnalysisSort(
+                        MetricReference("acceptance.pass_rate"),
+                        "ascending",
+                    ),
+                ),
+                page=AnalysisPage(),
+            )
+        )
+        assert [row.key for row in low_pass_result.rows] == [
+            "园区::园区泊车任务-D",
+            "城区/高速::高速变道任务-B",
+        ]
+
+        cut_in_rate = MetricReference(
+            "option.annotation_rate_of_bad",
+            {
+                "question_label": "驾驶行为分类",
+                "question_option": "CUT_IN",
+            },
+        )
+        option_result = analysis_service.query(
+            AnalysisQuery(
+                source_id=SOURCE_ID,
+                scope=AnalysisScope(),
+                group_by=("project", "task"),
+                measures=(cut_in_rate,),
+                filters=(AnalysisFilter(cut_in_rate, "greater_than", 20),),
+                sort=(AnalysisSort(cut_in_rate, "descending"),),
+                page=AnalysisPage(),
+            )
+        )
+        assert [row.key for row in option_result.rows] == ["城区/高速::城区交互任务-A"]
+        assert analysis_service.facets(
+            scope=AnalysisScope(),
+            dimension_id="question_option",
+            question_label="驾驶行为分类",
+        ) == ["CUT_IN", "MERGE", "YIELD"]
         print(
             json.dumps(
                 {
@@ -104,6 +195,9 @@ def command_verify() -> None:
                     "date_task_rows": len(scene),
                     "task_date_group_rows": len(groups),
                     "task_group_date_employee_rows": len(employees),
+                    "period_task_rows": task_result.total,
+                    "low_pass_tasks": len(low_pass_result.rows),
+                    "cut_in_high_rate_tasks": len(option_result.rows),
                 },
                 ensure_ascii=False,
                 indent=2,

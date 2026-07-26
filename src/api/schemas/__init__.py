@@ -9,6 +9,7 @@ from .snapshot import (
     SceneAggregateOut,
     SnapshotRowOut,
 )
+from .analysis import AnalysisCatalogOut, AnalysisFacetOut, AnalysisQueryOut
 from .view_config import DashboardConfig, DashboardConfigResponse
 
 __all__ = [
@@ -19,6 +20,9 @@ __all__ = [
     "ProjectAggregateOut",
     "SceneAggregateOut",
     "SnapshotRowOut",
+    "AnalysisCatalogOut",
+    "AnalysisFacetOut",
+    "AnalysisQueryOut",
     "DashboardConfig",
     "DashboardConfigResponse",
 ]

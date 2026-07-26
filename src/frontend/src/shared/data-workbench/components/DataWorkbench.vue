@@ -41,6 +41,9 @@ const props = withDefaults(
     canExpand?: (row: TData) => boolean
     loadChildren?: (row: TData) => Promise<boolean>
     enableAnalysis?: boolean
+    enableRowSelection?: boolean
+    showExpandColumn?: boolean
+    filterScopeLabel?: string
   }>(),
   {
     editors: () => ({}),
@@ -48,6 +51,9 @@ const props = withDefaults(
     canExpand: undefined,
     loadChildren: undefined,
     enableAnalysis: false,
+    enableRowSelection: true,
+    showExpandColumn: true,
+    filterScopeLabel: '表头筛选默认只影响明细',
   },
 )
 
@@ -69,25 +75,33 @@ const columnOrder = ref<ColumnOrderState>([])
 const columnSizing = ref<ColumnSizingState>({})
 const loadingRowIds = shallowRef<Set<string>>(new Set())
 
-const utilityColumns: ColumnDef<TData, unknown>[] = [
-  {
-    id: '__select',
-    size: 44,
-    enableResizing: false,
-    enableSorting: false,
-    enableColumnFilter: false,
-  },
-  {
-    id: '__expand',
-    size: 58,
-    enableResizing: false,
-    enableSorting: false,
-    enableColumnFilter: false,
-  },
-]
+const utilityColumns = computed<ColumnDef<TData, unknown>[]>(() => [
+  ...(props.enableRowSelection
+    ? [
+        {
+          id: '__select',
+          size: 44,
+          enableResizing: false,
+          enableSorting: false,
+          enableColumnFilter: false,
+        } as ColumnDef<TData, unknown>,
+      ]
+    : []),
+  ...(props.showExpandColumn
+    ? [
+        {
+          id: '__expand',
+          size: 58,
+          enableResizing: false,
+          enableSorting: false,
+          enableColumnFilter: false,
+        } as ColumnDef<TData, unknown>,
+      ]
+    : []),
+])
 
 const mergedColumns = computed<ColumnDef<TData, unknown>[]>(() => [
-  ...utilityColumns,
+  ...utilityColumns.value,
   ...props.columns,
 ])
 
@@ -111,8 +125,8 @@ const table = useVueTable<TData>({
   getRowCanExpand: props.canExpand
     ? (row) => props.canExpand!(row.original)
     : undefined,
-  enableRowSelection: true,
-  enableSubRowSelection: true,
+  enableRowSelection: props.enableRowSelection,
+  enableSubRowSelection: props.enableRowSelection,
   columnResizeMode: 'onChange',
   state: {
     get sorting() {
@@ -349,7 +363,9 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
     <WorkbenchToolbar
       :row-count="rows.length"
       :selected-count="selectedRows.length"
+      :show-selection="enableRowSelection"
       :active-filter-count="columnFilters.length"
+      :filter-scope-label="filterScopeLabel"
       :columns="columnControls"
       :has-expanded-rows="hasExpandedRows"
       :analysis-enabled="enableAnalysis"

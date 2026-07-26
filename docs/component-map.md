@@ -9,6 +9,8 @@
 | `PGConnector` | 连接池、只读查询、写事务和批量写 | 验收业务判断 |
 | `SnapshotRepository` | 快照行查询与项目、标注任务、组、员工四级聚合 SQL | HTTP 和页面状态 |
 | `SnapshotQueryService` | 聚合级别和必填筛选的业务边界 | 拼接 SQL |
+| `AnalysisRepository` | 依据白名单维度和指标执行任务级聚合、比例筛选、问题选项参数查询与候选值读取 | 接受自由 SQL、自由公式或未登记字段 |
+| `AnalysisQueryService` | 校验人工质检指标目录、查询粒度、筛选、排序与问题选项参数 | 页面状态或 SQL 字符串拼接 |
 | FastAPI Router | 校验 HTTP 参数并调用 Service | 直接访问数据库 |
 | `ViewConfigRepository / Service` | 保存和恢复页面统计卡片定义、样式与布局 | 计算图表数据、解释指标 |
 
@@ -33,7 +35,10 @@
 | `useSnapshotExplorer` | 管理查询、加载、错误、树数据和四级懒加载 | 输出只读状态与 `load/reset/expand` 动作 |
 | `SnapshotFilters.vue` | 编辑日期、项目、标注任务、组和员工筛选 | `modelValue`；发出 `submit`、`reset` |
 | `SnapshotSummaryChart.vue` | 用数量柱、比率折线和 Bad 问题排行展示标注与验收，并切换任务/日期 | 最小快照行；发出任务/日期下钻 |
-| `SnapshotDataTable.vue` | 定义领域列、完成率/通过率公式并连接 DataWorkbench | `rows`、`loadingKeys`；发出制图或申请全页筛选 |
+| `SnapshotDataTable.vue` | 保留 V1 日期—项目根表实现，作为切片二迁移时的字段与懒加载参考；当前页面不再挂载 | 继续作为当前用户入口或复制领域公式到共享组件 |
+| `TaskAnalysisTable.vue` | 显示跨周期任务汇总，并按“任务信息→标注情况→验收进度→验收结果”组织首批业务列 | 接收任务汇总行、加载状态与指标目录；发出表头筛选的分析请求 |
+| `useTaskAnalysis` | 将顶部范围转成任务级受控查询并维护结果、加载与错误状态 | 接收页面筛选；输出只读任务行、总数、错误和 `load` 动作 |
+| `useAnalysisCatalog` | 读取后端指标目录，作为表头名称和后续编辑器字段来源 | 输出只读目录、加载状态、错误和 `load` 动作；不维护领域公式副本 |
 | `snapshotChart.ts` | 按日期、项目、标注任务、组、员工和结果层级聚合指标 | 保存的查询卡片；返回用最新快照计算的图表结果 |
 | `snapshotOverview.ts` | 计算全量及各项目的总览指标 | 总览卡片定义和最小快照行；返回标注/验收结果 |
 

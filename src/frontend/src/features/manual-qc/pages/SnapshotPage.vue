@@ -13,11 +13,12 @@ import type {
   DashboardMetricCard,
   DashboardMetricResult,
 } from '@/shared/dashboard/types'
-import SnapshotDataTable from '../components/SnapshotDataTable.vue'
 import SnapshotFilters from '../components/SnapshotFilters.vue'
 import SnapshotSummaryChart from '../components/SnapshotSummaryChart.vue'
+import TaskAnalysisTable from '../analysis/components/TaskAnalysisTable.vue'
+import { useAnalysisCatalog } from '../analysis/composables/useAnalysisCatalog'
+import { useTaskAnalysis } from '../analysis/composables/useTaskAnalysis'
 import { useSnapshotExplorer } from '../composables/useSnapshotExplorer'
-import type { AggregateNode } from '../types/snapshot'
 import {
   buildSnapshotChartCard,
   chartBuilderValueFromCard,
@@ -37,16 +38,16 @@ const {
   notice,
   sceneRows,
   snapshotRows,
-  tree,
-  loadingKeys,
   computedAt,
   sceneOptions,
   projectOptions,
   filtersSummary,
   load,
-  expand,
   resetAndLoad,
 } = useSnapshotExplorer()
+
+const taskAnalysis = useTaskAnalysis(query)
+const analysisCatalog = useAnalysisCatalog()
 
 const {
   cards: overviewCards,
@@ -160,15 +161,29 @@ function jumpFromMetric(card: DashboardMetricCard): void {
     ?.scrollIntoView({ behavior: 'auto', block: 'start' })
 }
 
-function addTableChart(
-  request: WorkbenchAnalysisRequest<AggregateNode>,
+function addTableChart<TData>(
+  request: WorkbenchAnalysisRequest<TData>,
 ): void {
-  const unsupportedFilters = request.filters.filter((item) =>
-    ['accept_completion_rate', 'accept_pass_rate'].includes(item.id),
-  )
-  if (unsupportedFilters.length) {
+  const transferableFilters = new Set([
+    'stat_date',
+    'project',
+    'task',
+    'project_name',
+    'scene_name',
+    'group_name',
+    'employee_id',
+  ])
+  const nonTransferableFilters = request.filters.filter((item) => {
+    if (!transferableFilters.has(item.id)) return true
+    // V1 卡片查询只能表达单一项目/任务等维度值；多个选择如果被悄悄忽略，
+    // 卡片会与表格使用不同的数据范围，因此必须阻止这次转换。
+    return item.id !== 'stat_date' && String(item.value ?? '').includes('\u0000')
+  })
+  if (nonTransferableFilters.length) {
     tableScopeNotice.value =
-      '完成率、通过率属于聚合后的明细条件，当前不能安全转换成可刷新图表的数据查询。请先用“应用到全页”收窄日期、项目或任务，再添加统计卡片。'
+      `当前表格包含${nonTransferableFilters
+        .map((item) => tableFilterDescription(item))
+        .join('、')}等聚合条件，不能安全转换为 V1 统计卡片的数据范围。请先用项目或任务收窄全页范围，或等待 V2 图表切片支持同口径查询。`
     return
   }
   const filterSummary = [
@@ -184,12 +199,18 @@ function addTableChart(
       if (start) filters.stat_date_start = start
       if (end) filters.stat_date_end = end
     } else if (
-      ['project_name', 'scene_name', 'group_name', 'employee_id'].includes(
-        item.id,
-      ) &&
+      ['project', 'task', 'project_name', 'scene_name', 'group_name', 'employee_id'].includes(item.id) &&
       !value.includes('\u0000')
     ) {
-      filters[item.id] = value
+      const field = {
+        project: 'project_name',
+        task: 'scene_name',
+        project_name: 'project_name',
+        scene_name: 'scene_name',
+        group_name: 'group_name',
+        employee_id: 'employee_id',
+      }[item.id]
+      if (field) filters[field] = value
     }
   }
   addCard(
@@ -218,8 +239,8 @@ function addTableChart(
     '已按当前全页范围和可转换的表头条件新增统计卡片；卡片拥有独立筛选，可继续编辑。'
 }
 
-async function applyTableFilters(
-  request: WorkbenchAnalysisRequest<AggregateNode>,
+async function applyTableFilters<TData>(
+  request: WorkbenchAnalysisRequest<TData>,
 ): Promise<void> {
   const applied: string[] = []
   const retained: string[] = []
@@ -235,16 +256,24 @@ async function applyTableFilters(
       continue
     }
     if (
-      ['project_name', 'scene_name', 'group_name', 'employee_id'].includes(
-        item.id,
-      )
+      ['project', 'task', 'project_name', 'scene_name', 'group_name', 'employee_id'].includes(item.id)
     ) {
+      const field = {
+        project: 'project_name',
+        task: 'scene_name',
+        project_name: 'project_name',
+        scene_name: 'scene_name',
+        group_name: 'group_name',
+        employee_id: 'employee_id',
+      }[item.id]
       const selected = value.split('\u0000').filter(Boolean)
-      if (selected.length === 1) {
-        query[item.id as keyof typeof query] = selected[0]
-        if (item.id === 'project_name') query.scene_name = ''
+      if (field && selected.length === 1) {
+        query[field as keyof typeof query] = selected[0]
+        if (field === 'project_name') query.scene_name = ''
         applied.push(
           {
+            project: '项目',
+            task: '标注任务',
             project_name: '项目',
             scene_name: '标注任务',
             group_name: '组',
@@ -257,15 +286,12 @@ async function applyTableFilters(
       continue
     }
     retained.push(
-      {
-        accept_completion_rate: '完成率范围',
-        accept_pass_rate: '通过率范围',
-      }[item.id] ?? item.id,
+      tableFilterLabel(item.id),
     )
   }
 
   if (applied.length) {
-    await load()
+    await loadPage()
     await nextTick()
     document
       .querySelector('#analysis-title')
@@ -281,6 +307,36 @@ async function applyTableFilters(
     : '当前表头条件无法无损转换为全页数据范围，已保留为明细筛选。'
 }
 
+function tableFilterLabel(identifier: string): string {
+  return {
+    annotation_submitted: '标注提交范围',
+    good_rate: 'Good 占比范围',
+    acceptance_allocated: '验收分配范围',
+    allocation_coverage_rate: '分配覆盖率范围',
+    acceptance_completed: '验收完成范围',
+    completion_rate: '完成率范围',
+    pass_rate: '通过率范围',
+    accept_completion_rate: '完成率范围',
+    accept_pass_rate: '通过率范围',
+  }[identifier] ?? identifier
+}
+
+function tableFilterDescription(filter: { id: string; value: unknown }): string {
+  if (filter.id !== 'stat_date' && String(filter.value ?? '').includes('\u0000')) {
+    return `${tableFilterLabel(filter.id)}多选`
+  }
+  return tableFilterLabel(filter.id)
+}
+
+async function loadPage(): Promise<void> {
+  await Promise.all([load(), taskAnalysis.load()])
+}
+
+async function resetPage(): Promise<void> {
+  await resetAndLoad()
+  await taskAnalysis.load()
+}
+
 async function drillToDetail(
   field: 'project_name' | 'scene_name',
   value: string,
@@ -291,7 +347,7 @@ async function drillToDetail(
   } else {
     query.scene_name = value
   }
-  await load()
+  await loadPage()
   await nextTick()
   document
     .querySelector('#snapshot-detail')
@@ -317,7 +373,7 @@ async function drillFromCard(
   } else {
     return
   }
-  await load()
+  await loadPage()
   await nextTick()
   document
     .querySelector('#snapshot-detail')
@@ -327,7 +383,7 @@ async function drillFromCard(
 async function drillToDate(date: string): Promise<void> {
   query.stat_date_start = date
   query.stat_date_end = date
-  await load()
+  await loadPage()
   await nextTick()
   document
     .querySelector('#snapshot-detail')
@@ -343,7 +399,7 @@ async function drillToDate(date: string): Promise<void> {
         <h2>从标注产出看到验收结果</h2>
         <p class="page-summary">
           先看不同项目与标注任务做了多少、结果如何分布，再看验收是否分得够、做得完、
-          通过或打回多少；图表可点击下钻，明细可逐级展开到组和员工。
+          通过或打回多少；当前明细先按任务汇总，日期、组和标注员下钻将在下一切片接入。
         </p>
       </div>
       <dl class="freshness-card">
@@ -363,8 +419,8 @@ async function drillToDate(date: string): Promise<void> {
       :scene-options="sceneOptions"
       :project-options="projectOptions"
       :loading="loading"
-      @submit="load"
-      @reset="resetAndLoad"
+      @submit="loadPage"
+      @reset="resetPage"
     />
 
     <div v-if="error" class="message error-message" role="alert">
@@ -444,12 +500,16 @@ async function drillToDate(date: string): Promise<void> {
     <p v-if="tableScopeNotice" class="table-scope-notice" role="status">
       {{ tableScopeNotice }}
     </p>
-    <SnapshotDataTable
+    <div v-if="taskAnalysis.error" class="message error-message" role="alert">
+      <strong>任务汇总读取失败</strong>
+      <span>{{ taskAnalysis.error }}</span>
+    </div>
+    <TaskAnalysisTable
       id="snapshot-detail"
-      :rows="tree"
-      :loading-keys="loadingKeys"
-      :scene-options="sceneOptions"
-      :load-children="expand"
+      :rows="taskAnalysis.rows"
+      :loading="taskAnalysis.loading"
+      :total="taskAnalysis.total"
+      :catalog="analysisCatalog.catalog"
       @create-chart="addTableChart"
       @apply-filters="applyTableFilters"
     />

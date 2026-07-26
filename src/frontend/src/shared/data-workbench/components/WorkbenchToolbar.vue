@@ -5,7 +5,9 @@ import type { WorkbenchColumnControl } from '../types'
 defineProps<{
   rowCount: number
   selectedCount: number
+  showSelection: boolean
   activeFilterCount: number
+  filterScopeLabel: string
   columns: WorkbenchColumnControl[]
   hasExpandedRows: boolean
   analysisEnabled: boolean
@@ -26,14 +28,16 @@ const emit = defineEmits<{
   <div class="workbench-toolbar">
     <div class="toolbar-group">
       <span class="badge"><strong>{{ rowCount }}</strong>&nbsp;个顶层对象</span>
-      <span class="badge">已选择&nbsp;<strong>{{ selectedCount }}</strong>&nbsp;行</span>
+      <span v-if="showSelection" class="badge">
+        已选择&nbsp;<strong>{{ selectedCount }}</strong>&nbsp;行
+      </span>
       <span v-if="activeFilterCount > 0" class="badge filter-badge">
         {{ activeFilterCount }} 个明细筛选
         <button type="button" class="link-button" @click="emit('clearFilters')">
           清除
         </button>
       </span>
-      <span class="scope-note">表头筛选默认只影响明细</span>
+      <span class="scope-note">{{ filterScopeLabel }}</span>
       <button
         v-if="hasExpandedRows"
         class="button compact"

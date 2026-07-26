@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.routers.analysis import router as analysis_router
 from src.api.routers.snapshot import router as snapshot_router
 from src.api.routers.view_config import router as view_config_router
 from src.api.schemas import HealthResponse
@@ -40,9 +41,10 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
         allow_credentials=False,
-        allow_methods=["GET", "PUT"],
+        allow_methods=["GET", "POST", "PUT"],
         allow_headers=["*"],
     )
+    app.include_router(analysis_router)
     app.include_router(snapshot_router)
     app.include_router(view_config_router)
 
