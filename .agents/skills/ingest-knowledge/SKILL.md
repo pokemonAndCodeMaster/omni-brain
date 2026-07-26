@@ -46,7 +46,14 @@ python scripts/ingestion_workspace.py files <case-id> <source-id> \
 
 先用文件名、标题、摘要、目录或代码符号在 `inventory.md` 建立**来源主题地图**，只做低成本定位：每份实质材料或可解释的小组分别记录主题、所属层次、现实形态、可能影响的问题和下一阅读动作。不要按目录从头读，也不要只读名字最像用户焦点的文件。标题或摘要明显涉及用户焦点、直接父级、直接上下游、完整生命周期、核心数据、规则、软件或公共能力时，默认进入定向阅读；只有能说明它不会改变知识地图、事实边界或读者答案时才排除。
 
-实质内容按单文件或已知总量的小批次读取，先用行数、目录或符号确定边界，必要时分段直到 EOF。不得用 wildcard/循环把多份长文一次性倾倒到同一个工具输出；工具报告截断、只显示头尾或中间内容不可见时，该部分视为**未读**，不能登记 `read_full`。批量标题扫描可以用于定位，但不能替代正文阅读。
+实质内容按单文件读取。确定某份材料会影响问题、知识地图或现实边界后，用工作台有界展示，重复执行返回的 `next` 命令直到 `displayed_complete=true`：
+
+```bash
+python scripts/ingestion_workspace.py source-read <case-id> <source-id> \
+  --path '<exact-relative-path>'
+```
+
+该命令每次只展示一个带行号的连续片段，并在现有 `coverage.yaml` 记录来源哈希和展示进度。`displayed_complete` 只证明脚本已把全文分块输出到会话，不证明 Agent 已理解；读完最后一块后仍要判断它支持什么问题、哪些细节改变结论、怎样进入知识地图。不得用 wildcard/循环把多份长文倾倒到一个工具输出；批量标题扫描只用于定位，不能替代正文阅读。
 
 按以下方式匹配结论与事实源：
 
@@ -72,7 +79,7 @@ python scripts/ingestion_workspace.py files <case-id> <source-id> \
 → 各层职责为什么这样划分、当前限制和一次具体修改路径
 ```
 
-覆盖账本只在阅读过程中顺手维护，不用它决定内容范围。状态是 Agent 声明：标题或关键词扫描记 `screened`；精确段落/符号记 `read_targeted`；确认文件全部内容在可见输出中读完才记 `read_full`。可以先批量把未处理文件标为 `screened`，但完成前必须重新处理来源主题地图中的相关材料；同一句泛化理由不能作为这些材料的最终排除说明。第一次登记前先运行 `python scripts/ingestion_workspace.py mark --help`；例如完整读完一个文件后可执行：
+覆盖账本只在阅读过程中顺手维护，不用它决定内容范围。状态是 Agent 声明：标题或关键词扫描记 `screened`；精确段落/符号记 `read_targeted`；`source-read` 已显示 `displayed_complete=true` 且你已理解全文后才记 `read_full`。可以先批量把未处理文件标为 `screened`，但完成前必须重新处理来源主题地图中的相关材料；同一句泛化理由不能作为这些材料的最终排除说明。第一次登记前先运行 `python scripts/ingestion_workspace.py mark --help`；例如完整读完一个文件后可执行：
 
 ```bash
 python scripts/ingestion_workspace.py mark <case-id> <source-id> \

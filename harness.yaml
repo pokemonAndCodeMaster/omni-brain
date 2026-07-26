@@ -1,12 +1,12 @@
 schema_version: '0.3'
 name: omni-brain-harness
 release_channel: experiment
-release_date: '2026-07-25'
+release_date: '2026-07-26'
 roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_content_first_v9_forward_test_failed
+  status: implemented_content_first_v10_awaiting_forward_test
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,14 +41,15 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_content_first_v9_forward_test_failed
+    adoption: implemented_content_first_v10_awaiting_forward_test
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
       - scripts/knowledge_check.py
     limits:
-      - V9 前向 Trial 能形成来源主题地图和 PostgreSQL 能力页，但长文只展示前 24 行后仍会被 Agent 声明 read_full
-      - 继续增加同类 Skill 文案已被反证；下一技术切片尚待用户确认，不属于当前实现
+      - V10 已实现 source-read 有界连续展示与机器 displayed_complete，且 read_full 受该事实约束
+      - displayed_complete 只证明脚本完整输出，不证明 Agent 已理解或知识已经充分内化
+      - V10 尚未经过 Luna 前向 Trial，不能据此声明内容闭环改善
       - 只读检查不判断业务真伪或内容充分性
       - 未取得 verified@slice 证据
   knowledge_query_and_context:

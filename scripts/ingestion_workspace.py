@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -23,10 +24,12 @@ import yaml
 from knowledge_check import markdown_table_errors, validate_bundle
 
 
-SCHEMA_VERSION = "0.2"
+SCHEMA_VERSION = "0.3"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 SOURCE_ID_RE = CASE_ID_RE
 LINK_RE = re.compile(r"(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)")
+SOURCE_READ_MAX_LINES = 80
+SOURCE_READ_MAX_CHARS = 6000
 REQUIRED_ROOT_FILES = {
     "case.yaml",
     "brief.md",
@@ -261,7 +264,8 @@ def render_source_summary(case_id: str, sources: list[dict[str, Any]]) -> str:
     lines.extend(
         [
             "",
-            "完整逐文件身份记录见 [source-manifest.jsonl](source-manifest.jsonl)，Agent 的筛查、读取与排除声明见 [coverage.yaml](coverage.yaml)。",
+            "完整逐文件身份记录见 [source-manifest.jsonl](source-manifest.jsonl)；"
+            "Agent 的筛查/理解声明与脚本的展示进度见 [coverage.yaml](coverage.yaml)。",
             "",
         ]
     )
@@ -304,6 +308,9 @@ def init_case(args: argparse.Namespace) -> int:
         "schema_version": SCHEMA_VERSION,
         "case_id": args.case_id,
         "semantics": "agent declarations; not machine-observed reading",
+        "display_semantics": (
+            "machine-observed script output; proves complete display, not agent comprehension"
+        ),
         "files": [
             {
                 "source_id": entry["source_id"],
@@ -373,6 +380,174 @@ def case_root(args: argparse.Namespace) -> Path:
     return root
 
 
+def find_manifest_entry(
+    root: Path, source_id: str, relative_path: str
+) -> dict[str, Any]:
+    matches = [
+        item
+        for item in read_manifest(root / "source-manifest.jsonl")
+        if item.get("source_id") == source_id and item.get("path") == relative_path
+    ]
+    if len(matches) != 1:
+        raise IngestionWorkspaceError(
+            f"来源清单中不存在唯一精确路径：{source_id}={relative_path}"
+        )
+    return matches[0]
+
+
+def find_source_root(root: Path, source_id: str) -> Path:
+    case = load_yaml(root / "case.yaml", "case.yaml")
+    matches = [
+        item
+        for item in case.get("sources", [])
+        if isinstance(item, dict) and item.get("id") == source_id
+    ]
+    if len(matches) != 1:
+        raise IngestionWorkspaceError(f"case.yaml 中不存在唯一来源：{source_id}")
+    source_root = Path(str(matches[0].get("root", ""))).resolve()
+    if not source_root.is_dir():
+        raise IngestionWorkspaceError(f"来源目录不存在：{source_root}")
+    return source_root
+
+
+def find_coverage_entry(
+    coverage: dict[str, Any], source_id: str, relative_path: str
+) -> dict[str, Any]:
+    files = coverage.get("files")
+    if not isinstance(files, list):
+        raise IngestionWorkspaceError("coverage.yaml files 必须是列表")
+    matches = [
+        item
+        for item in files
+        if isinstance(item, dict)
+        and item.get("source_id") == source_id
+        and item.get("path") == relative_path
+    ]
+    if len(matches) != 1:
+        raise IngestionWorkspaceError(
+            f"coverage.yaml 中不存在唯一精确路径：{source_id}={relative_path}"
+        )
+    return matches[0]
+
+
+def resolve_registered_source_file(
+    root: Path, source_id: str, relative_path: str
+) -> tuple[Path, dict[str, Any]]:
+    validate_id(source_id, "source id")
+    manifest_entry = find_manifest_entry(root, source_id, relative_path)
+    source_root = find_source_root(root, source_id)
+    source_path = (source_root / relative_path).resolve()
+    try:
+        source_path.relative_to(source_root)
+    except ValueError as exc:
+        raise IngestionWorkspaceError(f"来源路径逃逸授权目录：{relative_path}") from exc
+    if not source_path.is_file() or source_path.is_symlink():
+        raise IngestionWorkspaceError(f"来源文件不存在或不再是普通文件：{source_path}")
+    current_sha256 = sha256_file(source_path)
+    if current_sha256 != manifest_entry.get("sha256"):
+        raise IngestionWorkspaceError(
+            f"来源文件已变化，停止读取并重新建立摄入案：{source_id}={relative_path}"
+        )
+    return source_path, manifest_entry
+
+
+def source_read(args: argparse.Namespace) -> int:
+    root = case_root(args)
+    source_path, manifest_entry = resolve_registered_source_file(
+        root, args.source_id, args.path
+    )
+    try:
+        text = source_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise IngestionWorkspaceError(
+            f"source-read 只支持可按 UTF-8 展示的文本文件：{source_path}：{exc}"
+        ) from exc
+    lines = text.splitlines()
+    for number, line in enumerate(lines, 1):
+        if len(line) > SOURCE_READ_MAX_CHARS:
+            raise IngestionWorkspaceError(
+                f"第 {number} 行超过 {SOURCE_READ_MAX_CHARS} 字符，"
+                "无法保证单次输出有界；请人工处理或先提供可读文本版本"
+            )
+
+    coverage = load_yaml(root / "coverage.yaml", "coverage.yaml")
+    item = find_coverage_entry(coverage, args.source_id, args.path)
+    display = item.get("display")
+    if display is None:
+        display = {
+            "assertion": "machine_emitted",
+            "source_sha256": manifest_entry["sha256"],
+            "total_lines": len(lines),
+            "displayed_through_line": 0,
+            "displayed_complete": False,
+        }
+    if not isinstance(display, dict):
+        raise IngestionWorkspaceError("coverage.yaml display 必须是 mapping")
+    if (
+        display.get("source_sha256") != manifest_entry["sha256"]
+        or display.get("total_lines") != len(lines)
+    ):
+        raise IngestionWorkspaceError(
+            f"既有展示进度与当前来源不一致，停止读取：{args.source_id}={args.path}"
+        )
+    through = display.get("displayed_through_line", 0)
+    if not isinstance(through, int) or through < 0 or through > len(lines):
+        raise IngestionWorkspaceError("coverage.yaml displayed_through_line 无效")
+
+    start = through
+    end = start
+    emitted_chars = 0
+    while end < len(lines) and end - start < SOURCE_READ_MAX_LINES:
+        next_size = len(lines[end]) + 10
+        if end > start and emitted_chars + next_size > SOURCE_READ_MAX_CHARS:
+            break
+        emitted_chars += next_size
+        end += 1
+
+    display.update(
+        {
+            "assertion": "machine_emitted",
+            "source_sha256": manifest_entry["sha256"],
+            "total_lines": len(lines),
+            "displayed_through_line": end,
+            "displayed_complete": end == len(lines),
+            "updated_at": utc_now(),
+        }
+    )
+    item["display"] = display
+    dump_yaml(root / "coverage.yaml", coverage)
+
+    if start < end:
+        shown = f"{start + 1}-{end}/{len(lines)}"
+    else:
+        shown = f"complete/{len(lines)}"
+    print(
+        f"SOURCE_READ source={args.source_id} path={args.path} "
+        f"sha256={manifest_entry['sha256']} lines={shown} "
+        f"displayed_complete={str(end == len(lines)).lower()}"
+    )
+    for number in range(start, end):
+        print(f"{number + 1:06d} | {lines[number]}")
+    print("END_SOURCE_READ")
+    if end < len(lines):
+        command = [
+            "python",
+            "scripts/ingestion_workspace.py",
+            "source-read",
+            args.case_id,
+            args.source_id,
+            "--path",
+            args.path,
+        ]
+        print("next: " + " ".join(shlex.quote(value) for value in command))
+    else:
+        print(
+            "next: 全文已由脚本分块展示；理解内容后再登记 read_full，"
+            "不要把 displayed_complete 解释为已经理解"
+        )
+    return 0
+
+
 def mark_coverage(args: argparse.Namespace) -> int:
     root = case_root(args)
     validate_id(args.source_id, "source id")
@@ -425,6 +600,22 @@ def mark_coverage(args: argparse.Namespace) -> int:
             selected.append(item)
     if not selected:
         raise IngestionWorkspaceError("没有 coverage 条目匹配本次选择")
+    if args.status == "read_full":
+        selected_item = selected[0]
+        display = selected_item.get("display")
+        if not isinstance(display, dict) or display.get("displayed_complete") is not True:
+            raise IngestionWorkspaceError(
+                "read_full 需要先用 source-read 完整展示该文件；"
+                "displayed_complete 只证明展示完成，仍需 Agent 实际理解"
+            )
+        _, manifest_entry = resolve_registered_source_file(
+            root, args.source_id, args.path[0]
+        )
+        if (
+            display.get("assertion") != "machine_emitted"
+            or display.get("source_sha256") != manifest_entry.get("sha256")
+        ):
+            raise IngestionWorkspaceError("read_full 的机器展示事实与来源版本不一致")
     for item in selected:
         item["status"] = args.status
         item["assertion"] = "agent_declared"
@@ -647,6 +838,10 @@ def check_case(args: argparse.Namespace) -> int:
     coverage = load_yaml(root / "coverage.yaml", "coverage.yaml")
     if coverage.get("semantics") != "agent declarations; not machine-observed reading":
         errors.append("coverage.yaml 缺少 Agent 声明语义标记")
+    if coverage.get("display_semantics") != (
+        "machine-observed script output; proves complete display, not agent comprehension"
+    ):
+        errors.append("coverage.yaml 缺少机器展示事实语义标记")
     coverage_files = coverage.get("files")
     if not isinstance(coverage_files, list):
         errors.append("coverage.yaml files 必须是列表")
@@ -658,6 +853,7 @@ def check_case(args: argparse.Namespace) -> int:
     missing_evidence: list[tuple[Any, Any]] = []
     missing_assertions: list[tuple[Any, Any]] = []
     unbound_read_evidence: list[tuple[Any, Any]] = []
+    unverified_full_reads: list[tuple[Any, Any]] = []
     for item in coverage_files:
         if not isinstance(item, dict):
             errors.append("coverage.yaml file entry 必须是 mapping")
@@ -692,6 +888,14 @@ def check_case(args: argparse.Namespace) -> int:
                     )
                 if not bound:
                     unbound_read_evidence.append(key)
+            if status == "read_full":
+                display = item.get("display")
+                if (
+                    not isinstance(display, dict)
+                    or display.get("assertion") != "machine_emitted"
+                    or display.get("displayed_complete") is not True
+                ):
+                    unverified_full_reads.append(key)
     if unreviewed:
         errors.append(
             f"coverage.yaml 尚未分类 {len(unreviewed)} 项；示例：{unreviewed[:10]}"
@@ -717,6 +921,12 @@ def check_case(args: argparse.Namespace) -> int:
         errors.append(
             f"coverage.yaml 有 {len(unbound_read_evidence)} 个强阅读声明没有逐文件绑定证据；"
             f"示例：{unbound_read_evidence[:10]}"
+        )
+    if unverified_full_reads:
+        errors.append(
+            f"coverage.yaml 有 {len(unverified_full_reads)} 个 read_full "
+            "没有完整机器展示事实；"
+            f"示例：{unverified_full_reads[:10]}"
         )
     if coverage_keys != expected_keys:
         missing_coverage = expected_keys - coverage_keys
@@ -766,6 +976,13 @@ def check_case(args: argparse.Namespace) -> int:
         "workbench": str(root),
         "machine_source_files": len(manifest),
         "agent_coverage_claims": dict(sorted(counts.items())),
+        "machine_displayed_complete": sum(
+            1
+            for item in coverage_files
+            if isinstance(item, dict)
+            and isinstance(item.get("display"), dict)
+            and item["display"].get("displayed_complete") is True
+        ),
         "knowledge_files": knowledge_report.files_checked,
         "knowledge_concepts": knowledge_report.concepts_checked,
         "errors": errors,
@@ -778,6 +995,7 @@ def check_case(args: argparse.Namespace) -> int:
         print(f"case: {args.case_id}")
         print(f"machine source files: {len(manifest)}")
         print(f"agent coverage claims: {dict(sorted(counts.items()))}")
+        print(f"machine displayed complete: {result['machine_displayed_complete']}")
         print(
             f"knowledge files: {knowledge_report.files_checked}; "
             f"concepts: {knowledge_report.concepts_checked}"
@@ -795,6 +1013,13 @@ def status_case(args: argparse.Namespace) -> int:
     coverage = load_yaml(root / "coverage.yaml", "coverage.yaml")
     files = coverage.get("files") if isinstance(coverage.get("files"), list) else []
     counts = Counter(str(item.get("status")) for item in files if isinstance(item, dict))
+    displayed_complete = sum(
+        1
+        for item in files
+        if isinstance(item, dict)
+        and isinstance(item.get("display"), dict)
+        and item["display"].get("displayed_complete") is True
+    )
     print(
         json.dumps(
             {
@@ -815,6 +1040,7 @@ def status_case(args: argparse.Namespace) -> int:
                     if isinstance(item, dict)
                 ),
                 "agent_coverage_claims": dict(sorted(counts.items())),
+                "machine_displayed_complete": displayed_complete,
                 "content_review": "pending_human",
                 "review": str(root / "review.md"),
             },
@@ -829,7 +1055,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__,
         epilog=(
-            "公开契约：source-manifest/source-summary 是机器事实；coverage 是 Agent 声明。"
+            "公开契约：source-manifest/source-summary 是来源机器事实；coverage 的 status "
+            "是 Agent 声明，display 是脚本输出事实。"
             "check 只判定结构是否可交人工审查，不判定内容真实、充分或已经完成。"
         ),
     )
@@ -870,6 +1097,19 @@ def build_parser() -> argparse.ArgumentParser:
     files.add_argument("--glob", action="append", default=[])
     files.add_argument("--limit", type=int, default=100)
     files.set_defaults(func=list_files)
+
+    read = subparsers.add_parser(
+        "source-read",
+        help="逐块展示一个已登记 UTF-8 来源文件，并记录机器展示进度",
+        description=(
+            "每次只输出一个固定上限、带行号的连续片段；重复同一命令自动续读。"
+            "displayed_complete 只证明脚本已完整输出，不证明 Agent 已理解。"
+        ),
+    )
+    read.add_argument("case_id")
+    read.add_argument("source_id")
+    read.add_argument("--path", required=True)
+    read.set_defaults(func=source_read)
 
     check = subparsers.add_parser(
         "check",

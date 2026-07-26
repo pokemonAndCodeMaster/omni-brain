@@ -196,6 +196,119 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(1, payload["updated"])
         self.assertEqual("agent_declared", payload["assertion"])
 
+    def test_source_read_emits_bounded_contiguous_chunks_and_records_completion(self) -> None:
+        (self.source / "long.md").write_text(
+            "\n".join(f"line {number}" for number in range(1, 166)) + "\n",
+            encoding="utf-8",
+        )
+        case = self.init_case()
+
+        first = self.run_tool(
+            "source-read",
+            "sample-case",
+            "sample",
+            "--path",
+            "long.md",
+        )
+        self.assertEqual(0, first.returncode, first.stderr)
+        self.assertIn("lines=1-80/165 displayed_complete=false", first.stdout)
+        self.assertIn("000001 | line 1", first.stdout)
+        self.assertIn("000080 | line 80", first.stdout)
+        self.assertNotIn("000081 |", first.stdout)
+        self.assertIn("next: python scripts/ingestion_workspace.py source-read", first.stdout)
+
+        second = self.run_tool(
+            "source-read",
+            "sample-case",
+            "sample",
+            "--path",
+            "long.md",
+        )
+        self.assertEqual(0, second.returncode, second.stderr)
+        self.assertIn("lines=81-160/165 displayed_complete=false", second.stdout)
+        self.assertIn("000081 | line 81", second.stdout)
+
+        third = self.run_tool(
+            "source-read",
+            "sample-case",
+            "sample",
+            "--path",
+            "long.md",
+        )
+        self.assertEqual(0, third.returncode, third.stderr)
+        self.assertIn("lines=161-165/165 displayed_complete=true", third.stdout)
+        self.assertIn("000165 | line 165", third.stdout)
+
+        coverage = yaml.safe_load((case / "coverage.yaml").read_text(encoding="utf-8"))
+        entry = next(item for item in coverage["files"] if item["path"] == "long.md")
+        self.assertEqual(
+            {
+                "assertion": "machine_emitted",
+                "source_sha256": entry["display"]["source_sha256"],
+                "total_lines": 165,
+                "displayed_through_line": 165,
+                "displayed_complete": True,
+                "updated_at": entry["display"]["updated_at"],
+            },
+            entry["display"],
+        )
+
+    def test_read_full_requires_complete_machine_display(self) -> None:
+        self.init_case()
+        premature = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "read_full",
+            "--reason",
+            "理解全文",
+            "--evidence",
+            "one.md#full-file",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(2, premature.returncode)
+        self.assertIn("需要先用 source-read 完整展示", premature.stderr)
+
+        shown = self.run_tool(
+            "source-read",
+            "sample-case",
+            "sample",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(0, shown.returncode, shown.stderr)
+        self.assertIn("displayed_complete=true", shown.stdout)
+
+        accepted = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "read_full",
+            "--reason",
+            "理解全文",
+            "--evidence",
+            "one.md#full-file",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(0, accepted.returncode, accepted.stderr)
+
+    def test_source_read_stops_when_registered_file_changes(self) -> None:
+        self.init_case()
+        (self.source / "one.md").write_text("# Changed\n", encoding="utf-8")
+        result = self.run_tool(
+            "source-read",
+            "sample-case",
+            "sample",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(2, result.returncode)
+        self.assertIn("来源文件已变化", result.stderr)
+
     def test_check_rejects_malformed_workbench_table(self) -> None:
         case = self.init_case()
         mark = self.run_tool(
