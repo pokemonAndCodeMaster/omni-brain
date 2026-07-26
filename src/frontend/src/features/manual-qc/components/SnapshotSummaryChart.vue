@@ -127,7 +127,15 @@ function handleChartClick(mode: GroupMode, name: string): void {
   else emit('drillTask', name)
 }
 
-function baseChartOption(groups: AnalysisGroup[]): EChartsOption {
+function compactTaskLabel(value: string): string {
+  return value.replace(/任务-\d+$/u, '').replace(/任务$/u, '') || value
+}
+
+function baseChartOption(
+  groups: AnalysisGroup[],
+  mode: GroupMode,
+): EChartsOption {
+  const denseTasks = mode === 'task' && groups.length > 12
   return {
     animationDuration: 260,
     aria: { enabled: true },
@@ -137,16 +145,50 @@ function baseChartOption(groups: AnalysisGroup[]): EChartsOption {
       bottom: 0,
       textStyle: { color: '#667789', fontSize: 10 },
     },
-    grid: { top: 34, right: 52, bottom: 70, left: 48 },
+    grid: {
+      top: 34,
+      right: 52,
+      bottom: denseTasks ? 92 : 70,
+      left: 48,
+    },
     xAxis: {
       type: 'category',
       data: groups.map((group) => group.label),
       axisLabel: {
         color: '#637487',
         interval: 0,
-        rotate: groups.length > 5 ? 24 : 0,
+        rotate: denseTasks ? 0 : groups.length > 5 ? 24 : 0,
+        hideOverlap: true,
+        width: denseTasks ? 72 : undefined,
+        overflow: denseTasks ? 'truncate' : undefined,
+        formatter:
+          mode === 'task'
+            ? (value: string) => compactTaskLabel(value)
+            : undefined,
       },
     },
+    dataZoom: denseTasks
+      ? [
+          {
+            type: 'inside',
+            startValue: 0,
+            endValue: 9,
+            zoomLock: true,
+            moveOnMouseWheel: true,
+            zoomOnMouseWheel: false,
+          },
+          {
+            type: 'slider',
+            startValue: 0,
+            endValue: 9,
+            zoomLock: true,
+            height: 14,
+            bottom: 22,
+            brushSelect: false,
+            showDetail: false,
+          },
+        ]
+      : undefined,
     yAxis: [
       {
         type: 'value',
@@ -183,7 +225,7 @@ const annotationOption = computed<EChartsOption>(() => {
     data: groups.map((group) => group.options.get(option) ?? 0),
   }))
   return {
-    ...baseChartOption(groups),
+    ...baseChartOption(groups, annotationMode.value),
     color: ['#268462', '#8794a3', '#2359c4', '#d5535d'],
     series: [
       {
@@ -233,7 +275,7 @@ const annotationOption = computed<EChartsOption>(() => {
 const progressOption = computed<EChartsOption>(() => {
   const groups = progressGroups.value
   return {
-    ...baseChartOption(groups),
+    ...baseChartOption(groups, progressMode.value),
     color: ['#315fc4', '#2a8b69', '#e1a33a'],
     series: [
       {
@@ -263,7 +305,7 @@ const progressOption = computed<EChartsOption>(() => {
 const resultOption = computed<EChartsOption>(() => {
   const groups = resultGroups.value
   return {
-    ...baseChartOption(groups),
+    ...baseChartOption(groups, resultMode.value),
     color: ['#27805f', '#c64d58', '#315fc4'],
     series: [
       {

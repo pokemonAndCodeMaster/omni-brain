@@ -122,6 +122,37 @@ describe('DataWorkbench', () => {
     expect(timeHeader.getAttribute('scope')).toBe('colgroup')
   })
 
+  it('单列拖动只改变目标叶子列宽，不把其他列同步拉宽', async () => {
+    const { container } = render(DataWorkbench<TestRow>, {
+      props: {
+        rows: baseRows,
+        columns,
+        enableRowSelection: false,
+        showExpandColumn: false,
+      },
+    })
+
+    const columnElements = [...container.querySelectorAll('col')]
+    const resizers = [...container.querySelectorAll<HTMLElement>('.column-resizer')]
+    expect(columnElements.map((column) => column.getAttribute('style'))).toEqual([
+      'width: 160px;',
+      'width: 130px;',
+      'width: 130px;',
+    ])
+
+    await fireEvent.mouseDown(resizers[0]!, { clientX: 160 })
+    await fireEvent.mouseMove(document, { clientX: 210 })
+    await fireEvent.mouseUp(document, { clientX: 210 })
+
+    await waitFor(() => {
+      expect(columnElements[0]?.getAttribute('style')).toBe('width: 210px;')
+    })
+    expect(columnElements.slice(1).map((column) => column.getAttribute('style'))).toEqual([
+      'width: 130px;',
+      'width: 130px;',
+    ])
+  })
+
   it('懒加载完成前不把加号切成减号，完成后再展开子行', async () => {
     let finishLoad: (() => void) | undefined
     const waiting = new Promise<void>((resolve) => {

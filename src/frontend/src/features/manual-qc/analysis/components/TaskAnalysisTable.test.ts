@@ -40,6 +40,56 @@ function taskRow(
   }
 }
 
+function analysisChild(
+  parent: TaskAnalysisRow,
+  level: TaskAnalysisRow['level'],
+  objectLabel: string,
+  statDate: string,
+): TaskAnalysisRow {
+  return {
+    ...parent,
+    id: `${parent.id}:${level}:${objectLabel}`,
+    level,
+    objectLabel,
+    objectType: {
+      task: '标注任务',
+      date: '日期',
+      group: '组',
+      employee: '标注员',
+    }[level],
+    statDate,
+    group: level === 'group' || level === 'employee' ? objectLabel : '',
+    employee: level === 'employee' ? objectLabel : '',
+    path: {
+      ...parent.path,
+      statDate: statDate || undefined,
+      group: level === 'group' || level === 'employee' ? objectLabel : undefined,
+      employee: level === 'employee' ? objectLabel : undefined,
+    },
+    children: [],
+    hasChildren: level !== 'employee',
+  }
+}
+
+function taskTree(): TaskAnalysisRow {
+  const task = taskRow('城区交互任务-A', '城区/高速', {
+    submitted: 447,
+    goodRate: 75.4,
+    allocated: 102,
+    completed: 93,
+    completionRate: 91.2,
+    passRate: 90.3,
+  })
+  const firstDate = analysisChild(task, 'date', '2026-07-13', '2026-07-13')
+  const secondDate = analysisChild(task, 'date', '2026-07-20', '2026-07-20')
+  const group = analysisChild(firstDate, 'group', '质检一组', '2026-07-13')
+  const employee = analysisChild(group, 'employee', '标注员-001', '2026-07-13')
+  group.children = [employee]
+  firstDate.children = [group]
+  task.children = [firstDate, secondDate]
+  return task
+}
+
 const rows: TaskAnalysisRow[] = [
   taskRow('城区交互任务-A', '城区/高速', {
     submitted: 447,
@@ -120,6 +170,85 @@ describe('TaskAnalysisTable', () => {
     expect(
       screen.getByLabelText('当前显示 1 / 2 个标注任务'),
     ).toBeTruthy()
+  })
+
+  it('精确筛选任务后仍可展开其日期下钻', async () => {
+    const tree = taskTree()
+    render(TaskAnalysisTable, {
+      props: {
+        ...baseProps,
+        rows: [tree, rows[1]!],
+        total: 2,
+      },
+    })
+
+    await fireEvent.click(
+      screen.getByRole('button', { name: '标注任务 / 下钻对象筛选' }),
+    )
+    await fireEvent.click(
+      screen.getByRole('checkbox', { name: '城区交互任务-A' }),
+    )
+    await fireEvent.click(
+      screen.getByRole('button', { name: `展开 ${tree.id}` }),
+    )
+
+    expect(screen.getAllByRole('cell', { name: '2026-07-13' })).toHaveLength(2)
+    expect(screen.getAllByRole('cell', { name: '2026-07-20' })).toHaveLength(2)
+    expect(
+      screen.queryByRole('cell', { name: '园区泊车任务-D' }),
+    ).toBeNull()
+  })
+
+  it('按对象类型筛选时保留上级路径，并可下钻到目标层级', async () => {
+    const tree = taskTree()
+    const firstDate = tree.children![0]!
+    render(TaskAnalysisTable, {
+      props: {
+        ...baseProps,
+        rows: [tree],
+        total: 1,
+      },
+    })
+
+    await fireEvent.click(
+      screen.getByRole('button', { name: '对象类型筛选' }),
+    )
+    await fireEvent.click(screen.getByRole('checkbox', { name: '组' }))
+    await fireEvent.click(
+      screen.getByRole('button', { name: `展开 ${tree.id}` }),
+    )
+    await fireEvent.click(
+      screen.getByRole('button', { name: `展开 ${firstDate.id}` }),
+    )
+
+    expect(screen.getByRole('cell', { name: '城区交互任务-A' })).toBeTruthy()
+    expect(screen.getAllByRole('cell', { name: '2026-07-13' })).toHaveLength(3)
+    expect(screen.getByRole('cell', { name: '质检一组' })).toBeTruthy()
+    expect(screen.queryByText('标注员-001')).toBeNull()
+  })
+
+  it('统计日期使用时间段筛选，并在任务下只保留命中日期', async () => {
+    const tree = taskTree()
+    render(TaskAnalysisTable, {
+      props: {
+        ...baseProps,
+        rows: [tree],
+        total: 1,
+      },
+    })
+
+    await fireEvent.click(
+      screen.getByRole('button', { name: '统计日期筛选' }),
+    )
+    expect(screen.queryByRole('searchbox')).toBeNull()
+    await fireEvent.update(screen.getByLabelText('起始日期'), '2026-07-20')
+    await fireEvent.update(screen.getByLabelText('截止日期'), '2026-07-20')
+    await fireEvent.click(
+      screen.getByRole('button', { name: `展开 ${tree.id}` }),
+    )
+
+    expect(screen.getAllByRole('cell', { name: '2026-07-20' })).toHaveLength(2)
+    expect(screen.queryByRole('cell', { name: '2026-07-13' })).toBeNull()
   })
 
   it('可按 Good 占比筛选，并点击业务指标打开构成详情', async () => {

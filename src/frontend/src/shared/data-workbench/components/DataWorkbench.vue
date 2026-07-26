@@ -167,6 +167,8 @@ const table = useVueTable<TData>({
   getFilteredRowModel: getFilteredRowModel(),
   getSortedRowModel: getSortedRowModel(),
   getExpandedRowModel: getExpandedRowModel(),
+  filterFromLeafRows: true,
+  maxLeafRowFilterDepth: 100,
 })
 
 const selectedRows = computed(() =>
@@ -410,6 +412,13 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
         class="data-table"
         :style="{ width: `${table.getTotalSize()}px` }"
       >
+        <colgroup>
+          <col
+            v-for="column in table.getVisibleLeafColumns()"
+            :key="column.id"
+            :style="{ width: `${column.getSize()}px` }"
+          />
+        </colgroup>
         <thead>
           <tr
             v-for="headerGroup in table.getHeaderGroups()"
@@ -422,7 +431,6 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
               :colspan="header.colSpan"
               :scope="header.subHeaders.length ? 'colgroup' : 'col'"
               :class="{ 'group-header': header.subHeaders.length > 0 }"
-              :style="{ width: `${header.getSize()}px` }"
             >
               <template v-if="header.isPlaceholder" />
               <template v-else-if="header.column.id === '__select'">
@@ -483,7 +491,6 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
             <td
               v-for="cell in row.getVisibleCells()"
               :key="cell.id"
-              :style="{ width: `${cell.column.getSize()}px` }"
             >
               <template v-if="cell.column.id === '__select'">
                 <BaseCheckbox

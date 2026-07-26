@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, h } from 'vue'
 import { createColumnHelper } from '@tanstack/vue-table'
-import type { ColumnDef } from '@tanstack/vue-table'
+import type { ColumnDef, FilterFn } from '@tanstack/vue-table'
 import DataWorkbench from '@/shared/data-workbench/components/DataWorkbench.vue'
 import type {
   WorkbenchAnalysisRequest,
   WorkbenchViewState,
 } from '@/shared/data-workbench/types'
 import {
+  dateRangeFilter,
   numberRangeFilter,
+  parseTextSelectionFilter,
   textSelectionFilter,
 } from '@/shared/data-workbench/types'
 import {
@@ -45,6 +47,59 @@ const emit = defineEmits<{
 }>()
 
 const columnHelper = createColumnHelper<TaskAnalysisRow>()
+const levelLabels = ['标注任务', '日期', '组', '标注员'] as const
+const levelOrder = {
+  task: 0,
+  date: 1,
+  group: 2,
+  employee: 3,
+} as const
+
+const taskBranchFilter: FilterFn<TaskAnalysisRow> = (
+  row,
+  _columnId,
+  filterValue,
+) => {
+  const filter = parseTextSelectionFilter(filterValue)
+  const query = filter.query.trim().toLocaleLowerCase()
+  const matchesQuery =
+    !query ||
+    row.original.task.toLocaleLowerCase().includes(query) ||
+    row.original.objectLabel.toLocaleLowerCase().includes(query)
+  const matchesSelection =
+    !filter.selected.length || filter.selected.includes(row.original.task)
+  return matchesQuery && matchesSelection
+}
+
+const hierarchyLevelFilter: FilterFn<TaskAnalysisRow> = (
+  row,
+  _columnId,
+  filterValue,
+) => {
+  const filter = parseTextSelectionFilter(filterValue)
+  const query = filter.query.trim().toLocaleLowerCase()
+  const targetDepths = levelLabels
+    .map((label, depth) => ({ label, depth }))
+    .filter(({ label }) => {
+      const matchesQuery =
+        !query || label.toLocaleLowerCase().includes(query)
+      const matchesSelection =
+        !filter.selected.length || filter.selected.includes(label)
+      return matchesQuery && matchesSelection
+    })
+    .map(({ depth }) => depth)
+  if (!targetDepths.length) return false
+  return levelOrder[row.original.level] <= Math.max(...targetDepths)
+}
+
+const hierarchyDateRangeFilter: FilterFn<TaskAnalysisRow> = (
+  row,
+  columnId,
+  filterValue,
+) => {
+  if (row.original.level === 'task') return true
+  return dateRangeFilter(row, columnId, filterValue, () => undefined)
+}
 
 function countCell(value: number): ReturnType<typeof h> {
   return h('span', { class: value === 0 ? 'zero-count' : 'count-value' }, value)
@@ -127,8 +182,6 @@ const taskOptions = computed(() =>
   [...new Set(props.rows.map((row) => row.task))].sort(),
 )
 
-const levelOptions = ['标注任务', '日期', '组', '标注员']
-
 const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
   columnHelper.group({
     id: 'task-identity',
@@ -138,7 +191,7 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
         id: 'object_label',
         header: '标注任务 / 下钻对象',
         size: 230,
-        filterFn: textSelectionFilter,
+        filterFn: taskBranchFilter,
         meta: {
           filter: {
             type: 'text-select',
@@ -150,11 +203,11 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
         id: 'object_type',
         header: '对象类型',
         size: 88,
-        filterFn: textSelectionFilter,
+        filterFn: hierarchyLevelFilter,
         meta: {
           filter: {
             type: 'text-select',
-            options: levelOptions,
+            options: [...levelLabels],
           },
         },
       }),
@@ -169,8 +222,8 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
         id: 'stat_date',
         header: '统计日期',
         size: 122,
-        filterFn: textSelectionFilter,
-        meta: { filter: { type: 'text' } },
+        filterFn: hierarchyDateRangeFilter,
+        meta: { filter: { type: 'date-range' } },
         cell: (context) => context.getValue() || props.periodLabel,
       }),
     ],
@@ -333,7 +386,7 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
       :load-children="loadChildren"
       :initial-view-state="initialViewState"
       :enable-row-selection="false"
-      filter-scope-label="表头筛选默认只影响当前已加载层级"
+      filter-scope-label="层级筛选保留上级路径；展开后自动筛选新加载明细"
       row-count-label="个标注任务"
       enable-analysis
       empty-text="当前范围没有可汇总的标注任务。"

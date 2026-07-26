@@ -103,6 +103,7 @@ const option = computed<EChartsOption>(() => {
 
   const horizontal =
     style.chartType === 'bar' && style.orientation === 'horizontal'
+  const denseVerticalCategories = !horizontal && categories.length > 12
   const hasCountAxis = series.some((item) => item.axis !== 'rate')
   const hasRateAxis = series.some((item) => item.axis === 'rate')
   const dualAxis = !horizontal && hasCountAxis && hasRateAxis
@@ -113,7 +114,13 @@ const option = computed<EChartsOption>(() => {
       color: '#667789',
       fontSize: fontSize.axis,
       interval: 0,
-      rotate: !horizontal && categories.length > 6 ? 24 : 0,
+      rotate:
+        !horizontal && !denseVerticalCategories && categories.length > 6
+          ? 24
+          : 0,
+      hideOverlap: true,
+      width: denseVerticalCategories ? 72 : undefined,
+      overflow: denseVerticalCategories ? 'truncate' : undefined,
     },
   }
   const valueAxis = {
@@ -143,9 +150,33 @@ const option = computed<EChartsOption>(() => {
       right: 18,
       top: style.showLegend && !legendAtBottom ? 42 : 26,
       bottom:
-        horizontal || !style.showLegend || !legendAtBottom ? 58 : 78,
+        denseVerticalCategories
+          ? legendAtBottom ? 94 : 74
+          : horizontal || !style.showLegend || !legendAtBottom ? 58 : 78,
       containLabel: false,
     },
+    dataZoom: denseVerticalCategories
+      ? [
+          {
+            type: 'inside',
+            startValue: 0,
+            endValue: 9,
+            zoomLock: true,
+            moveOnMouseWheel: true,
+            zoomOnMouseWheel: false,
+          },
+          {
+            type: 'slider',
+            startValue: 0,
+            endValue: 9,
+            zoomLock: true,
+            height: 14,
+            bottom: legendAtBottom ? 22 : 8,
+            brushSelect: false,
+            showDetail: false,
+          },
+        ]
+      : undefined,
     xAxis: horizontal ? valueAxis : categoryAxis,
     yAxis: horizontal
       ? categoryAxis

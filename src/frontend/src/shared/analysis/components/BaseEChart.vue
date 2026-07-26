@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
 import { BarChart, LineChart, PieChart } from 'echarts/charts'
 import {
   AriaComponent,
+  DataZoomComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,
@@ -16,6 +17,7 @@ use([
   LineChart,
   PieChart,
   AriaComponent,
+  DataZoomComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,
