@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-import type { WorkbenchAnalysisRequest } from '@/shared/data-workbench/types'
+import {
+  parseTextSelectionFilter,
+  type WorkbenchAnalysisRequest,
+} from '@/shared/data-workbench/types'
 import ChartBuilderDialog from '@/shared/dashboard/components/ChartBuilderDialog.vue'
 import DashboardGrid from '@/shared/dashboard/components/DashboardGrid.vue'
 import MetricCardEditor from '@/shared/dashboard/components/MetricCardEditor.vue'
@@ -178,14 +181,11 @@ function addTableChart<TData>(
     'task',
     'project_name',
     'scene_name',
-    'group_name',
-    'employee_id',
   ])
   const nonTransferableFilters = request.filters.filter((item) => {
     if (!transferableFilters.has(item.id)) return true
-    // V1 卡片查询只能表达单一项目/任务等维度值；多个选择如果被悄悄忽略，
-    // 卡片会与表格使用不同的数据范围，因此必须阻止这次转换。
-    return item.id !== 'stat_date' && String(item.value ?? '').includes('\u0000')
+    if (item.id === 'stat_date') return false
+    return exactDimensionFilterValue(item) === null
   })
   if (nonTransferableFilters.length) {
     tableScopeNotice.value =
@@ -200,23 +200,21 @@ function addTableChart<TData>(
   ].filter(Boolean).join('；')
   const filters = { ...pageFilterSnapshot.value }
   for (const item of request.filters) {
-    const value = String(item.value ?? '')
-    if (!value) continue
     if (item.id === 'stat_date') {
+      const value = String(item.value ?? '')
       const [start = '', end = ''] = value.split('\u0000')
       if (start) filters.stat_date_start = start
       if (end) filters.stat_date_end = end
     } else if (
-      ['project', 'task', 'project_name', 'scene_name', 'group_name', 'employee_id'].includes(item.id) &&
-      !value.includes('\u0000')
+      ['project', 'task', 'project_name', 'scene_name'].includes(item.id)
     ) {
+      const value = exactDimensionFilterValue(item)
+      if (value === null) continue
       const field = {
         project: 'project_name',
         task: 'scene_name',
         project_name: 'project_name',
         scene_name: 'scene_name',
-        group_name: 'group_name',
-        employee_id: 'employee_id',
       }[item.id]
       if (field) filters[field] = value
     }
@@ -254,9 +252,8 @@ async function applyTableFilters<TData>(
   const retained: string[] = []
 
   for (const item of request.filters) {
-    const value = String(item.value ?? '')
-    if (!value) continue
     if (item.id === 'stat_date') {
+      const value = String(item.value ?? '')
       const [start = '', end = ''] = value.split('\u0000')
       query.stat_date_start = start
       query.stat_date_end = end
@@ -264,19 +261,17 @@ async function applyTableFilters<TData>(
       continue
     }
     if (
-      ['project', 'task', 'project_name', 'scene_name', 'group_name', 'employee_id'].includes(item.id)
+      ['project', 'task', 'project_name', 'scene_name'].includes(item.id)
     ) {
       const field = {
         project: 'project_name',
         task: 'scene_name',
         project_name: 'project_name',
         scene_name: 'scene_name',
-        group_name: 'group_name',
-        employee_id: 'employee_id',
       }[item.id]
-      const selected = value.split('\u0000').filter(Boolean)
-      if (field && selected.length === 1) {
-        query[field as keyof typeof query] = selected[0]
+      const selected = exactDimensionFilterValue(item)
+      if (field && selected !== null) {
+        query[field as keyof typeof query] = selected
         if (field === 'project_name') query.scene_name = ''
         applied.push(
           {
@@ -284,12 +279,10 @@ async function applyTableFilters<TData>(
             task: '标注任务',
             project_name: '项目',
             scene_name: '标注任务',
-            group_name: '组',
-            employee_id: '员工',
           }[item.id]!,
         )
       } else {
-        retained.push(`${item.id} 的多选条件`)
+        retained.push(tableFilterDescription(item))
       }
       continue
     }
@@ -317,6 +310,12 @@ async function applyTableFilters<TData>(
 
 function tableFilterLabel(identifier: string): string {
   return {
+    project: '项目',
+    task: '标注任务',
+    project_name: '项目',
+    scene_name: '标注任务',
+    group_name: '组',
+    employee_id: '员工',
     annotation_submitted: '标注提交范围',
     good_rate: 'Good 占比范围',
     acceptance_allocated: '验收分配范围',
@@ -330,10 +329,32 @@ function tableFilterLabel(identifier: string): string {
 }
 
 function tableFilterDescription(filter: { id: string; value: unknown }): string {
+  if (filter.id === 'project' || filter.id === 'task') {
+    const value = parseTextSelectionFilter(filter.value)
+    if (value.query.trim()) {
+      return `${tableFilterLabel(filter.id)}包含文字`
+    }
+    if (value.selected.length > 1) {
+      return `${tableFilterLabel(filter.id)}多选`
+    }
+  }
   if (filter.id !== 'stat_date' && String(filter.value ?? '').includes('\u0000')) {
     return `${tableFilterLabel(filter.id)}多选`
   }
   return tableFilterLabel(filter.id)
+}
+
+function exactDimensionFilterValue(
+  filter: { id: string; value: unknown },
+): string | null {
+  if (filter.id === 'project' || filter.id === 'task') {
+    const value = parseTextSelectionFilter(filter.value)
+    return !value.query.trim() && value.selected.length === 1
+      ? value.selected[0]!
+      : null
+  }
+  const value = String(filter.value ?? '')
+  return value && !value.includes('\u0000') ? value : null
 }
 
 async function loadPage(): Promise<void> {

@@ -31,6 +31,7 @@ import type {
   WorkbenchFilterSpec,
   WorkbenchViewState,
 } from '../types'
+import { parseTextSelectionFilter } from '../types'
 
 const props = withDefaults(
   defineProps<{
@@ -44,6 +45,7 @@ const props = withDefaults(
     enableRowSelection?: boolean
     showExpandColumn?: boolean
     filterScopeLabel?: string
+    rowCountLabel?: string
   }>(),
   {
     editors: () => ({}),
@@ -54,6 +56,7 @@ const props = withDefaults(
     enableRowSelection: true,
     showExpandColumn: true,
     filterScopeLabel: '表头筛选默认只影响明细',
+    rowCountLabel: '条记录',
   },
 )
 
@@ -257,11 +260,11 @@ function getFilterSpec(columnId: string): WorkbenchFilterSpec | undefined {
   return table.getColumn(columnId)?.columnDef.meta?.filter
 }
 
-function getFilterValue(columnId: string): string {
-  return String(table.getColumn(columnId)?.getFilterValue() ?? '')
+function getFilterValue(columnId: string): unknown {
+  return table.getColumn(columnId)?.getFilterValue() ?? ''
 }
 
-function setFilterValue(columnId: string, value: string): void {
+function setFilterValue(columnId: string, value: unknown): void {
   table.getColumn(columnId)?.setFilterValue(value || undefined)
 }
 
@@ -271,9 +274,18 @@ function getColumnLabel(columnId: string): string {
 }
 
 function readableFilterValue(columnId: string, value: unknown): string {
+  const type = getFilterSpec(columnId)?.type
+  if (type === 'text-select') {
+    const filter = parseTextSelectionFilter(value)
+    return [
+      filter.query.trim() ? `包含“${filter.query.trim()}”` : '',
+      filter.selected.length
+        ? `精确选择 ${filter.selected.join('、')}`
+        : '',
+    ].filter(Boolean).join('且')
+  }
   const rawParts = String(value ?? '').split('\u0000')
   const parts = rawParts.filter(Boolean)
-  const type = getFilterSpec(columnId)?.type
   if (type === 'date-range') return parts.join(' 至 ')
   if (type === 'number-range') {
     const [minimum = '', maximum = ''] = rawParts
@@ -361,7 +373,9 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
 <template>
   <section class="workbench-shell" aria-label="数据工作台">
     <WorkbenchToolbar
-      :row-count="rows.length"
+      :row-count="filteredRows.length"
+      :total-row-count="rows.length"
+      :row-count-label="rowCountLabel"
       :selected-count="selectedRows.length"
       :show-selection="enableRowSelection"
       :active-filter-count="columnFilters.length"
@@ -392,9 +406,13 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
             <th
               v-for="header in headerGroup.headers"
               :key="header.id"
+              :colspan="header.colSpan"
+              :scope="header.subHeaders.length ? 'colgroup' : 'col'"
+              :class="{ 'group-header': header.subHeaders.length > 0 }"
               :style="{ width: `${header.getSize()}px` }"
             >
-              <template v-if="header.column.id === '__select'">
+              <template v-if="header.isPlaceholder" />
+              <template v-else-if="header.column.id === '__select'">
                 <BaseCheckbox
                   :model-value="table.getIsAllRowsSelected()"
                   :indeterminate="table.getIsSomeRowsSelected()"
@@ -434,7 +452,10 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
                 />
               </div>
               <div
-                v-if="header.column.getCanResize()"
+                v-if="
+                  !header.subHeaders.length &&
+                  header.column.getCanResize()
+                "
                 class="column-resizer"
                 :class="{ resizing: header.column.getIsResizing() }"
                 @mousedown="header.getResizeHandler()($event)"
@@ -576,7 +597,7 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
 
 .data-table th {
   position: sticky;
-  z-index: 10;
+  z-index: 11;
   top: 0;
   height: 42px;
   overflow: visible;
@@ -585,6 +606,23 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.data-table .header-row + .header-row th {
+  top: 42px;
+}
+
+.data-table th.group-header {
+  z-index: 12;
+  border-bottom-color: #cbd4df;
+  background: #e9edf3;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+.data-table th.group-header .header-button {
+  justify-content: center;
+  text-align: center;
 }
 
 .data-table td {

@@ -5,8 +5,8 @@ import type { ColumnDef } from '@tanstack/vue-table'
 import DataWorkbench from '@/shared/data-workbench/components/DataWorkbench.vue'
 import type { WorkbenchAnalysisRequest } from '@/shared/data-workbench/types'
 import {
-  multiSelectFilter,
   numberRangeFilter,
+  textSelectionFilter,
 } from '@/shared/data-workbench/types'
 import type { AnalysisCatalog, TaskAnalysisRow } from '../types/analysis'
 
@@ -61,15 +61,15 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
         id: 'task',
         header: label('task', '标注任务'),
         size: 210,
-        filterFn: multiSelectFilter,
-        meta: { filter: { type: 'select', options: taskOptions.value } },
+        filterFn: textSelectionFilter,
+        meta: { filter: { type: 'text-select', options: taskOptions.value } },
       }),
       columnHelper.accessor('project', {
         id: 'project',
         header: label('project', '项目'),
         size: 128,
-        filterFn: multiSelectFilter,
-        meta: { filter: { type: 'select', options: projectOptions.value } },
+        filterFn: textSelectionFilter,
+        meta: { filter: { type: 'text-select', options: projectOptions.value } },
       }),
     ],
   }),
@@ -179,6 +179,7 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
       :enable-row-selection="false"
       :show-expand-column="false"
       filter-scope-label="表头筛选默认只影响当前任务比较"
+      row-count-label="个标注任务"
       enable-analysis
       empty-text="当前范围没有可汇总的标注任务。"
       @create-chart="emit('createChart', $event)"

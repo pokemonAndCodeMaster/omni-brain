@@ -24,8 +24,13 @@ export interface ColumnEditorSpec<TData> {
 }
 
 export interface WorkbenchFilterSpec {
-  type: 'text' | 'select' | 'date-range' | 'number-range'
+  type: 'text' | 'select' | 'text-select' | 'date-range' | 'number-range'
   options?: string[]
+}
+
+export interface WorkbenchTextSelectionFilterValue {
+  query: string
+  selected: string[]
 }
 
 export interface WorkbenchColumnControl {
@@ -51,6 +56,40 @@ export const multiSelectFilter: FilterFn<unknown> = (
     .split('\u0000')
     .filter(Boolean)
   return selected.length === 0 || selected.includes(String(row.getValue(columnId) ?? ''))
+}
+
+export function parseTextSelectionFilter(
+  value: unknown,
+): WorkbenchTextSelectionFilterValue {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const candidate = value as Partial<WorkbenchTextSelectionFilterValue>
+    return {
+      query: typeof candidate.query === 'string' ? candidate.query : '',
+      selected: Array.isArray(candidate.selected)
+        ? candidate.selected.filter(
+            (item): item is string => typeof item === 'string',
+          )
+        : [],
+    }
+  }
+  return {
+    query: '',
+    selected: String(value ?? '').split('\u0000').filter(Boolean),
+  }
+}
+
+export const textSelectionFilter: FilterFn<unknown> = (
+  row,
+  columnId,
+  filterValue,
+) => {
+  const { query, selected } = parseTextSelectionFilter(filterValue)
+  const value = String(row.getValue(columnId) ?? '')
+  const matchesText =
+    !query.trim() ||
+    value.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+  const matchesSelection = selected.length === 0 || selected.includes(value)
+  return matchesText && matchesSelection
 }
 
 export const dateRangeFilter: FilterFn<unknown> = (

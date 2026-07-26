@@ -4,6 +4,8 @@ import type { WorkbenchColumnControl } from '../types'
 
 defineProps<{
   rowCount: number
+  totalRowCount: number
+  rowCountLabel: string
   selectedCount: number
   showSelection: boolean
   activeFilterCount: number
@@ -27,7 +29,18 @@ const emit = defineEmits<{
 <template>
   <div class="workbench-toolbar">
     <div class="toolbar-group">
-      <span class="badge"><strong>{{ rowCount }}</strong>&nbsp;个顶层对象</span>
+      <span
+        class="badge"
+        :aria-label="`当前显示 ${rowCount}${
+          rowCount !== totalRowCount ? ` / ${totalRowCount}` : ''
+        } ${rowCountLabel}`"
+      >
+        当前显示&nbsp;<strong>{{ rowCount }}</strong>
+        <template v-if="rowCount !== totalRowCount">
+          &nbsp;/&nbsp;{{ totalRowCount }}
+        </template>
+        &nbsp;{{ rowCountLabel }}
+      </span>
       <span v-if="showSelection" class="badge">
         已选择&nbsp;<strong>{{ selectedCount }}</strong>&nbsp;行
       </span>

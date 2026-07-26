@@ -32,6 +32,33 @@ const columns = [
   }),
 ]
 
+const groupedColumns = [
+  helper.group({
+    id: 'identity',
+    header: '对象信息',
+    columns: [
+      helper.accessor('name', {
+        header: '名称',
+        size: 160,
+      }),
+      helper.accessor('group', {
+        header: '组别',
+        size: 130,
+      }),
+    ],
+  }),
+  helper.group({
+    id: 'time',
+    header: '时间信息',
+    columns: [
+      helper.accessor('statDate', {
+        header: '日期',
+        size: 130,
+      }),
+    ],
+  }),
+]
+
 const baseRows: TestRow[] = [
   {
     id: 'parent-a',
@@ -71,6 +98,28 @@ describe('DataWorkbench', () => {
 
     expect(container.querySelectorAll('[data-testid="table-scroll"]')).toHaveLength(1)
     expect(container.querySelectorAll('.scroll-mirror')).toHaveLength(0)
+  })
+
+  it('用真实列跨度表达分组表头与子列的对应关系', () => {
+    render(DataWorkbench<TestRow>, {
+      props: {
+        rows: baseRows,
+        columns: groupedColumns,
+        enableRowSelection: false,
+        showExpandColumn: false,
+      },
+    })
+
+    const identityHeader = screen.getByRole('columnheader', {
+      name: '对象信息',
+    })
+    const timeHeader = screen.getByRole('columnheader', {
+      name: '时间信息',
+    })
+    expect(identityHeader.getAttribute('colspan')).toBe('2')
+    expect(identityHeader.getAttribute('scope')).toBe('colgroup')
+    expect(timeHeader.getAttribute('colspan')).toBe('1')
+    expect(timeHeader.getAttribute('scope')).toBe('colgroup')
   })
 
   it('懒加载完成前不把加号切成减号，完成后再展开子行', async () => {
@@ -159,6 +208,8 @@ describe('DataWorkbench', () => {
     expect(screen.getByRole('button', { name: '日期筛选' })).toBeTruthy()
 
     await fireEvent.click(screen.getByRole('button', { name: '组别筛选' }))
+    const dialog = screen.getByRole('dialog', { name: '组别筛选条件' })
+    expect(dialog.parentElement).toBe(document.body)
     await fireEvent.update(screen.getByRole('searchbox'), '二组')
 
     await waitFor(() => expect(screen.queryByText('场景 A')).toBeNull())

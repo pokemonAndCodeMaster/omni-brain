@@ -46,6 +46,42 @@ describe('TaskAnalysisTable', () => {
     expect(screen.getByText('城区交互任务-A')).toBeTruthy()
     expect(screen.queryByText('层级')).toBeNull()
     expect(screen.queryByLabelText(/选择/)).toBeNull()
+    expect(
+      screen.getByLabelText('当前显示 2 个标注任务'),
+    ).toBeTruthy()
+
+    expect(
+      screen
+        .getByRole('columnheader', { name: '任务信息' })
+        .getAttribute('colspan'),
+    ).toBe('2')
+    expect(
+      screen
+        .getByRole('columnheader', { name: '验收进度' })
+        .getAttribute('colspan'),
+    ).toBe('4')
+  })
+
+  it('任务文本列同时支持输入包含筛选和精确勾选', async () => {
+    render(TaskAnalysisTable, {
+      props: { rows, loading: false, total: 2 },
+    })
+
+    await fireEvent.click(screen.getByRole('button', { name: '标注任务筛选' }))
+    expect(screen.getByRole('searchbox')).toBeTruthy()
+    expect(
+      screen.getByRole('checkbox', { name: '园区泊车任务-D' }),
+    ).toBeTruthy()
+
+    await fireEvent.update(screen.getByRole('searchbox'), '泊车')
+
+    await waitFor(() => expect(screen.queryByText('城区交互任务-A')).toBeNull())
+    expect(
+      screen.getByRole('cell', { name: '园区泊车任务-D' }),
+    ).toBeTruthy()
+    expect(
+      screen.getByLabelText('当前显示 1 / 2 个标注任务'),
+    ).toBeTruthy()
   })
 
   it('可按 Good 占比这一业务列筛选任务', async () => {
