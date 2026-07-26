@@ -18,7 +18,7 @@ function closeMobileNav() {
         <span class="brand-mark">QC</span>
         <span class="brand-copy">
           <strong>质检一站式平台</strong>
-          <small>LOCAL LAB · JSONB SNAPSHOT</small>
+          <small>本地实验 · 人工质检快照</small>
         </span>
       </div>
 
@@ -26,7 +26,7 @@ function closeMobileNav() {
         <p class="nav-group">人工质检</p>
         <RouterLink to="/manual-qc/snapshots" @click="closeMobileNav">
           <span class="nav-index">01</span>
-          <span>验收快照</span>
+          <span>标注与验收快照</span>
         </RouterLink>
         <div class="nav-placeholder">
           <span class="nav-index">02</span>

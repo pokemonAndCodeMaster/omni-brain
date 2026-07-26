@@ -40,14 +40,18 @@ class MetricState(MetricTotals):
     ] | None = None
 
 
-class SceneAggregateOut(BaseModel):
+class ProjectAggregateOut(BaseModel):
     stat_date: date
-    scene_name: str
+    project_name: str
     annotation_total: int = Field(ge=0)
     annotation_submitted: int = Field(ge=0)
     good_metrics: MetricTotals
     bad_metrics: MetricTotals
     computed_at: datetime
+
+
+class SceneAggregateOut(ProjectAggregateOut):
+    scene_name: str
 
 
 class GroupAggregateOut(SceneAggregateOut):

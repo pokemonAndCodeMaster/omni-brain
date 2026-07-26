@@ -86,15 +86,30 @@ class SnapshotRepository:
         return self._postgres.fetch_all(statement, params)
 
     def aggregate_by_scene(self, filters: SnapshotFilter) -> list[dict[str, Any]]:
-        return self._aggregate(filters, ("stat_date", "scene_name"))
+        return self._aggregate(
+            filters,
+            ("stat_date", "project_name", "scene_name"),
+        )
+
+    def aggregate_by_project(self, filters: SnapshotFilter) -> list[dict[str, Any]]:
+        return self._aggregate(filters, ("stat_date", "project_name"))
 
     def aggregate_by_group(self, filters: SnapshotFilter) -> list[dict[str, Any]]:
-        return self._aggregate(filters, ("stat_date", "scene_name", "group_name"))
+        return self._aggregate(
+            filters,
+            ("stat_date", "project_name", "scene_name", "group_name"),
+        )
 
     def aggregate_by_employee(self, filters: SnapshotFilter) -> list[dict[str, Any]]:
         return self._aggregate(
             filters,
-            ("stat_date", "scene_name", "group_name", "employee_id"),
+            (
+                "stat_date",
+                "project_name",
+                "scene_name",
+                "group_name",
+                "employee_id",
+            ),
         )
 
     def list_minimum_rows(
@@ -110,7 +125,7 @@ class SnapshotRepository:
             SELECT *
             FROM {self._table}
             {where_sql}
-            ORDER BY stat_date DESC, scene_name, group_name, employee_id
+            ORDER BY stat_date DESC, project_name, scene_name, group_name, employee_id
             LIMIT %(limit)s OFFSET %(offset)s
         """
         return self._postgres.fetch_all(statement, params)

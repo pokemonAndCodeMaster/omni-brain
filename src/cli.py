@@ -67,27 +67,43 @@ def command_verify() -> None:
         service = SnapshotQueryService(SnapshotRepository(manager.postgres()))
         filters = SnapshotFilter()
         rows, total = service.list_rows(filters, limit=1000, offset=0)
+        projects = service.aggregate("project", filters)
         scene = service.aggregate("scene", filters)
-        groups = service.aggregate("group", SnapshotFilter(scene_name="城区交互"))
+        groups = service.aggregate(
+            "group",
+            SnapshotFilter(
+                project_name="城区/高速",
+                scene_name="城区交互任务-A",
+            ),
+        )
         employees = service.aggregate(
             "employee",
-            SnapshotFilter(scene_name="城区交互", group_name="一组"),
+            SnapshotFilter(
+                project_name="城区/高速",
+                scene_name="城区交互任务-A",
+                group_name="一组",
+            ),
         )
         assert total == 16, f"expected 16 rows, got {total}"
         assert len(rows) == 16
-        assert len(scene) == 4, f"expected 4 date-scene rows, got {len(scene)}"
+        assert {row["project_name"] for row in projects} == {"园区", "城区/高速"}
+        assert len(projects) == 4, (
+            f"expected 4 date-project rows, got {len(projects)}"
+        )
+        assert len(scene) == 8, f"expected 8 date-task rows, got {len(scene)}"
         assert len(groups) == 4, f"expected 4 date-group rows, got {len(groups)}"
-        assert len(employees) == 4, (
-            f"expected 4 date-employee rows, got {len(employees)}"
+        assert len(employees) == 2, (
+            f"expected 2 date-employee rows, got {len(employees)}"
         )
         print(
             json.dumps(
                 {
                     "status": "verified",
                     "snapshot_rows": total,
-                    "date_scene_rows": len(scene),
-                    "city_date_group_rows": len(groups),
-                    "city_group_date_employee_rows": len(employees),
+                    "date_project_rows": len(projects),
+                    "date_task_rows": len(scene),
+                    "task_date_group_rows": len(groups),
+                    "task_group_date_employee_rows": len(employees),
                 },
                 ensure_ascii=False,
                 indent=2,

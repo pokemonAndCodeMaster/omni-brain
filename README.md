@@ -1,6 +1,6 @@
 # Quality Platform Lab
 
-人工质检一站式平台的本地实验工程。当前切片把 ConfigManager、独立 PostgreSQL、验收快照、FastAPI 和 Vue 页面连成一条可运行的数据链。
+人工质检一站式平台的本地实验工程。当前切片把 ConfigManager、独立 PostgreSQL、人工质检快照、FastAPI 和 Vue 页面连成一条可运行的数据链。
 
 工程目录和快照字段以原始质检平台资料中的当前实现为基线，不再使用早期实验自定义的 `quality_platform_lab` 包或 `lab-v1` 字段集。
 
@@ -8,9 +8,10 @@
 
 1. 在项目 `.runtime/` 中启动隔离的 PostgreSQL 16；
 2. 创建 `V20260709_01` JSONB 版快照表并写入可手工核算的实验数据；
-3. 用 FastAPI 查询快照行和场景、组、员工三级聚合；
-4. 在 Vue 页面查看验收图表、筛选并逐级下钻；
-5. 主动添加 ECharts 统计卡片，或把表格当前筛选结果一键转成卡片。
+3. 用 FastAPI 查询快照行和项目、标注任务、组、员工四级聚合；
+4. 在 Vue 页面先看标注产出，再看验收分配、完成和结论，并逐级下钻；
+5. 添加、编辑、拖动和缩放 ECharts 统计卡片，或把表格当前筛选结果一键转成卡片；
+6. 把卡片的查询、样式和布局保存到 PostgreSQL，重开页面时用最新快照重新计算并恢复。
 
 ## 快速开始
 
@@ -79,11 +80,12 @@ QC_DB_PASSWORD='请替换为你自己的本地密码' scripts/postgres.sh enable
 | 密码 | 上一步的 `QC_DB_PASSWORD` |
 | SSL | 关闭 |
 
-连接后在 `quality_lab` 数据库的 `manual_qc_lab` schema 中查看 `t_qc_daily_snapshot`。密码只用于修改数据库角色，不写入项目文件；TCP 只监听本机回环地址。使用完可关闭：
+必须填写 `127.0.0.1`，不要填写 `localhost`；Windows 可能把后者解析成当前实验库没有监听的 IPv6 `::1`。连接后在 `quality_lab` 数据库的 `manual_qc_lab` schema 中查看 `t_qc_daily_snapshot` 和 `t_portal_view_config`。密码只用于修改数据库角色，不写入项目文件；TCP 只监听本机回环地址。使用完可关闭：
 
-如果日志提示 `user "quality_lab", database "postgres"` 被拒绝，说明 Navicat
-的“初始数据库”仍填成了 `postgres`；改为 `quality_lab` 即可，不需要放宽
-`pg_hba.conf`。
+如果日志提示 `password authentication failed`，说明已经到达正确的 PostgreSQL，
+但 Navicat 保存的密码与最近一次 `enable-tcp` 设置的不一致；重新运行该命令并在
+Navicat 中同步更新密码。若提示 `database "postgres"` 被拒绝，则把“初始数据库”
+改为 `quality_lab`，不需要放宽 `pg_hba.conf`。
 
 ```bash
 scripts/postgres.sh disable-tcp
@@ -110,4 +112,6 @@ src/
 scripts/postgres.sh     隔离数据库生命周期
 ```
 
-详细边界见 [`docs/component-map.md`](docs/component-map.md)，最新表结构见 [`docs/snapshot-contract.md`](docs/snapshot-contract.md)。
+详细边界见 [`docs/component-map.md`](docs/component-map.md)，最新表结构见
+[`docs/snapshot-contract.md`](docs/snapshot-contract.md)，页面的信息顺序、图表和
+后续切片见 [`docs/snapshot-page-plan.md`](docs/snapshot-page-plan.md)。

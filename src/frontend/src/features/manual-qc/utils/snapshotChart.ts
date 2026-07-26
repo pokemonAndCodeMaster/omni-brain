@@ -1,54 +1,178 @@
+import { getSnapshotRows } from '../api/snapshot'
 import type {
+  MetricTotals,
+  SnapshotQuery,
+  SnapshotRow,
+} from '../types/snapshot'
+import type {
+  ChartBuilderOptions,
   ChartBuilderValue,
   DashboardChartCard,
+  DashboardChartResult,
 } from '@/shared/dashboard/types'
-import type { SceneAggregate } from '../types/snapshot'
+
+const SOURCE_ID = 'manual-qc-snapshot-employee-day'
+
+const dimensionLabels: Record<string, string> = {
+  stat_date: '日期',
+  project_name: '项目',
+  scene_name: '标注任务',
+  group_name: '组',
+  employee_id: '标注员',
+  result_type: 'Good / Bad',
+  question_option: '问题标签 / 选项',
+}
+
+interface MeasureContribution {
+  numerator: number
+  denominator?: number
+}
 
 interface ChartMeasure {
   id: string
   name: string
-  value: (row: SceneAggregate) => number
-}
-
-const dimensionLabels: Record<string, string> = {
-  scene_name: '场景',
-  stat_date: '快照日期',
+  unit: string
+  value: (
+    row: SnapshotRow,
+    metric?: MetricTotals,
+  ) => MeasureContribution
 }
 
 const measures: ChartMeasure[] = [
   {
     id: 'annotation_submitted',
     name: '标注提交',
-    value: (row) => row.annotation_submitted,
+    unit: '条',
+    value: (row, metric) => ({
+      numerator: metric?.annotation_submitted ?? row.annotation_submitted,
+    }),
+  },
+  {
+    id: 'accept_allocated',
+    name: '验收分配',
+    unit: '条',
+    value: (row, metric) => ({
+      numerator:
+        metric?.actual_alloc ??
+        row.good_metrics.actual_alloc + row.bad_metrics.actual_alloc,
+    }),
   },
   {
     id: 'accept_completed',
     name: '验收完成',
-    value: (row) =>
-      row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
+    unit: '条',
+    value: (row, metric) => ({
+      numerator:
+        metric?.actual_complete ??
+        row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
+    }),
   },
   {
     id: 'accept_passed',
     name: '验收通过',
-    value: (row) =>
-      row.good_metrics.actual_pass + row.bad_metrics.actual_pass,
+    unit: '条',
+    value: (row, metric) => ({
+      numerator:
+        metric?.actual_pass ??
+        row.good_metrics.actual_pass + row.bad_metrics.actual_pass,
+    }),
   },
   {
     id: 'accept_rejected',
     name: '验收打回',
-    value: (row) =>
-      row.good_metrics.actual_reject + row.bad_metrics.actual_reject,
+    unit: '条',
+    value: (row, metric) => ({
+      numerator:
+        metric?.actual_reject ??
+        row.good_metrics.actual_reject + row.bad_metrics.actual_reject,
+    }),
+  },
+  {
+    id: 'completion_rate',
+    name: '验收完成率',
+    unit: '%',
+    value: (row, metric) => ({
+      numerator:
+        metric?.actual_complete ??
+        row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
+      denominator:
+        metric?.actual_alloc ??
+        row.good_metrics.actual_alloc + row.bad_metrics.actual_alloc,
+    }),
+  },
+  {
+    id: 'pass_rate',
+    name: '验收通过率',
+    unit: '%',
+    value: (row, metric) => ({
+      numerator:
+        metric?.actual_pass ??
+        row.good_metrics.actual_pass + row.bad_metrics.actual_pass,
+      denominator:
+        metric?.actual_complete ??
+        row.good_metrics.actual_complete + row.bad_metrics.actual_complete,
+    }),
   },
 ]
 
-export const snapshotChartBuilderOptions = {
-  dimensions: Object.entries(dimensionLabels).map(([id, label]) => ({
-    id,
-    label,
-  })),
-  measures: measures.map(({ id, name }) => ({ id, label: name })),
-  defaultDimensionId: 'scene_name',
-  defaultMeasureIds: ['accept_completed', 'accept_rejected'],
+const filterLabels: Record<string, string> = {
+  stat_date_start: '起始日期',
+  stat_date_end: '截止日期',
+  project_name: '项目',
+  scene_name: '标注任务',
+  group_name: '组',
+  employee_id: '标注员',
+  question_label: '问题标签',
+}
+
+export function createSnapshotChartBuilderOptions(
+  taskOptions: string[],
+): ChartBuilderOptions {
+  return {
+    sources: [{ id: SOURCE_ID, label: '人工质检快照（员工日粒度）' }],
+    dimensions: Object.entries(dimensionLabels).map(([id, label]) => ({
+      id,
+      label,
+    })),
+    measures: measures.map(({ id, name }) => ({ id, label: name })),
+    filters: [
+      { id: 'stat_date_start', label: '起始日期', type: 'date' },
+      { id: 'stat_date_end', label: '截止日期', type: 'date' },
+      {
+        id: 'project_name',
+        label: '项目',
+        type: 'select',
+        options: ['园区', '城区/高速'],
+      },
+      {
+        id: 'scene_name',
+        label: '标注任务',
+        type: 'select',
+        options: taskOptions,
+      },
+      {
+        id: 'group_name',
+        label: '组',
+        type: 'text',
+        placeholder: '精确组名',
+      },
+      {
+        id: 'employee_id',
+        label: '标注员',
+        type: 'text',
+        placeholder: '精确工号',
+      },
+      {
+        id: 'question_label',
+        label: '问题标签',
+        type: 'text',
+        placeholder: '仅用于问题选项维度',
+      },
+    ],
+    defaultSourceId: SOURCE_ID,
+    defaultDimensionId: 'scene_name',
+    defaultMeasureIds: ['accept_completed', 'accept_rejected'],
+  }
 }
 
 let sequence = 0
@@ -58,53 +182,189 @@ function nextCardId(): string {
   return `snapshot-chart-${Date.now()}-${sequence}`
 }
 
+export function summarizeSnapshotFilters(
+  filters: Record<string, string>,
+): string {
+  const parts = Object.entries(filters)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${filterLabels[key] ?? key}：${value}`)
+  return parts.join(' · ') || '全部实验数据'
+}
+
 export function buildSnapshotChartCard(
-  rows: SceneAggregate[],
   builder: ChartBuilderValue,
-  filterSummary: string,
-  sourceLabel: string,
+  existing?: DashboardChartCard | null,
 ): DashboardChartCard {
-  const selectedMeasures = measures.filter((measure) =>
-    builder.measureIds.includes(measure.id),
+  const measureNames = measures
+    .filter((measure) => builder.measureIds.includes(measure.id))
+    .map((measure) => measure.name)
+  const filters = Object.fromEntries(
+    Object.entries(builder.filters).filter(([, value]) => value),
   )
-  const chartMeasures =
-    builder.chartType === 'pie' ? selectedMeasures.slice(0, 1) : selectedMeasures
-  const buckets = new Map<string, Map<string, number>>()
-
-  for (const row of rows) {
-    const category =
-      builder.dimensionId === 'stat_date' ? row.stat_date : row.scene_name
-    const current = buckets.get(category) ?? new Map<string, number>()
-    for (const measure of chartMeasures) {
-      current.set(
-        measure.id,
-        (current.get(measure.id) ?? 0) + measure.value(row),
-      )
-    }
-    buckets.set(category, current)
-  }
-
-  const categories = [...buckets.keys()].sort()
   return {
-    id: nextCardId(),
+    id: existing?.id ?? nextCardId(),
     kind: 'chart',
     title: builder.title,
-    description: `${dimensionLabels[builder.dimensionId] ?? builder.dimensionId}聚合 · 当前数据快照`,
-    chartType: builder.chartType,
+    description:
+      builder.description ||
+      `${dimensionLabels[builder.dimensionId] ?? builder.dimensionId} · ${measureNames.join('、')}`,
+    query: {
+      sourceId: builder.sourceId,
+      dimensionId: builder.dimensionId,
+      measureIds: [...builder.measureIds],
+      filters,
+      filterSummary: summarizeSnapshotFilters(filters),
+    },
+    style: {
+      chartType: builder.chartType,
+      stacked: builder.stacked,
+      showLegend: builder.showLegend,
+      showLabels: builder.showLabels,
+      smooth: builder.smooth,
+      palette: builder.palette,
+      orientation: builder.orientation,
+    },
+    layout: existing?.layout ?? {
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 6,
+      minW: 3,
+      minH: 4,
+    },
+  }
+}
+
+export function chartBuilderValueFromCard(
+  card: DashboardChartCard,
+): ChartBuilderValue {
+  return {
+    title: card.title,
+    description: card.description,
+    sourceId: card.query.sourceId,
+    chartType: card.style.chartType,
+    dimensionId: card.query.dimensionId,
+    measureIds: [...card.query.measureIds],
+    filters: { ...card.query.filters },
+    stacked: card.style.stacked,
+    showLegend: card.style.showLegend,
+    showLabels: card.style.showLabels,
+    smooth: card.style.smooth,
+    palette: card.style.palette,
+    orientation: card.style.orientation,
+  }
+}
+
+interface DimensionContribution {
+  category: string
+  metric?: MetricTotals
+}
+
+function dimensionContributions(
+  row: SnapshotRow,
+  dimensionId: string,
+  questionLabel: string,
+): DimensionContribution[] {
+  if (dimensionId === 'result_type') {
+    return [
+      { category: 'Good', metric: row.good_metrics },
+      { category: 'Bad', metric: row.bad_metrics },
+    ]
+  }
+
+  if (dimensionId === 'question_option') {
+    const values: DimensionContribution[] = []
+    for (const [label, options] of Object.entries(row.option_metrics)) {
+      if (questionLabel && label !== questionLabel) continue
+      for (const [option, metric] of Object.entries(options)) {
+        values.push({ category: `${label} / ${option}`, metric })
+      }
+    }
+    return values
+  }
+
+  const value = row[dimensionId as keyof SnapshotRow]
+  return [{ category: String(value ?? '未填写') }]
+}
+
+export async function resolveSnapshotChartCard(
+  card: DashboardChartCard,
+): Promise<DashboardChartResult> {
+  if (card.query.sourceId !== SOURCE_ID) {
+    throw new Error(`未知统计数据源：${card.query.sourceId}`)
+  }
+
+  const { question_label: questionLabel = '', ...apiFilters } =
+    card.query.filters
+  const response = await getSnapshotRows(apiFilters as SnapshotQuery)
+  if (response.total > response.items.length) {
+    throw new Error(
+      `当前筛选命中 ${response.total} 行，超过单卡 1000 行安全上限；请缩小日期或任务范围。`,
+    )
+  }
+
+  const selected = measures.filter((measure) =>
+    card.query.measureIds.includes(measure.id),
+  )
+  const chartMeasures =
+    card.style.chartType === 'pie' ? selected.slice(0, 1) : selected
+  const buckets = new Map<
+    string,
+    Map<string, { numerator: number; denominator: number }>
+  >()
+
+  for (const row of response.items) {
+    const contributions = dimensionContributions(
+      row,
+      card.query.dimensionId,
+      questionLabel,
+    )
+    for (const contribution of contributions) {
+      const bucket =
+        buckets.get(contribution.category) ??
+        new Map<string, { numerator: number; denominator: number }>()
+      for (const measure of chartMeasures) {
+        const value = measure.value(row, contribution.metric)
+        const current = bucket.get(measure.id) ?? {
+          numerator: 0,
+          denominator: 0,
+        }
+        current.numerator += value.numerator
+        current.denominator += value.denominator ?? 0
+        bucket.set(measure.id, current)
+      }
+      buckets.set(contribution.category, bucket)
+    }
+  }
+
+  const fixedOrder =
+    card.query.dimensionId === 'result_type' ? ['Good', 'Bad'] : null
+  const categories = fixedOrder
+    ? fixedOrder.filter((category) => buckets.has(category))
+    : [...buckets.keys()].sort((left, right) =>
+        left.localeCompare(right, 'zh-CN'),
+      )
+
+  return {
     categories,
     series: chartMeasures.map((measure) => ({
       id: measure.id,
       name: measure.name,
-      unit: '条',
-      values: categories.map(
-        (category) => buckets.get(category)?.get(measure.id) ?? 0,
-      ),
+      unit: measure.unit,
+      values: categories.map((category) => {
+        const value = buckets.get(category)?.get(measure.id)
+        if (!value) return 0
+        if (measure.unit !== '%') return value.numerator
+        return value.denominator
+          ? Math.round((value.numerator / value.denominator) * 1000) / 10
+          : 0
+      }),
     })),
     source: {
-      sourceId: 'manual-qc-snapshot',
-      sourceLabel,
-      rowCount: rows.length,
-      filterSummary,
+      sourceId: SOURCE_ID,
+      sourceLabel: '人工质检员工日快照',
+      rowCount: response.items.length,
+      filterSummary: card.query.filterSummary,
       generatedAt: new Date().toISOString(),
     },
   }

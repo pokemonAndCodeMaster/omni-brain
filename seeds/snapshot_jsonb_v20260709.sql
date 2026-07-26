@@ -27,22 +27,22 @@ WITH seed (
     age
 ) AS (
     VALUES
-        (current_date,     '城区交互', '一组', 'E001', '城区专题', 120, 110, 82, 28, 16, 16, 15, 1,  8,  8, 7, 1, 'pass',    'lead-01', 'lead-01', '驾驶行为分类', 'CUT_IN', 12, interval '10 minutes'),
-        (current_date,     '城区交互', '一组', 'E002', '城区专题', 100,  90, 62, 28, 12, 10,  8, 2,  8,  6, 4, 2, 'pending', NULL,      NULL,      '驾驶行为分类', 'YIELD',  11, interval '10 minutes'),
-        (current_date,     '城区交互', '二组', 'E003', '城区专题', 140, 125, 95, 30, 20, 18, 17, 1, 10,  9, 7, 2, NULL,      NULL,      NULL,      '驾驶行为分类', 'CUT_IN', 15, interval '8 minutes'),
-        (current_date,     '城区交互', '二组', 'E004', '城区专题',  80,  60, 45, 15,  8,  4,  3, 1,  4,  2, 1, 1, NULL,      NULL,      NULL,      '驾驶行为分类', 'CUT_IN',  5, interval '8 minutes'),
-        (current_date,     '高速变道', '三组', 'E005', '高速专题', 160, 150,120, 30, 22, 22, 21, 1, 10, 10, 9, 1, 'pass',    'lead-02', 'lead-02', '驾驶行为分类', 'MERGE',   22, interval '6 minutes'),
-        (current_date,     '高速变道', '三组', 'E006', '高速专题',  90,  88, 55, 33, 10, 10,  8, 2,  8,  8, 4, 4, 'reject',  'lead-02', 'lead-02', '驾驶行为分类', 'MERGE',    9, interval '6 minutes'),
-        (current_date,     '高速变道', '四组', 'E007', '高速专题',  70,  50, 34, 16,  6,  2,  2, 0,  4,  2, 1, 1, NULL,      NULL,      NULL,      NULL,             NULL,        0, interval '5 minutes'),
-        (current_date,     '高速变道', '四组', 'E008', '高速专题',  40,   0,  0,  0,  0,  0,  0, 0,  0,  0, 0, 0, NULL,      NULL,      NULL,      NULL,             NULL,        0, interval '5 minutes'),
-        (current_date - 1, '城区交互', '一组', 'E001', '城区专题', 105, 100, 76, 24, 14, 14, 13, 1,  6,  6, 5, 1, 'pass',    'lead-01', 'lead-01', '驾驶行为分类', 'CUT_IN', 10, interval '22 hours'),
-        (current_date - 1, '城区交互', '一组', 'E002', '城区专题',  95,  86, 60, 26, 11,  9,  8, 1,  7,  6, 4, 2, NULL,      NULL,      NULL,      '驾驶行为分类', 'YIELD',   9, interval '22 hours'),
-        (current_date - 1, '城区交互', '二组', 'E003', '城区专题', 120, 112, 84, 28, 16, 15, 14, 1,  8,  7, 6, 1, NULL,      NULL,      NULL,      NULL,             NULL,        0, interval '22 hours'),
-        (current_date - 1, '城区交互', '二组', 'E004', '城区专题',  75,  64, 44, 20,  9,  7,  6, 1,  5,  3, 2, 1, NULL,      NULL,      NULL,      NULL,             NULL,        0, interval '22 hours'),
-        (current_date - 1, '高速变道', '三组', 'E005', '高速专题', 150, 142,110, 32, 20, 19, 18, 1, 10,  9, 8, 1, NULL,      NULL,      NULL,      '驾驶行为分类', 'MERGE',  19, interval '21 hours'),
-        (current_date - 1, '高速变道', '三组', 'E006', '高速专题',  86,  80, 50, 30,  9,  8,  6, 2,  7,  6, 4, 2, NULL,      NULL,      NULL,      NULL,             NULL,        0, interval '21 hours'),
-        (current_date - 1, '高速变道', '四组', 'E007', '高速专题',  66,  58, 39, 19,  7,  5,  4, 1,  5,  4, 3, 1, NULL,      NULL,      NULL,      NULL,             NULL,        0, interval '21 hours'),
-        (current_date - 1, '高速变道', '四组', 'E008', '高速专题',  35,  30, 19, 11,  4,  2,  2, 0,  2,  1, 0, 1, NULL,      NULL,      NULL,      NULL,             NULL,        0, interval '21 hours')
+        (current_date,     '城区交互任务-A', '一组', 'E001', '城区/高速', 120, 110, 82, 28, 16, 16, 15, 1,  8,  8, 7, 1, 'pass',    'lead-01', 'lead-01', '驾驶行为分类', 'CUT_IN', 12, interval '10 minutes'),
+        (current_date,     '高速变道任务-B', '一组', 'E002', '城区/高速', 100,  90, 62, 28, 12, 10,  8, 2,  8,  6, 4, 2, 'pending', NULL,      NULL,      '驾驶行为分类', 'YIELD',  11, interval '10 minutes'),
+        (current_date,     '城区交互任务-A', '二组', 'E003', '城区/高速', 140, 125, 95, 30, 20, 18, 17, 1, 10,  9, 7, 2, NULL,      NULL,      NULL,      '驾驶行为分类', 'CUT_IN', 15, interval '8 minutes'),
+        (current_date,     '高速变道任务-B', '二组', 'E004', '城区/高速',  80,  60, 45, 15,  8,  4,  3, 1,  4,  2, 1, 1, NULL,      NULL,      NULL,      '驾驶行为分类', 'YIELD',   5, interval '8 minutes'),
+        (current_date,     '园区通行任务-C', '三组', 'E005', '园区',      160, 150,120, 30, 22, 22, 21, 1, 10, 10, 9, 1, 'pass',    'lead-02', 'lead-02', '驾驶行为分类', 'MERGE',   22, interval '6 minutes'),
+        (current_date,     '园区泊车任务-D', '三组', 'E006', '园区',       90,  88, 55, 33, 10, 10,  8, 2,  8,  8, 4, 4, 'reject',  'lead-02', 'lead-02', '障碍物类型',   'STATIC',   9, interval '6 minutes'),
+        (current_date,     '园区通行任务-C', '四组', 'E007', '园区',       70,  50, 34, 16,  6,  2,  2, 0,  4,  2, 1, 1, NULL,      NULL,      NULL,      '驾驶行为分类', 'MERGE',    6, interval '5 minutes'),
+        (current_date,     '园区泊车任务-D', '四组', 'E008', '园区',       40,   0,  0,  0,  0,  0,  0, 0,  0,  0, 0, 0, NULL,      NULL,      NULL,      '障碍物类型',   'STATIC',   0, interval '5 minutes'),
+        (current_date - 1, '城区交互任务-A', '一组', 'E001', '城区/高速', 105, 100, 76, 24, 14, 14, 13, 1,  6,  6, 5, 1, 'pass',    'lead-01', 'lead-01', '驾驶行为分类', 'CUT_IN', 10, interval '22 hours'),
+        (current_date - 1, '高速变道任务-B', '一组', 'E002', '城区/高速',  95,  86, 60, 26, 11,  9,  8, 1,  7,  6, 4, 2, NULL,      NULL,      NULL,      '驾驶行为分类', 'YIELD',   9, interval '22 hours'),
+        (current_date - 1, '城区交互任务-A', '二组', 'E003', '城区/高速', 120, 112, 84, 28, 16, 15, 14, 1,  8,  7, 6, 1, NULL,      NULL,      NULL,      '驾驶行为分类', 'CUT_IN', 11, interval '22 hours'),
+        (current_date - 1, '高速变道任务-B', '二组', 'E004', '城区/高速',  75,  64, 44, 20,  9,  7,  6, 1,  5,  3, 2, 1, NULL,      NULL,      NULL,      '驾驶行为分类', 'YIELD',   7, interval '22 hours'),
+        (current_date - 1, '园区通行任务-C', '三组', 'E005', '园区',      150, 142,110, 32, 20, 19, 18, 1, 10,  9, 8, 1, NULL,      NULL,      NULL,      '驾驶行为分类', 'MERGE',  19, interval '21 hours'),
+        (current_date - 1, '园区泊车任务-D', '三组', 'E006', '园区',       86,  80, 50, 30,  9,  8,  6, 2,  7,  6, 4, 2, NULL,      NULL,      NULL,      '障碍物类型',   'STATIC',   8, interval '21 hours'),
+        (current_date - 1, '园区通行任务-C', '四组', 'E007', '园区',       66,  58, 39, 19,  7,  5,  4, 1,  5,  4, 3, 1, NULL,      NULL,      NULL,      '驾驶行为分类', 'MERGE',   7, interval '21 hours'),
+        (current_date - 1, '园区泊车任务-D', '四组', 'E008', '园区',       35,  30, 19, 11,  4,  2,  2, 0,  2,  1, 0, 1, NULL,      NULL,      NULL,      '障碍物类型',   'STATIC',   4, interval '21 hours')
 )
 INSERT INTO manual_qc_lab.t_qc_daily_snapshot (
     stat_date,

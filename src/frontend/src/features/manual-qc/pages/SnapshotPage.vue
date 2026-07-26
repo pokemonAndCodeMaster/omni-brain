@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import type { WorkbenchAnalysisRequest } from '@/shared/data-workbench/types'
 import ChartBuilderDialog from '@/shared/dashboard/components/ChartBuilderDialog.vue'
 import DashboardGrid from '@/shared/dashboard/components/DashboardGrid.vue'
-import { useDashboardCards } from '@/shared/dashboard/composables/useDashboardCards'
-import type { ChartBuilderValue } from '@/shared/dashboard/types'
+import { useDashboardWorkspace } from '@/shared/dashboard/composables/useDashboardWorkspace'
+import type {
+  ChartBuilderValue,
+  DashboardChartCard,
+} from '@/shared/dashboard/types'
 import SnapshotDataTable from '../components/SnapshotDataTable.vue'
 import SnapshotFilters from '../components/SnapshotFilters.vue'
 import SnapshotSummaryChart from '../components/SnapshotSummaryChart.vue'
@@ -12,7 +15,9 @@ import { useSnapshotExplorer } from '../composables/useSnapshotExplorer'
 import type { AggregateNode } from '../types/snapshot'
 import {
   buildSnapshotChartCard,
-  snapshotChartBuilderOptions,
+  chartBuilderValueFromCard,
+  createSnapshotChartBuilderOptions,
+  resolveSnapshotChartCard,
 } from '../utils/snapshotChart'
 
 const {
@@ -25,6 +30,7 @@ const {
   loadingKeys,
   computedAt,
   sceneOptions,
+  projectOptions,
   filtersSummary,
   load,
   expand,
@@ -33,11 +39,25 @@ const {
 
 const {
   cards,
+  results,
+  loadingCardIds,
+  cardErrors,
+  loading: dashboardLoading,
+  saving: dashboardSaving,
+  dirty: dashboardDirty,
+  notice: dashboardNotice,
   addCard,
+  updateCard,
+  updateLayouts,
   removeCard,
-  changeChartType,
-} = useDashboardCards()
+  refreshCard,
+  save: saveDashboard,
+} = useDashboardWorkspace(
+  'manual-qc-snapshots',
+  resolveSnapshotChartCard,
+)
 const builderOpen = ref(false)
+const editingCard = ref<DashboardChartCard | null>(null)
 
 const freshness = computed(() => {
   if (!computedAt.value) return '尚无快照结果'
@@ -49,15 +69,35 @@ const freshness = computed(() => {
   }).format(parsed)
 })
 
-function addBuiltCard(value: ChartBuilderValue): void {
-  addCard(
-    buildSnapshotChartCard(
-      sceneRows.value,
-      value,
-      filtersSummary.value,
-      '验收快照页面筛选结果',
-    ),
-  )
+const chartBuilderOptions = computed(() =>
+  createSnapshotChartBuilderOptions(sceneOptions.value),
+)
+
+const pageFilterSnapshot = computed<Record<string, string>>(() =>
+  Object.fromEntries(
+    Object.entries(query)
+      .filter(([, value]) => value != null && value !== '')
+      .map(([key, value]) => [key, String(value)]),
+  ),
+)
+
+const editingValue = computed(() =>
+  editingCard.value ? chartBuilderValueFromCard(editingCard.value) : null,
+)
+
+function openBuilder(card: DashboardChartCard | null = null): void {
+  editingCard.value = card
+  builderOpen.value = true
+}
+
+function submitCard(value: ChartBuilderValue): void {
+  const card = buildSnapshotChartCard(value, editingCard.value)
+  if (editingCard.value) {
+    updateCard(card)
+  } else {
+    addCard(card)
+  }
+  editingCard.value = null
 }
 
 function addTableChart(
@@ -67,19 +107,83 @@ function addTableChart(
     filtersSummary.value,
     request.filterSummary,
   ].filter(Boolean).join('；')
+  const filters = { ...pageFilterSnapshot.value }
+  for (const item of request.filters) {
+    const value = String(item.value ?? '')
+    if (!value) continue
+    if (item.id === 'stat_date') {
+      const [start = '', end = ''] = value.split('\u0000')
+      if (start) filters.stat_date_start = start
+      if (end) filters.stat_date_end = end
+    } else if (
+      ['project_name', 'scene_name', 'group_name', 'employee_id'].includes(
+        item.id,
+      ) &&
+      !value.includes('\u0000')
+    ) {
+      filters[item.id] = value
+    }
+  }
   addCard(
-    buildSnapshotChartCard(
-      request.rows,
-      {
-        title: '当前表格筛选的验收完成与打回',
-        chartType: 'bar',
-        dimensionId: 'scene_name',
-        measureIds: ['accept_completed', 'accept_rejected'],
-      },
-      filterSummary,
-      '验收快照明细表',
-    ),
+    buildSnapshotChartCard({
+      title: '当前表格筛选的验收完成与打回',
+      description: `来自明细表筛选：${filterSummary}`,
+      sourceId: chartBuilderOptions.value.defaultSourceId,
+      chartType: 'bar',
+      dimensionId: 'scene_name',
+      measureIds: ['accept_completed', 'accept_rejected'],
+      filters,
+      stacked: false,
+      showLegend: true,
+      showLabels: false,
+      smooth: true,
+      palette: 'quality',
+      orientation: 'vertical',
+    }),
   )
+}
+
+async function drillToDetail(
+  field: 'project_name' | 'scene_name',
+  value: string,
+): Promise<void> {
+  if (field === 'project_name') {
+    query.project_name = value
+    query.scene_name = ''
+  } else {
+    query.scene_name = value
+  }
+  await load()
+  await nextTick()
+  document
+    .querySelector('#snapshot-detail')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+async function drillFromCard(
+  card: DashboardChartCard,
+  category: string,
+): Promise<void> {
+  const dimension = card.query.dimensionId
+  if (dimension === 'stat_date') {
+    query.stat_date_start = category
+    query.stat_date_end = category
+  } else if (
+    dimension === 'project_name' ||
+    dimension === 'scene_name' ||
+    dimension === 'group_name' ||
+    dimension === 'employee_id'
+  ) {
+    query[dimension] = category
+    if (dimension === 'project_name') query.scene_name = ''
+  } else {
+    return
+  }
+  await load()
+  await nextTick()
+  document
+    .querySelector('#snapshot-detail')
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 </script>
 
@@ -87,11 +191,11 @@ function addTableChart(
   <div class="snapshot-page">
     <section class="page-intro">
       <div>
-        <p class="page-kicker">MANUAL QC · ACCEPTANCE SNAPSHOT</p>
-        <h2>从交付目标下钻到员工验收结果</h2>
+        <p class="page-kicker">人工质检快照</p>
+        <h2>从标注产出看到验收结果</h2>
         <p class="page-summary">
-          这是人工质检验收的首个本地纵向切片：使用固定口径快照回答任务做了多少、验了多少、
-          通过与打回多少，并保留继续下钻和后续执行闭环的入口。
+          先看不同项目与标注任务做了多少、结果如何分布，再看验收是否分得够、做得完、
+          通过或打回多少；图表可点击下钻，明细可逐级展开到组和员工。
         </p>
       </div>
       <dl class="freshness-card">
@@ -109,6 +213,7 @@ function addTableChart(
     <SnapshotFilters
       v-model="query"
       :scene-options="sceneOptions"
+      :project-options="projectOptions"
       :loading="loading"
       @submit="load"
       @reset="resetAndLoad"
@@ -131,27 +236,41 @@ function addTableChart(
     <SnapshotSummaryChart
       :rows="sceneRows"
       :filters-summary="filtersSummary"
+      @drill-task="drillToDetail('scene_name', $event)"
+      @drill-project="drillToDetail('project_name', $event)"
     />
 
     <DashboardGrid
       :cards="cards"
+      :results="results"
+      :loading-card-ids="loadingCardIds"
+      :card-errors="cardErrors"
       :can-add="sceneRows.length > 0"
-      @add="builderOpen = true"
+      :loading="dashboardLoading"
+      :saving="dashboardSaving"
+      :dirty="dashboardDirty"
+      :notice="dashboardNotice"
+      @add="openBuilder()"
+      @edit="openBuilder"
       @remove="removeCard"
-      @chart-type-change="
-        changeChartType($event.cardId, $event.chartType)
-      "
+      @refresh="refreshCard"
+      @drill="drillFromCard"
+      @save="saveDashboard"
+      @layout-change="updateLayouts"
     />
 
     <ChartBuilderDialog
       :open="builderOpen"
-      :options="snapshotChartBuilderOptions"
-      default-title="验收快照自定义统计"
-      @close="builderOpen = false"
-      @submit="addBuiltCard"
+      :options="chartBuilderOptions"
+      :initial-value="editingValue"
+      :initial-filters="pageFilterSnapshot"
+      default-title="人工质检自定义统计"
+      @close="builderOpen = false; editingCard = null"
+      @submit="submitCard"
     />
 
     <SnapshotDataTable
+      id="snapshot-detail"
       :rows="tree"
       :loading-keys="loadingKeys"
       :scene-options="sceneOptions"

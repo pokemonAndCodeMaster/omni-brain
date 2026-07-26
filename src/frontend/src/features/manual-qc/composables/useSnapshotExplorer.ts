@@ -3,6 +3,7 @@ import axios from 'axios'
 import {
   getEmployeeAggregate,
   getGroupAggregate,
+  getProjectAggregate,
   getSceneAggregate,
 } from '../api/snapshot'
 import type {
@@ -10,6 +11,7 @@ import type {
   AggregateNode,
   EmployeeAggregate,
   GroupAggregate,
+  ProjectAggregate,
   SceneAggregate,
   SnapshotQuery,
 } from '../types/snapshot'
@@ -29,25 +31,36 @@ function defaultQuery(): Required<Pick<SnapshotQuery, 'stat_date_start' | 'stat_
   return {
     stat_date_start: formatLocalDate(sevenDaysAgo),
     stat_date_end: formatLocalDate(today),
+    project_name: '',
     scene_name: '',
     group_name: '',
+    employee_id: '',
   }
 }
 
 function toNode(
-  value: SceneAggregate | GroupAggregate | EmployeeAggregate,
+  value: ProjectAggregate | SceneAggregate | GroupAggregate | EmployeeAggregate,
   level: AggregateLevel,
 ): AggregateNode {
+  const sceneName = 'scene_name' in value ? value.scene_name : ''
   const groupName = 'group_name' in value ? value.group_name : ''
   const employeeId = 'employee_id' in value ? value.employee_id : ''
-  const id = [level, value.stat_date, value.scene_name, groupName, employeeId]
+  const id = [
+    level,
+    value.stat_date,
+    value.project_name,
+    sceneName,
+    groupName,
+    employeeId,
+  ]
     .filter(Boolean)
     .join(':')
   return {
     id,
     level,
     stat_date: value.stat_date,
-    scene_name: value.scene_name,
+    project_name: value.project_name,
+    scene_name: sceneName,
     group_name: groupName,
     employee_id: employeeId,
     computed_at: value.computed_at,
@@ -82,6 +95,10 @@ export function useSnapshotExplorer() {
   const loadingKeys = shallowRef<Set<string>>(new Set())
   const computedAt = shallowRef<string | null>(null)
 
+  const projectOptions = computed(() =>
+    [...new Set(sceneRows.value.map((row) => row.project_name))].sort(),
+  )
+
   const sceneOptions = computed(() =>
     [...new Set(sceneRows.value.map((row) => row.scene_name))].sort(),
   )
@@ -90,8 +107,10 @@ export function useSnapshotExplorer() {
     const parts = [
       query.stat_date_start ? `${query.stat_date_start} 起` : '',
       query.stat_date_end ? `${query.stat_date_end} 止` : '',
-      query.scene_name ? `场景：${query.scene_name}` : '',
+      query.project_name ? `项目：${query.project_name}` : '',
+      query.scene_name ? `标注任务：${query.scene_name}` : '',
       query.group_name ? `组：${query.group_name}` : '',
+      query.employee_id ? `标注员：${query.employee_id}` : '',
     ].filter(Boolean)
     return parts.join(' · ') || '全部实验数据'
   })
@@ -125,12 +144,19 @@ export function useSnapshotExplorer() {
     loadedKeys.value = new Set()
     loadingKeys.value = new Set()
     try {
-      const response = await getSceneAggregate(apiQuery())
-      sceneRows.value = response.items
-      tree.value = response.items.map((item) => toNode(item, 'scene'))
-      computedAt.value = response.computed_at
-      notice.value = response.total
-        ? `已加载 ${response.total} 条日期—场景聚合。展开行可继续查看组和员工。`
+      const [projectResponse, sceneResponse] = await Promise.all([
+        getProjectAggregate(apiQuery()),
+        getSceneAggregate(apiQuery()),
+      ])
+      sceneRows.value = sceneResponse.items
+      tree.value = projectResponse.items.map((item) => toNode(item, 'project'))
+      computedAt.value =
+        [projectResponse.computed_at, sceneResponse.computed_at]
+          .filter((value): value is string => Boolean(value))
+          .sort()
+          .at(-1) ?? null
+      notice.value = sceneResponse.total
+        ? `已加载 ${projectResponse.total} 条日期—项目、${sceneResponse.total} 条日期—标注任务聚合。可按项目继续下钻到任务、组和员工。`
         : '接口返回成功，但当前筛选范围没有快照数据。'
     } catch (caught) {
       error.value = errorMessage(caught)
@@ -159,17 +185,29 @@ export function useSnapshotExplorer() {
 
     try {
       let children: AggregateNode[]
-      if (node.level === 'scene') {
-        const response = await getGroupAggregate({
+      if (node.level === 'project') {
+        const response = await getSceneAggregate({
+          ...apiQuery(),
           stat_date_start: node.stat_date,
           stat_date_end: node.stat_date,
+          project_name: node.project_name,
+        })
+        children = response.items.map((item) => toNode(item, 'scene'))
+      } else if (node.level === 'scene') {
+        const response = await getGroupAggregate({
+          ...apiQuery(),
+          stat_date_start: node.stat_date,
+          stat_date_end: node.stat_date,
+          project_name: node.project_name,
           scene_name: node.scene_name,
         })
         children = response.items.map((item) => toNode(item, 'group'))
       } else {
         const response = await getEmployeeAggregate({
+          ...apiQuery(),
           stat_date_start: node.stat_date,
           stat_date_end: node.stat_date,
+          project_name: node.project_name,
           scene_name: node.scene_name,
           group_name: node.group_name,
         })
@@ -187,7 +225,7 @@ export function useSnapshotExplorer() {
       updateNode(node.id, (current) => {
         current.loading = false
       })
-      error.value = `“${node.scene_name}${node.group_name ? ` / ${node.group_name}` : ''}”下层数据加载失败：${errorMessage(caught)}`
+      error.value = `“${node.project_name}${node.scene_name ? ` / ${node.scene_name}` : ''}${node.group_name ? ` / ${node.group_name}` : ''}”下层数据加载失败：${errorMessage(caught)}`
       return false
     } finally {
       const nextLoading = new Set(loadingKeys.value)
@@ -217,6 +255,7 @@ export function useSnapshotExplorer() {
     loadingKeys: readonly(loadingKeys),
     computedAt: readonly(computedAt),
     sceneOptions,
+    projectOptions,
     filtersSummary,
     load,
     expand,

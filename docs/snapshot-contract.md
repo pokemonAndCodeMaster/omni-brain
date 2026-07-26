@@ -1,4 +1,4 @@
-# 验收快照契约
+# 人工质检快照契约
 
 ## 版本依据
 
@@ -9,10 +9,12 @@
 一行表示：
 
 ```text
-stat_date × scene_name × group_name × employee_id
+stat_date × project_name × scene_name × group_name × employee_id
 ```
 
-场景和组聚合由查询生成，不向同表写入 NULL 维度汇总行。
+其中 `scene_name` 是**标注任务名/批次名**：相同 `scene_name` 的行属于同一批标注任务；
+`project_name` 才是业务项目，当前实验值只有 `园区`、`城区/高速`。项目、任务和组聚合
+由查询生成，不向同表写入 NULL 维度汇总行。
 
 唯一键为：
 
@@ -26,10 +28,10 @@ stat_date × scene_name × group_name × employee_id
 |---:|---|---|---|
 | 1 | `id` | bigint | 本地实验表自增主键 |
 | 2 | `stat_date` | date | 统计日期 |
-| 3 | `scene_name` | varchar(256) | 场景/任务组 |
+| 3 | `scene_name` | varchar(256) | 标注任务名；相同名称表示同一任务批次 |
 | 4 | `group_name` | varchar(128) | 当日组别快照 |
 | 5 | `employee_id` | varchar(64) | 标注员工号 |
-| 6 | `project_name` | varchar(64) | 项目名 |
+| 6 | `project_name` | varchar(64) | 业务项目；当前为 `园区` 或 `城区/高速` |
 | 7 | `annotation_total` | integer | 标注总量 |
 | 8 | `annotation_submitted` | integer | 已提交标注量 |
 | 9 | `good_metrics` | jsonb | Good 维度的标注、验收、结论与执行状态 |
@@ -98,9 +100,10 @@ stat_date × scene_name × group_name × employee_id
 | 路径 | 返回粒度 |
 |---|---|
 | `GET /api/snapshots/rows` | 最小快照行 |
-| `GET /api/snapshots/aggregate/scene` | 日期 × 场景 |
-| `GET /api/snapshots/aggregate/group` | 日期 × 场景 × 组 |
-| `GET /api/snapshots/aggregate/employee` | 日期 × 场景 × 组 × 员工 |
+| `GET /api/snapshots/aggregate/project` | 日期 × 项目 |
+| `GET /api/snapshots/aggregate/scene` | 日期 × 项目 × 标注任务 |
+| `GET /api/snapshots/aggregate/group` | 日期 × 项目 × 标注任务 × 组 |
+| `GET /api/snapshots/aggregate/employee` | 日期 × 项目 × 标注任务 × 组 × 员工 |
 
 所有响应包含 `schema_version: "snapshot-jsonb-v20260709"`、`items`、`total` 和最新 `computed_at`。
 

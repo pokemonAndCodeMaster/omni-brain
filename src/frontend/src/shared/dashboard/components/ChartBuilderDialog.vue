@@ -1,16 +1,26 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, reactive, ref, useTemplateRef, watch } from 'vue'
 import type {
   ChartBuilderOptions,
   ChartBuilderValue,
   DashboardChartType,
+  DashboardOrientation,
+  DashboardPalette,
 } from '../types'
 
-const props = defineProps<{
-  open: boolean
-  options: ChartBuilderOptions
-  defaultTitle: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    options: ChartBuilderOptions
+    defaultTitle: string
+    initialValue?: ChartBuilderValue | null
+    initialFilters?: Record<string, string>
+  }>(),
+  {
+    initialValue: null,
+    initialFilters: () => ({}),
+  },
+)
 
 const emit = defineEmits<{
   close: []
@@ -18,22 +28,54 @@ const emit = defineEmits<{
 }>()
 
 const dialog = useTemplateRef<HTMLDialogElement>('dialog')
-const title = ref(props.defaultTitle)
-const chartType = ref<DashboardChartType>('bar')
-const dimensionId = ref(props.options.defaultDimensionId)
-const measureIds = ref<string[]>([...props.options.defaultMeasureIds])
-const validationMessage = computed(() =>
-  measureIds.value.length === 0 ? '请至少选择一个统计指标。' : '',
-)
+const form = reactive<ChartBuilderValue>(emptyValue())
+const validationMessage = computed(() => {
+  if (form.measureIds.length === 0) return '请至少选择一个统计指标。'
+  if (!form.sourceId || !form.dimensionId) return '请选择数据源和分组维度。'
+  return ''
+})
+
+function emptyValue(): ChartBuilderValue {
+  return {
+    title: props.defaultTitle,
+    description: '',
+    sourceId: props.options.defaultSourceId,
+    chartType: 'bar',
+    dimensionId: props.options.defaultDimensionId,
+    measureIds: [...props.options.defaultMeasureIds],
+    filters: { ...props.initialFilters },
+    stacked: false,
+    showLegend: true,
+    showLabels: false,
+    smooth: true,
+    palette: 'business',
+    orientation: 'vertical',
+  }
+}
+
+function copyValue(value: ChartBuilderValue): ChartBuilderValue {
+  return {
+    ...value,
+    measureIds: [...value.measureIds],
+    filters: { ...value.filters },
+  }
+}
+
+function resetForm(): void {
+  const source = props.initialValue
+    ? copyValue(props.initialValue)
+    : emptyValue()
+  Object.assign(form, source)
+  form.measureIds = [...source.measureIds]
+  form.filters = { ...source.filters }
+}
 
 watch(
   () => props.open,
   async (open) => {
     await nextTick()
     if (open && !dialog.value?.open) {
-      title.value = props.defaultTitle
-      dimensionId.value = props.options.defaultDimensionId
-      measureIds.value = [...props.options.defaultMeasureIds]
+      resetForm()
       dialog.value?.showModal()
     } else if (!open && dialog.value?.open) {
       dialog.value.close()
@@ -53,10 +95,12 @@ function close(): void {
 function submit(): void {
   if (validationMessage.value) return
   emit('submit', {
-    title: title.value.trim() || props.defaultTitle,
-    chartType: chartType.value,
-    dimensionId: dimensionId.value,
-    measureIds: [...measureIds.value],
+    ...copyValue(form),
+    title: form.title.trim() || props.defaultTitle,
+    description: form.description.trim(),
+    filters: Object.fromEntries(
+      Object.entries(form.filters).filter(([, value]) => value.trim()),
+    ),
   })
   close()
 }
@@ -73,8 +117,10 @@ function submit(): void {
     <form method="dialog" @submit.prevent="submit">
       <header>
         <div>
-          <p>ANALYSIS BUILDER</p>
-          <h2 id="chart-builder-title">添加统计卡片</h2>
+          <p>统计卡片配置</p>
+          <h2 id="chart-builder-title">
+            {{ initialValue ? '编辑统计卡片' : '添加统计卡片' }}
+          </h2>
         </div>
         <button type="button" class="close-button" aria-label="关闭" @click="close">
           ×
@@ -82,57 +128,180 @@ function submit(): void {
       </header>
 
       <div class="builder-body">
-        <label>
-          <span>卡片标题</span>
-          <input v-model="title" class="field" type="text" />
-        </label>
+        <section class="builder-section" aria-labelledby="card-copy-title">
+          <div class="section-heading">
+            <h3 id="card-copy-title">卡片说明</h3>
+            <p>明确这张卡片要回答的业务问题。</p>
+          </div>
+          <div class="field-row">
+            <label>
+              <span>卡片标题</span>
+              <input v-model="form.title" class="field" type="text" />
+            </label>
+            <label>
+              <span>补充说明</span>
+              <input
+                v-model="form.description"
+                class="field"
+                type="text"
+                placeholder="例如：同任务内比较，避免跨难度误判"
+              />
+            </label>
+          </div>
+        </section>
 
-        <div class="field-row">
-          <label>
-            <span>图表类型</span>
-            <select v-model="chartType" class="select-field">
-              <option value="bar">柱状图</option>
-              <option value="line">折线图</option>
-              <option value="pie">饼图（单指标）</option>
-            </select>
-          </label>
-          <label>
-            <span>分组维度</span>
-            <select v-model="dimensionId" class="select-field">
-              <option
-                v-for="dimension in options.dimensions"
-                :key="dimension.id"
-                :value="dimension.id"
+        <section class="builder-section" aria-labelledby="data-definition-title">
+          <div class="section-heading">
+            <h3 id="data-definition-title">数据定义</h3>
+            <p>保存的是可重新执行的查询条件，页面重开后读取最新快照。</p>
+          </div>
+          <div class="field-row three-columns">
+            <label>
+              <span>数据源</span>
+              <select v-model="form.sourceId" class="select-field">
+                <option
+                  v-for="source in options.sources"
+                  :key="source.id"
+                  :value="source.id"
+                >
+                  {{ source.label }}
+                </option>
+              </select>
+            </label>
+            <label>
+              <span>分组维度</span>
+              <select v-model="form.dimensionId" class="select-field">
+                <option
+                  v-for="dimension in options.dimensions"
+                  :key="dimension.id"
+                  :value="dimension.id"
+                >
+                  {{ dimension.label }}
+                </option>
+              </select>
+            </label>
+            <label>
+              <span>图表类型</span>
+              <select
+                v-model="form.chartType"
+                class="select-field"
               >
-                {{ dimension.label }}
-              </option>
-            </select>
-          </label>
-        </div>
+                <option value="bar">柱状图</option>
+                <option value="line">折线图</option>
+                <option value="pie">饼图（单指标）</option>
+              </select>
+            </label>
+          </div>
 
-        <fieldset>
-          <legend>统计指标</legend>
-          <label
-            v-for="measure in options.measures"
-            :key="measure.id"
-            class="check-option"
-          >
-            <input v-model="measureIds" type="checkbox" :value="measure.id" />
-            <span>{{ measure.label }}</span>
-          </label>
-        </fieldset>
+          <fieldset>
+            <legend>统计指标</legend>
+            <label
+              v-for="measure in options.measures"
+              :key="measure.id"
+              class="check-option"
+            >
+              <input
+                v-model="form.measureIds"
+                type="checkbox"
+                :value="measure.id"
+              />
+              <span>{{ measure.label }}</span>
+            </label>
+          </fieldset>
+        </section>
+
+        <section class="builder-section" aria-labelledby="card-filter-title">
+          <div class="section-heading">
+            <h3 id="card-filter-title">卡片筛选</h3>
+            <p>这些条件只属于当前卡片，不会跟随页面筛选器漂移。</p>
+          </div>
+          <div class="filter-grid">
+            <label v-for="filter in options.filters" :key="filter.id">
+              <span>{{ filter.label }}</span>
+              <select
+                v-if="filter.type === 'select'"
+                v-model="form.filters[filter.id]"
+                class="select-field"
+              >
+                <option value="">全部</option>
+                <option
+                  v-for="option in filter.options"
+                  :key="option"
+                  :value="option"
+                >
+                  {{ option }}
+                </option>
+              </select>
+              <input
+                v-else
+                v-model.trim="form.filters[filter.id]"
+                class="field"
+                :type="filter.type"
+                :placeholder="filter.placeholder"
+              />
+            </label>
+          </div>
+        </section>
+
+        <section class="builder-section" aria-labelledby="card-style-title">
+          <div class="section-heading">
+            <h3 id="card-style-title">呈现方式</h3>
+            <p>样式只改变表达，不改变数据口径。</p>
+          </div>
+          <div class="field-row">
+            <label>
+              <span>配色</span>
+              <select
+                v-model="form.palette"
+                class="select-field"
+              >
+                <option value="business">业务蓝</option>
+                <option value="quality">质量红绿</option>
+                <option value="contrast">高对比</option>
+              </select>
+            </label>
+            <label v-if="form.chartType === 'bar'">
+              <span>柱图方向</span>
+              <select
+                v-model="form.orientation"
+                class="select-field"
+              >
+                <option value="vertical">纵向</option>
+                <option value="horizontal">横向</option>
+              </select>
+            </label>
+          </div>
+          <fieldset>
+            <legend>图形细节</legend>
+            <label class="check-option">
+              <input v-model="form.showLegend" type="checkbox" />
+              <span>显示图例</span>
+            </label>
+            <label class="check-option">
+              <input v-model="form.showLabels" type="checkbox" />
+              <span>显示数值标签</span>
+            </label>
+            <label v-if="form.chartType !== 'pie'" class="check-option">
+              <input v-model="form.stacked" type="checkbox" />
+              <span>指标堆叠</span>
+            </label>
+            <label v-if="form.chartType === 'line'" class="check-option">
+              <input v-model="form.smooth" type="checkbox" />
+              <span>平滑曲线</span>
+            </label>
+          </fieldset>
+        </section>
 
         <p v-if="validationMessage" class="validation-message" role="alert">
           {{ validationMessage }}
-        </p>
-        <p class="builder-note">
-          当前卡片使用页面已加载的数据；保存布局和跨会话恢复将在后续切片接入。
         </p>
       </div>
 
       <footer>
         <button type="button" class="button" @click="close">取消</button>
-        <button type="submit" class="button primary">添加卡片</button>
+        <button type="submit" class="button primary">
+          {{ initialValue ? '应用修改' : '添加卡片' }}
+        </button>
       </footer>
     </form>
   </dialog>
@@ -140,8 +309,10 @@ function submit(): void {
 
 <style scoped>
 .chart-builder {
-  width: min(560px, calc(100vw - 28px));
+  width: min(820px, calc(100vw - 28px));
+  max-height: min(880px, calc(100vh - 28px));
   padding: 0;
+  overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   color: var(--color-ink);
@@ -152,13 +323,19 @@ function submit(): void {
   background: rgb(23 32 43 / 35%);
 }
 
+.chart-builder form {
+  display: grid;
+  max-height: inherit;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
 .chart-builder header,
 .chart-builder footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 14px 18px;
 }
 
 .chart-builder header {
@@ -173,22 +350,21 @@ function submit(): void {
 
 .chart-builder h2,
 .chart-builder header p,
-.builder-note,
+.section-heading h3,
+.section-heading p,
 .validation-message {
   margin: 0;
 }
 
 .chart-builder h2 {
   margin-top: 3px;
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .chart-builder header p {
   color: var(--color-primary);
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 750;
-  letter-spacing: 0.08em;
 }
 
 .close-button {
@@ -200,8 +376,31 @@ function submit(): void {
 
 .builder-body {
   display: grid;
-  gap: 15px;
-  padding: 17px 16px;
+  gap: 16px;
+  padding: 18px;
+  overflow: auto;
+}
+
+.builder-section {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-line-subtle);
+}
+
+.builder-section:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.section-heading h3 {
+  font-size: 13px;
+}
+
+.section-heading p {
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 11px;
 }
 
 .builder-body label > span,
@@ -213,10 +412,19 @@ function submit(): void {
   font-weight: 700;
 }
 
-.field-row {
+.field-row,
+.filter-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.field-row.three-columns {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.filter-grid {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 fieldset {
@@ -249,14 +457,10 @@ fieldset {
   font-size: 11px;
 }
 
-.builder-note {
-  color: var(--color-muted);
-  font-size: 11px;
-  line-height: 1.55;
-}
-
-@media (max-width: 560px) {
-  .field-row {
+@media (max-width: 680px) {
+  .field-row,
+  .field-row.three-columns,
+  .filter-grid {
     grid-template-columns: 1fr;
   }
 }

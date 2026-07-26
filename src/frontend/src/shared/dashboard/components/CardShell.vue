@@ -3,20 +3,40 @@ defineProps<{
   title: string
   description?: string
   removable?: boolean
+  editable?: boolean
 }>()
 
-const emit = defineEmits<{ remove: [] }>()
+const emit = defineEmits<{ remove: []; edit: [] }>()
 </script>
 
 <template>
   <article class="card-shell">
     <header class="card-header">
+      <span
+        class="card-drag-handle"
+        role="button"
+        tabindex="0"
+        :aria-label="`拖动卡片：${title}`"
+        title="按住拖动卡片"
+      >
+        <span aria-hidden="true">⠿</span>
+      </span>
       <div>
         <p v-if="description" class="card-description">{{ description }}</p>
         <h3>{{ title }}</h3>
       </div>
       <div class="card-actions">
         <slot name="actions" />
+        <button
+          v-if="editable"
+          class="icon-button"
+          type="button"
+          :aria-label="`编辑卡片：${title}`"
+          title="编辑卡片"
+          @click="emit('edit')"
+        >
+          ✎
+        </button>
         <button
           v-if="removable"
           class="icon-button"
@@ -42,6 +62,8 @@ const emit = defineEmits<{ remove: [] }>()
 <style scoped>
 .card-shell {
   display: grid;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--color-line);
@@ -51,13 +73,31 @@ const emit = defineEmits<{ remove: [] }>()
 }
 
 .card-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 66px;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
   padding: 13px 14px 10px;
   border-bottom: 1px solid var(--color-line-subtle);
+}
+
+.card-drag-handle {
+  display: grid;
+  width: 28px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #8290a0;
+  cursor: grab;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.card-drag-handle:active {
+  cursor: grabbing;
 }
 
 .card-header h3,
@@ -100,12 +140,13 @@ const emit = defineEmits<{ remove: [] }>()
 }
 
 .icon-button:hover {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+  border-color: #9eb2c9;
+  color: var(--color-primary);
 }
 
 .card-content {
   min-width: 0;
+  min-height: 0;
   padding: 10px 14px 12px;
 }
 

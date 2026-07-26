@@ -32,14 +32,18 @@ export interface MetricState extends MetricTotals {
     | null
 }
 
-export interface SceneAggregate {
+export interface ProjectAggregate {
   stat_date: string
-  scene_name: string
+  project_name: string
   annotation_total: number
   annotation_submitted: number
   good_metrics: MetricTotals
   bad_metrics: MetricTotals
   computed_at: string
+}
+
+export interface SceneAggregate extends ProjectAggregate {
+  scene_name: string
 }
 
 export interface GroupAggregate extends SceneAggregate {
@@ -78,11 +82,12 @@ export interface DataResponse<T> {
   computed_at: string | null
 }
 
-export type AggregateLevel = 'scene' | 'group' | 'employee'
+export type AggregateLevel = 'project' | 'scene' | 'group' | 'employee'
 
-export interface AggregateNode extends SceneAggregate {
+export interface AggregateNode extends ProjectAggregate {
   id: string
   level: AggregateLevel
+  scene_name: string
   group_name: string
   employee_id: string
   children?: AggregateNode[]

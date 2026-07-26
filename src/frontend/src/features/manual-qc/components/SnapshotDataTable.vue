@@ -34,7 +34,13 @@ function statusCell(node: AggregateNode) {
   if (node.level === 'employee') {
     return h('span', { class: 'load-status is-leaf' }, '员工')
   }
-  return h('span', { class: 'load-status' }, node.level === 'scene' ? '场景' : '组')
+  const labels = {
+    project: '项目',
+    scene: '标注任务',
+    group: '组',
+    employee: '员工',
+  }
+  return h('span', { class: 'load-status' }, labels[node.level])
 }
 
 const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
@@ -45,10 +51,22 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
     filterFn: dateRangeFilter,
     meta: { filter: { type: 'date-range' } },
   }),
+  columnHelper.accessor('project_name', {
+    id: 'project_name',
+    header: '项目',
+    size: 118,
+    filterFn: multiSelectFilter,
+    meta: {
+      filter: {
+        type: 'select',
+        options: ['园区', '城区/高速'],
+      },
+    },
+  }),
   columnHelper.accessor('scene_name', {
     id: 'scene_name',
-    header: '场景',
-    size: 148,
+    header: '标注任务',
+    size: 176,
     filterFn: multiSelectFilter,
     meta: {
       filter: {
@@ -175,11 +193,11 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
   <section class="snapshot-table-section">
     <header class="table-section-header">
       <div>
-        <p class="section-index">02 · SNAPSHOT DRILL-DOWN</p>
-        <h2>验收快照明细</h2>
+        <p class="section-index">逐级明细</p>
+        <h2>标注与验收明细</h2>
       </div>
       <p>
-        数据按“日期—场景—组—员工”逐级展开；表头支持排序、筛选、调列和调宽。
+        数据按“日期—项目—标注任务—组—员工”逐级展开；表头支持排序、筛选、调列和调宽。
       </p>
     </header>
     <DataWorkbench
@@ -188,7 +206,7 @@ const columns = computed<ColumnDef<AggregateNode, unknown>[]>(() => [
       :can-expand="(row) => row.hasChildren"
       :load-children="loadChildren"
       enable-analysis
-      empty-text="当前筛选没有验收快照。"
+      empty-text="当前筛选没有人工质检快照。"
       @create-chart="emit('createChart', $event)"
     />
   </section>

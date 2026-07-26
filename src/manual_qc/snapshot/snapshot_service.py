@@ -6,7 +6,7 @@ from .models import METRIC_NUMBER_KEYS, SnapshotFilter
 from .repository import SnapshotRepository
 
 
-AggregateLevel = Literal["scene", "group", "employee"]
+AggregateLevel = Literal["project", "scene", "group", "employee"]
 
 
 class SnapshotQueryService:
@@ -18,6 +18,9 @@ class SnapshotQueryService:
         level: AggregateLevel,
         filters: SnapshotFilter,
     ) -> list[dict[str, Any]]:
+        if level == "project":
+            rows = self._repository.aggregate_by_project(filters)
+            return [self._shape_aggregate(row) for row in rows]
         if level == "scene":
             rows = self._repository.aggregate_by_scene(filters)
             return [self._shape_aggregate(row) for row in rows]

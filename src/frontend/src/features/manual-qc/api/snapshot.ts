@@ -3,9 +3,21 @@ import type {
   DataResponse,
   EmployeeAggregate,
   GroupAggregate,
+  ProjectAggregate,
   SceneAggregate,
+  SnapshotRow,
   SnapshotQuery,
 } from '../types/snapshot'
+
+export async function getProjectAggregate(
+  query: SnapshotQuery,
+): Promise<DataResponse<ProjectAggregate>> {
+  const response = await http.get<DataResponse<ProjectAggregate>>(
+    '/snapshots/aggregate/project',
+    { params: query },
+  )
+  return response.data
+}
 
 export async function getSceneAggregate(
   query: SnapshotQuery,
@@ -33,6 +45,16 @@ export async function getEmployeeAggregate(
   const response = await http.get<DataResponse<EmployeeAggregate>>(
     '/snapshots/aggregate/employee',
     { params: query },
+  )
+  return response.data
+}
+
+export async function getSnapshotRows(
+  query: SnapshotQuery,
+): Promise<DataResponse<SnapshotRow>> {
+  const response = await http.get<DataResponse<SnapshotRow>>(
+    '/snapshots/rows',
+    { params: { ...query, limit: 1000 } },
   )
   return response.data
 }

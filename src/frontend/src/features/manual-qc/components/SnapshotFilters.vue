@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { SnapshotQuery } from '../types/snapshot'
 
-defineProps<{ sceneOptions: string[]; loading: boolean }>()
+defineProps<{
+  projectOptions: string[]
+  sceneOptions: string[]
+  loading: boolean
+}>()
 const model = defineModel<SnapshotQuery>({ required: true })
 const emit = defineEmits<{ submit: []; reset: [] }>()
 </script>
@@ -17,9 +21,18 @@ const emit = defineEmits<{ submit: []; reset: [] }>()
       <input id="date-end" v-model="model.stat_date_end" class="field" type="date" />
     </div>
     <div class="filter-field">
-      <label for="scene">场景</label>
+      <label for="project">项目</label>
+      <select id="project" v-model="model.project_name" class="select-field">
+        <option value="">全部项目</option>
+        <option v-for="project in projectOptions" :key="project" :value="project">
+          {{ project }}
+        </option>
+      </select>
+    </div>
+    <div class="filter-field">
+      <label for="scene">标注任务</label>
       <select id="scene" v-model="model.scene_name" class="select-field">
-        <option value="">全部场景</option>
+        <option value="">全部标注任务</option>
         <option v-for="scene in sceneOptions" :key="scene" :value="scene">
           {{ scene }}
         </option>
@@ -33,6 +46,16 @@ const emit = defineEmits<{ submit: []; reset: [] }>()
         class="field"
         type="text"
         placeholder="精确组名"
+      />
+    </div>
+    <div class="filter-field">
+      <label for="employee">标注员</label>
+      <input
+        id="employee"
+        v-model.trim="model.employee_id"
+        class="field"
+        type="text"
+        placeholder="精确工号"
       />
     </div>
     <div class="filter-actions">
@@ -50,7 +73,7 @@ const emit = defineEmits<{ submit: []; reset: [] }>()
 .filters {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(4, minmax(140px, 1fr)) auto;
+  grid-template-columns: repeat(6, minmax(120px, 1fr)) auto;
   gap: 12px;
   align-items: end;
   padding: 14px;

@@ -7,9 +7,10 @@
 | `ConfigManager` | 合并 YAML、替换环境变量、管理连接别名与原子重载 | 建立数据库连接、保存秘密 |
 | `DatabaseManager` | 按别名创建并复用 PostgreSQL connector | 编写业务 SQL |
 | `PGConnector` | 连接池、只读查询、写事务和批量写 | 验收业务判断 |
-| `SnapshotRepository` | 快照行查询与三级聚合 SQL | HTTP 和页面状态 |
+| `SnapshotRepository` | 快照行查询与项目、标注任务、组、员工四级聚合 SQL | HTTP 和页面状态 |
 | `SnapshotQueryService` | 聚合级别和必填筛选的业务边界 | 拼接 SQL |
 | FastAPI Router | 校验 HTTP 参数并调用 Service | 直接访问数据库 |
+| `ViewConfigRepository / Service` | 保存和恢复页面统计卡片定义、样式与布局 | 计算图表数据、解释指标 |
 
 数据依赖方向固定为 `Router → Service → Repository → Connector → PostgreSQL`。
 
@@ -23,17 +24,17 @@
 |---|---|---|
 | `App.vue` | 渲染应用外壳 | 无 |
 | `AppShell.vue` | 提供侧边栏、顶栏和路由内容区 | 读取路由元数据，不拥有领域状态 |
-| `SnapshotPage.vue` | 组装验收快照与页面级统计卡片 | 使用 composable，把状态传给子组件；持有卡片状态 |
+| `SnapshotPage.vue` | 组装人工质检总览、可编辑看板和逐级明细 | 使用 composable，把状态传给子组件；处理图表下钻 |
 
-## 验收快照功能
+## 人工质检快照功能
 
 | 组件或 composable | 单一职责 | 输入 / 输出 |
 |---|---|---|
-| `useSnapshotExplorer` | 管理查询、加载、错误、树数据和三级懒加载 | 输出只读状态与 `load/reset/expand` 动作 |
-| `SnapshotFilters.vue` | 编辑日期、场景和组筛选 | `modelValue`；发出 `submit`、`reset` |
-| `SnapshotSummaryChart.vue` | 把场景聚合展示为 ECharts 图 | `rows` |
+| `useSnapshotExplorer` | 管理查询、加载、错误、树数据和四级懒加载 | 输出只读状态与 `load/reset/expand` 动作 |
+| `SnapshotFilters.vue` | 编辑日期、项目、标注任务、组和员工筛选 | `modelValue`；发出 `submit`、`reset` |
+| `SnapshotSummaryChart.vue` | 先展示标注 Good/Bad，再展示验收分配、完成、通过和打回 | 标注任务聚合；发出项目/任务下钻 |
 | `SnapshotDataTable.vue` | 定义领域列并连接 DataWorkbench | `rows`、`loadingKeys`；发出展开和当前筛选制图请求 |
-| `snapshotChart.ts` | 按维度聚合验收指标，产出可渲染卡片 | 快照行、维度、指标和来源上下文 |
+| `snapshotChart.ts` | 按日期、项目、标注任务、组、员工和结果层级聚合指标 | 保存的查询卡片；返回用最新快照计算的图表结果 |
 
 ## 共享组件
 
@@ -44,11 +45,11 @@
 | `WorkbenchToolbar.vue` | 展示行数、选择、筛选、制图和列管理动作 | 统计与列描述；发出工具栏动作 |
 | `BaseCheckbox.vue` | 提供可访问的二态/三态复选框 | `modelValue`、`indeterminate`；发出更新 |
 | `BaseEChart.vue` | 管理 ECharts 生命周期和尺寸响应 | `option`、可访问标签和最小高度 |
-| `DashboardGrid.vue` | 展示卡片集合及添加入口 | 卡片列表；发出添加、删除、图形切换 |
-| `CardShell.vue` | 统一卡片标题、动作、内容和来源区 | 插槽；发出删除 |
-| `ChartCard.vue` | 把统计卡片规格渲染为 ECharts 与可读数据表 | 卡片；发出删除和图形切换 |
-| `ChartBuilderDialog.vue` | 选择标题、维度、指标和图形 | 构建选项；发出结构化制图参数 |
-| `useDashboardCards` | 管理当前页面卡片集合 | `add/remove/changeChartType` |
+| `DashboardGrid.vue` | 用 GridStack 管理卡片拖动、缩放和响应式布局 | 卡片与运行结果；发出布局、编辑、删除、刷新和下钻 |
+| `CardShell.vue` | 统一卡片标题、拖动手柄、动作、内容和来源区 | 插槽；发出编辑和删除 |
+| `ChartCard.vue` | 把卡片定义渲染为 ECharts 与可读数据表 | 卡片及运行结果；发出编辑、刷新、删除和图表点击 |
+| `ChartBuilderDialog.vue` | 编辑标题、数据源、分组、指标、筛选、图形与样式 | 初始卡片；发出完整卡片配置 |
+| `useDashboardWorkspace` | 恢复、重算、修改并持久化页面看板 | 页面键和卡片解析器；输出卡片、结果和保存状态 |
 
 **表格状态：** TanStack Table 负责排序、筛选、列顺序、列宽、选择和展开状态；Vue 组件负责交互与视觉。服务端懒加载子行时，只有成功取得子行后才把父行置为展开，避免“减号已出现但数据尚未展开”的伪状态。
 
@@ -74,5 +75,6 @@ TanStack Table 是无样式的表格状态与行模型引擎，不是开箱即�
 统计卡片是独立的 Dashboard 能力，通过“当前筛选结果”这一语义事件连接表格，
 不侵入 TanStack 内核。
 
-当前卡片状态只存在于页面会话。拖拽/缩放、布局持久化、共享权限和版本恢复尚未
-实现，不能把这一切片描述为完整可配置看板。
+当前卡片的查询、样式和布局已保存到 `t_portal_view_config`。页面重开后只恢复
+定义，并对最新快照重新计算，不保存易过期的统计值。当前是本地单用户默认视图；
+共享权限、多视图切换和历史版本恢复尚未实现。

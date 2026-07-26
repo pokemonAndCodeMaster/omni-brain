@@ -10,6 +10,7 @@ from src.api.schemas import (
     DataResponse,
     EmployeeAggregateOut,
     GroupAggregateOut,
+    ProjectAggregateOut,
     SceneAggregateOut,
     SnapshotRowOut,
 )
@@ -53,13 +54,50 @@ def aggregate_by_scene(
     stat_date_end: date | None = Query(None),
     scene_name: str | None = Query(None),
     group_name: str | None = Query(None),
+    employee_id: str | None = Query(None),
+    project_name: str | None = Query(None),
 ) -> DataResponse[SceneAggregateOut]:
     items = service.aggregate(
         "scene",
-        _filters(stat_date_start, stat_date_end, scene_name, group_name),
+        _filters(
+            stat_date_start,
+            stat_date_end,
+            scene_name,
+            group_name,
+            employee_id,
+            project_name=project_name,
+        ),
     )
     return DataResponse(
         items=[SceneAggregateOut.model_validate(item) for item in items],
+        total=len(items),
+        computed_at=_computed_at(items),
+    )
+
+
+@router.get("/aggregate/project", response_model=DataResponse[ProjectAggregateOut])
+def aggregate_by_project(
+    service: SnapshotService,
+    stat_date_start: date | None = Query(None),
+    stat_date_end: date | None = Query(None),
+    scene_name: str | None = Query(None),
+    group_name: str | None = Query(None),
+    employee_id: str | None = Query(None),
+    project_name: str | None = Query(None),
+) -> DataResponse[ProjectAggregateOut]:
+    items = service.aggregate(
+        "project",
+        _filters(
+            stat_date_start,
+            stat_date_end,
+            scene_name,
+            group_name,
+            employee_id,
+            project_name=project_name,
+        ),
+    )
+    return DataResponse(
+        items=[ProjectAggregateOut.model_validate(item) for item in items],
         total=len(items),
         computed_at=_computed_at(items),
     )
@@ -72,11 +110,20 @@ def aggregate_by_group(
     stat_date_start: date | None = Query(None),
     stat_date_end: date | None = Query(None),
     group_name: str | None = Query(None),
+    employee_id: str | None = Query(None),
+    project_name: str | None = Query(None),
 ) -> DataResponse[GroupAggregateOut]:
     try:
         items = service.aggregate(
             "group",
-            _filters(stat_date_start, stat_date_end, scene_name, group_name),
+            _filters(
+                stat_date_start,
+                stat_date_end,
+                scene_name,
+                group_name,
+                employee_id,
+                project_name=project_name,
+            ),
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -94,11 +141,20 @@ def aggregate_by_employee(
     group_name: str = Query(min_length=1),
     stat_date_start: date | None = Query(None),
     stat_date_end: date | None = Query(None),
+    employee_id: str | None = Query(None),
+    project_name: str | None = Query(None),
 ) -> DataResponse[EmployeeAggregateOut]:
     try:
         items = service.aggregate(
             "employee",
-            _filters(stat_date_start, stat_date_end, scene_name, group_name),
+            _filters(
+                stat_date_start,
+                stat_date_end,
+                scene_name,
+                group_name,
+                employee_id,
+                project_name=project_name,
+            ),
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routers.snapshot import router as snapshot_router
+from src.api.routers.view_config import router as view_config_router
 from src.api.schemas import HealthResponse
 from src.config import ConfigManager
 from src.database import DatabaseManager
@@ -39,10 +40,11 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
         allow_credentials=False,
-        allow_methods=["GET"],
+        allow_methods=["GET", "PUT"],
         allow_headers=["*"],
     )
     app.include_router(snapshot_router)
+    app.include_router(view_config_router)
 
     @app.get("/api/health", response_model=HealthResponse)
     def health(request: Request) -> HealthResponse:

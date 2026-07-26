@@ -9,7 +9,7 @@ const router = createRouter({
       path: '/manual-qc/snapshots',
       name: 'manual-qc-snapshots',
       component: SnapshotPage,
-      meta: { title: '人工质检 · 验收快照' },
+      meta: { title: '人工质检 · 标注与验收快照' },
     },
   ],
 })

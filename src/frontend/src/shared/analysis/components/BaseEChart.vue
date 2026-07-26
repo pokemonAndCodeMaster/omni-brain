@@ -29,6 +29,9 @@ const props = withDefaults(
     minHeight: 280,
   },
 )
+const emit = defineEmits<{
+  chartClick: [payload: { name: string }]
+}>()
 const host = useTemplateRef<HTMLDivElement>('host')
 let chart: ECharts | null = null
 let observer: ResizeObserver | null = null
@@ -40,6 +43,10 @@ function render() {
 onMounted(() => {
   if (!host.value) return
   chart = init(host.value)
+  chart.on('click', (params) => {
+    const name = String(params.name ?? '')
+    if (name) emit('chartClick', { name })
+  })
   render()
   observer = new ResizeObserver(() => chart?.resize())
   observer.observe(host.value)
