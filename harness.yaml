@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_content_first_v13_awaiting_forward_test
+  status: implemented_content_first_v13_1_awaiting_forward_test
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,7 +41,7 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_content_first_v13_awaiting_forward_test
+    adoption: implemented_content_first_v13_1_awaiting_forward_test
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
@@ -53,6 +53,7 @@ capabilities:
       - V11 的主要失败是已读内容没有充分落页、公共能力回退和候选视图路径混乱
       - V12 同条件模型比较选定 GLM 5.1 作为日常中档实验基线；当前内容结果为 19/24
       - V13 按阶段渐进加载 Skill 模板，保留用户完整范围与最强证据切片的差距，并允许诚实声明 partial，尚未前向验证
+      - V13 首轮前向实验在写作前失去进展；V13.1 只补充单来源串行阅读与即时语义落地节奏，等待重试
       - 只读检查不判断业务真伪或内容充分性
       - 只有来源完整展示、关键来源选择和三层独立落点取得 verified@slice，知识摄入结果尚未取得
   knowledge_query_and_context:

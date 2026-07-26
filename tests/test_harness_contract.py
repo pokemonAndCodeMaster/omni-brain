@@ -20,16 +20,16 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_content_first_v13_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_content_first_v13_1_is_implemented_without_claiming_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_content_first_v13_awaiting_forward_test",
+            "implemented_content_first_v13_1_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_content_first_v13_awaiting_forward_test",
+            "implemented_content_first_v13_1_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -157,6 +157,9 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("只在进入某一步时读取该步点名的模板", skill)
         self.assertIn("用户请求的完整范围", skill)
         self.assertIn("不要在开始时预读整个 `assets/` 目录", skill)
+        self.assertIn("一次只处理一份实质来源", skill)
+        self.assertIn("不并行执行多份 `source-read`", skill)
+        self.assertIn("只有这份来源的具体机制和知识落点已经写入工作台", skill)
         self.assertNotIn("这里必须同步最后一次检查", review)
         self.assertLess(review.index("## 从这里开始看内容"), review.index("## 结构状态"))
 
