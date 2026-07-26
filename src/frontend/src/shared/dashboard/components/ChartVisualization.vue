@@ -239,11 +239,15 @@ const ariaLabel = computed(
 <style scoped>
 .visualization {
   display: grid;
+  height: 100%;
+  grid-template-rows: minmax(180px, 1fr) auto;
   min-height: 0;
   gap: 6px;
 }
 
 .chart-region {
+  height: 100%;
+  min-width: 0;
   min-height: 180px;
 }
 
