@@ -59,7 +59,7 @@ COVERAGE_STATES = {
     "unread_blocked",
 }
 STRONG_READ_STATES = {"read_full", "read_targeted"}
-COMPLETION_STATES = {"covered", "unknown", "not_applicable"}
+COMPLETION_STATES = {"covered", "partial", "unknown", "not_applicable"}
 COMPLETION_DIMENSIONS = {
     "operating_model",
     "information_model",
@@ -900,11 +900,11 @@ def validate_completion(
         topic = item.get("topic")
         if not isinstance(topic, str) or not topic.strip() or topic.startswith("<"):
             errors.append(f"completion.yaml knowledge_path {level} 未填写 topic")
-        if status == "covered":
+        if status in {"covered", "partial"}:
             source_files = item.get("source_files")
             if not isinstance(source_files, list) or not source_files:
                 errors.append(
-                    f"completion.yaml knowledge_path {level} 已覆盖但没有 source_files"
+                    f"completion.yaml knowledge_path {level} {status} 但没有 source_files"
                 )
             else:
                 for raw_source in source_files:
@@ -939,7 +939,7 @@ def validate_completion(
             primary_page = item.get("primary_page")
             if not isinstance(primary_page, str) or not primary_page.strip():
                 errors.append(
-                    f"completion.yaml knowledge_path {level} 已覆盖但没有 primary_page"
+                    f"completion.yaml knowledge_path {level} {status} 但没有 primary_page"
                 )
             else:
                 target = (knowledge_root / primary_page).resolve()
@@ -969,6 +969,13 @@ def validate_completion(
                 if not isinstance(relation, str) or not relation.strip():
                     errors.append(
                         f"completion.yaml knowledge_path {level} 缺少 relation_to_next"
+                    )
+            if status == "partial":
+                rationale = item.get("rationale")
+                if not isinstance(rationale, str) or not rationale.strip():
+                    errors.append(
+                        f"completion.yaml knowledge_path {level} partial "
+                        "需要同时说明已覆盖和仍缺范围"
                     )
         else:
             rationale = item.get("rationale")
@@ -1001,9 +1008,11 @@ def validate_completion(
             errors.append(f"completion.yaml {dimension_id} 仍未完成：{status}")
             continue
         evidence = item.get("evidence_pages")
-        if status == "covered":
+        if status in {"covered", "partial"}:
             if not isinstance(evidence, list) or not evidence:
-                errors.append(f"completion.yaml {dimension_id} 已覆盖但没有 evidence_pages")
+                errors.append(
+                    f"completion.yaml {dimension_id} {status} 但没有 evidence_pages"
+                )
             else:
                 knowledge_root = (root / "draft" / "knowledge").resolve()
                 for raw in evidence:
@@ -1019,6 +1028,13 @@ def validate_completion(
                         errors.append(
                             f"completion.yaml {dimension_id} 证据页不存在：{raw}"
                         )
+            if status == "partial":
+                rationale = item.get("rationale")
+                if not isinstance(rationale, str) or not rationale.strip():
+                    errors.append(
+                        f"completion.yaml {dimension_id} partial "
+                        "需要同时说明已覆盖和仍缺范围"
+                    )
         else:
             rationale = item.get("rationale")
             if not isinstance(rationale, str) or not rationale.strip():

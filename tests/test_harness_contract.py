@@ -20,16 +20,16 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_content_first_v12_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_content_first_v13_is_implemented_without_claiming_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_content_first_v12_awaiting_forward_test",
+            "implemented_content_first_v13_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_content_first_v12_awaiting_forward_test",
+            "implemented_content_first_v13_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -121,19 +121,22 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 来源主题地图", inventory)
         self.assertIn("## 已读内容与知识落点", inventory)
         self.assertIn("不可丢失的机制、条件、边界、冲突或未知", inventory)
+        self.assertIn("作为独立命令直接执行", inventory)
         self.assertIn("完成这次落地再选择下一组来源", (
             ROOT / ".agents/skills/ingest-knowledge/SKILL.md"
         ).read_text(encoding="utf-8"))
         self.assertIn("source-select", brief)
         completion = (assets / "completion.yaml").read_text(encoding="utf-8")
         self.assertIn("knowledge_path:", completion)
+        self.assertIn("covered/partial/unknown/not_applicable", completion)
         self.assertIn("level: parent", completion)
         self.assertIn("level: subject", completion)
         self.assertIn("level: focus", completion)
-        self.assertIn("工具输出不可完整看见时不得声明 `read_full`", inventory)
+        self.assertIn("隐藏正文输出时，不得声明 `read_full`", inventory)
         self.assertIn("## 软件与代码事实源", inventory)
         self.assertIn("## 推荐路线：从全貌到细节", product_view)
         self.assertIn("## 按问题查找", product_view)
+        self.assertIn("最小充分路线", product_view)
         self.assertIn("draft/knowledge/views/by-domain/<slug>.md", product_view)
         self.assertIn("不要另建 `draft/views/`", product_view)
         self.assertIn("## 逐题回答", reader_answers)
@@ -145,6 +148,15 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 一次具体修改路径", software_architecture)
         self.assertIn("不要求先出现第二个外部领域", shared_capability)
         self.assertIn("draft/knowledge/capabilities/", shared_capability)
+        questions = (assets / "questions.md").read_text(encoding="utf-8")
+        self.assertIn("唯一状态源", questions)
+        self.assertIn("open / answered / accepted_unknown", questions)
+        skill = (ROOT / ".agents/skills/ingest-knowledge/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("只在进入某一步时读取该步点名的模板", skill)
+        self.assertIn("用户请求的完整范围", skill)
+        self.assertIn("不要在开始时预读整个 `assets/` 目录", skill)
         self.assertNotIn("这里必须同步最后一次检查", review)
         self.assertLess(review.index("## 从这里开始看内容"), review.index("## 结构状态"))
 

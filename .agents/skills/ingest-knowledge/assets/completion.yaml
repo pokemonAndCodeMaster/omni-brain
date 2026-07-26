@@ -5,7 +5,8 @@ target_reader: <谁要使用这批知识，已有多少背景>
 intended_outcome: <读完后能够理解、判断或执行什么>
 
 # 三层知识主线在阅读后、写正文前先填写 topic/source_files/primary_page；
-# 正文形成并复核后再把 status 从 pending 改为 covered/unknown/not_applicable。
+# 正文形成并复核后再把 status 从 pending 改为 covered/partial/unknown/not_applicable。
+# partial 必须在 rationale 同时说明“已覆盖什么”和“仍缺什么”。
 knowledge_path:
   - level: parent
     topic: <上级领域或根领域>
@@ -29,7 +30,7 @@ knowledge_path:
     relation_to_next: ''
     rationale: ''
 
-# dimension status: covered | unknown | not_applicable
+# dimension status: covered | partial | unknown | not_applicable
 dimensions:
   - id: operating_model
     question: 从起点到真实完成的角色、流程、模块、上下游、并行、状态、异常与返工怎样运作？

@@ -421,6 +421,92 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(0, status.returncode, status.stderr)
         self.assertEqual(1, json.loads(status.stdout)["selected_sources"])
 
+    def test_partial_content_requires_real_evidence_and_explicit_gap(self) -> None:
+        case = self.init_case()
+        selected = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "one.md",
+            "--level",
+            "focus",
+            "--reason",
+            "用于形成已知局部",
+        )
+        self.assertEqual(0, selected.returncode, selected.stderr)
+        shown = self.run_tool(
+            "source-read", "sample-case", "sample", "--path", "one.md"
+        )
+        self.assertEqual(0, shown.returncode, shown.stderr)
+        marked = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "read_full",
+            "--reason",
+            "理解已知局部",
+            "--evidence",
+            "one.md#full-file",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(0, marked.returncode, marked.stderr)
+        remaining = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "screened",
+            "--reason",
+            "其余来源不改变本测试",
+            "--all-unreviewed",
+        )
+        self.assertEqual(0, remaining.returncode, remaining.stderr)
+        self.complete_non_content_fields(case)
+        completion = yaml.safe_load((case / "completion.yaml").read_text(encoding="utf-8"))
+        focus = next(
+            item for item in completion["knowledge_path"] if item["level"] == "focus"
+        )
+        focus.update(
+            {
+                "topic": "只有局部证据的用户焦点",
+                "status": "partial",
+                "source_files": [{"source_id": "sample", "path": "one.md"}],
+                "primary_page": "index.md",
+                "rationale": "已覆盖入口定义；仍缺完整运行闭环",
+            }
+        )
+        operating_model = next(
+            item
+            for item in completion["dimensions"]
+            if item["id"] == "operating_model"
+        )
+        operating_model.update(
+            {
+                "status": "partial",
+                "evidence_pages": ["index.md"],
+                "rationale": "已覆盖入口；仍缺异常和返工",
+            }
+        )
+        (case / "completion.yaml").write_text(
+            yaml.safe_dump(completion, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
+        result = self.run_tool("check", "sample-case")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+        focus["rationale"] = ""
+        operating_model["rationale"] = ""
+        (case / "completion.yaml").write_text(
+            yaml.safe_dump(completion, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
+        result = self.run_tool("check", "sample-case")
+        self.assertEqual(1, result.returncode)
+        self.assertIn("partial 需要同时说明已覆盖和仍缺范围", result.stdout)
+
     def test_semantic_spine_rejects_shared_primary_page(self) -> None:
         case = self.init_case()
         for path, layer in (("one.md", "parent"), ("two.txt", "focus")):
