@@ -23,9 +23,19 @@ describe('任务分析结果转换', () => {
 
     expect(toTaskAnalysisRows(rows)).toEqual([
       {
-        id: '园区::园区通行任务-C',
+        id: 'task:园区:园区通行任务-C',
+        level: 'task',
+        objectLabel: '园区通行任务-C',
+        objectType: '标注任务',
         project: '园区',
         task: '园区通行任务-C',
+        statDate: '',
+        group: '',
+        employee: '',
+        path: {
+          project: '园区',
+          task: '园区通行任务-C',
+        },
         annotationSubmitted: 400,
         goodRate: 75.75,
         acceptanceAllocated: 52,
@@ -33,6 +43,9 @@ describe('任务分析结果转换', () => {
         acceptanceCompleted: 50,
         completionRate: 96.1538,
         passRate: null,
+        dynamicMeasures: {},
+        hasChildren: true,
+        children: [],
       },
     ])
   })

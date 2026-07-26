@@ -229,25 +229,29 @@ class AnalysisRepository:
     ) -> str:
         good_submitted = self._metric_json_value("good_metrics", "annotation_submitted")
         bad_submitted = self._metric_json_value("bad_metrics", "annotation_submitted")
+        good_allocated = self._metric_json_value("good_metrics", "actual_alloc")
+        bad_allocated = self._metric_json_value("bad_metrics", "actual_alloc")
+        good_completed = self._metric_json_value("good_metrics", "actual_complete")
+        bad_completed = self._metric_json_value("bad_metrics", "actual_complete")
+        good_passed = self._metric_json_value("good_metrics", "actual_pass")
+        bad_passed = self._metric_json_value("bad_metrics", "actual_pass")
+        good_rejected = self._metric_json_value("good_metrics", "actual_reject")
+        bad_rejected = self._metric_json_value("bad_metrics", "actual_reject")
         allocated = (
-            f"({self._metric_json_value('good_metrics', 'actual_alloc')} + "
-            f"{self._metric_json_value('bad_metrics', 'actual_alloc')})"
+            f"({good_allocated} + {bad_allocated})"
         )
         expected_allocated = (
             f"({self._metric_json_value('good_metrics', 'expect_alloc')} + "
             f"{self._metric_json_value('bad_metrics', 'expect_alloc')})"
         )
         completed = (
-            f"({self._metric_json_value('good_metrics', 'actual_complete')} + "
-            f"{self._metric_json_value('bad_metrics', 'actual_complete')})"
+            f"({good_completed} + {bad_completed})"
         )
         passed = (
-            f"({self._metric_json_value('good_metrics', 'actual_pass')} + "
-            f"{self._metric_json_value('bad_metrics', 'actual_pass')})"
+            f"({good_passed} + {bad_passed})"
         )
         rejected = (
-            f"({self._metric_json_value('good_metrics', 'actual_reject')} + "
-            f"{self._metric_json_value('bad_metrics', 'actual_reject')})"
+            f"({good_rejected} + {bad_rejected})"
         )
         submitted = "SUM(s.annotation_submitted)"
         expressions = {
@@ -271,6 +275,30 @@ class AnalysisRepository:
             "acceptance.rejected": rejected,
             "acceptance.pass_rate": self._rate(passed, completed),
             "acceptance.reject_rate": self._rate(rejected, completed),
+            "good.acceptance.allocated": good_allocated,
+            "good.acceptance.completed": good_completed,
+            "good.acceptance.completion_rate": self._rate(
+                good_completed,
+                good_allocated,
+            ),
+            "good.acceptance.passed": good_passed,
+            "good.acceptance.rejected": good_rejected,
+            "good.acceptance.pass_rate": self._rate(
+                good_passed,
+                good_completed,
+            ),
+            "bad.acceptance.allocated": bad_allocated,
+            "bad.acceptance.completed": bad_completed,
+            "bad.acceptance.completion_rate": self._rate(
+                bad_completed,
+                bad_allocated,
+            ),
+            "bad.acceptance.passed": bad_passed,
+            "bad.acceptance.rejected": bad_rejected,
+            "bad.acceptance.pass_rate": self._rate(
+                bad_passed,
+                bad_completed,
+            ),
         }
         if reference.id in expressions:
             return expressions[reference.id]
@@ -284,10 +312,37 @@ class AnalysisRepository:
                 f"%({label_parameter})s, %({option_parameter})s, "
                 "'annotation_submitted'], '')::bigint, 0))"
             )
+            def option_value(key: str) -> str:
+                return (
+                    "SUM(COALESCE(NULLIF(s.option_metrics #>> ARRAY["
+                    f"%({label_parameter})s, %({option_parameter})s, "
+                    f"'{key}'], '')::bigint, 0))"
+                )
+
             if reference.id == "option.annotation_submitted":
                 return option_submitted
             if reference.id == "option.annotation_rate_of_bad":
                 return self._rate(option_submitted, bad_submitted)
+            option_allocated = option_value("actual_alloc")
+            option_completed = option_value("actual_complete")
+            option_passed = option_value("actual_pass")
+            option_rejected = option_value("actual_reject")
+            option_expressions = {
+                "option.acceptance.allocated": option_allocated,
+                "option.acceptance.completed": option_completed,
+                "option.acceptance.completion_rate": self._rate(
+                    option_completed,
+                    option_allocated,
+                ),
+                "option.acceptance.passed": option_passed,
+                "option.acceptance.rejected": option_rejected,
+                "option.acceptance.pass_rate": self._rate(
+                    option_passed,
+                    option_completed,
+                ),
+            }
+            if reference.id in option_expressions:
+                return option_expressions[reference.id]
         raise ValueError(f"不支持的分析指标：{reference.id}")
 
     def _aggregate_filters(

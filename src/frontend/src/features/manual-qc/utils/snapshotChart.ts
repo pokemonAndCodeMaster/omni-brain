@@ -384,7 +384,7 @@ export async function resolveSnapshotChartCard(
   const response = await getSnapshotRows(apiFilters as SnapshotQuery)
   if (response.total > response.items.length) {
     throw new Error(
-      `当前筛选命中 ${response.total} 行，超过单卡 1000 行安全上限；请缩小日期或任务范围。`,
+      `当前筛选命中 ${response.total} 行，但只取得 ${response.items.length} 行；为避免展示错误统计，已停止生成图表。`,
     )
   }
 

@@ -46,6 +46,8 @@ def test_catalog_exposes_human_labels_and_question_option_requirement() -> None:
     assert catalog["source_id"] == SOURCE_ID
     assert metrics["annotation.good_rate"]["label"] == "Good 占比"
     assert metrics["option.annotation_rate_of_bad"]["requires_question_option"]
+    assert metrics["good.acceptance.completion_rate"]["label"] == "Good 验收完成率"
+    assert metrics["option.acceptance.pass_rate"]["requires_question_option"]
 
 
 def test_rejects_unknown_metric_before_repository_access() -> None:
@@ -108,3 +110,15 @@ def test_http_question_option_parameters_are_normalized_at_api_boundary() -> Non
         "question_label": "驾驶行为分类",
         "question_option": "CUT_IN",
     }
+
+
+def test_facets_reject_unknown_source_before_repository_access() -> None:
+    service = AnalysisQueryService(UnusedRepository())  # type: ignore[arg-type]
+
+    with pytest.raises(AnalysisValidationError, match="未知分析数据源"):
+        service.facets(
+            source_id="unknown.source",
+            scope=AnalysisScope(),
+            dimension_id="task",
+            question_label=None,
+        )

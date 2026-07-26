@@ -18,9 +18,8 @@ import type {
 } from '@/shared/dashboard/types'
 import SnapshotFilters from '../components/SnapshotFilters.vue'
 import SnapshotSummaryChart from '../components/SnapshotSummaryChart.vue'
-import TaskAnalysisTable from '../analysis/components/TaskAnalysisTable.vue'
+import TaskAnalysisWorkspace from '../analysis/components/TaskAnalysisWorkspace.vue'
 import { useAnalysisCatalog } from '../analysis/composables/useAnalysisCatalog'
-import { useTaskAnalysis } from '../analysis/composables/useTaskAnalysis'
 import { useSnapshotExplorer } from '../composables/useSnapshotExplorer'
 import {
   buildSnapshotChartCard,
@@ -49,13 +48,6 @@ const {
   resetAndLoad,
 } = useSnapshotExplorer()
 
-const {
-  rows: taskAnalysisRows,
-  loading: taskAnalysisLoading,
-  error: taskAnalysisError,
-  total: taskAnalysisTotal,
-  load: loadTaskAnalysis,
-} = useTaskAnalysis(query)
 const {
   catalog: analysisCatalog,
 } = useAnalysisCatalog()
@@ -358,12 +350,11 @@ function exactDimensionFilterValue(
 }
 
 async function loadPage(): Promise<void> {
-  await Promise.all([load(), loadTaskAnalysis()])
+  await load()
 }
 
 async function resetPage(): Promise<void> {
   await resetAndLoad()
-  await loadTaskAnalysis()
 }
 
 async function drillToDetail(
@@ -428,7 +419,8 @@ async function drillToDate(date: string): Promise<void> {
         <h2>从标注产出看到验收结果</h2>
         <p class="page-summary">
           先看不同项目与标注任务做了多少、结果如何分布，再看验收是否分得够、做得完、
-          通过或打回多少；当前明细先按任务汇总，日期、组和标注员下钻将在下一切片接入。
+          通过或打回多少；任务明细可继续下钻到日期、组和标注员，并查看 Good / Bad
+          及问题选项详情。
         </p>
       </div>
       <dl class="freshness-card">
@@ -529,15 +521,8 @@ async function drillToDate(date: string): Promise<void> {
     <p v-if="tableScopeNotice" class="table-scope-notice" role="status">
       {{ tableScopeNotice }}
     </p>
-    <div v-if="taskAnalysisError" class="message error-message" role="alert">
-      <strong>任务汇总读取失败</strong>
-      <span>{{ taskAnalysisError }}</span>
-    </div>
-    <TaskAnalysisTable
-      id="snapshot-detail"
-      :rows="taskAnalysisRows"
-      :loading="taskAnalysisLoading"
-      :total="taskAnalysisTotal"
+    <TaskAnalysisWorkspace
+      :page-query="query"
       :catalog="analysisCatalog"
       @create-chart="addTableChart"
       @apply-filters="applyTableFilters"

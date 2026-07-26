@@ -1,73 +1,111 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/vue'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import TaskAnalysisTable from './TaskAnalysisTable.vue'
 import type { TaskAnalysisRow } from '../types/analysis'
 
+function taskRow(
+  task: string,
+  project: string,
+  values: {
+    submitted: number
+    goodRate: number | null
+    allocated: number
+    completed: number
+    completionRate: number | null
+    passRate: number | null
+  },
+): TaskAnalysisRow {
+  return {
+    id: `task:${project}:${task}`,
+    level: 'task',
+    objectLabel: task,
+    objectType: '标注任务',
+    project,
+    task,
+    statDate: '',
+    group: '',
+    employee: '',
+    path: { project, task },
+    annotationSubmitted: values.submitted,
+    goodRate: values.goodRate,
+    acceptanceAllocated: values.allocated,
+    allocationCoverageRate:
+      values.submitted ? values.allocated / values.submitted * 100 : null,
+    acceptanceCompleted: values.completed,
+    completionRate: values.completionRate,
+    passRate: values.passRate,
+    dynamicMeasures: {},
+    hasChildren: true,
+    children: [],
+  }
+}
+
 const rows: TaskAnalysisRow[] = [
-  {
-    id: '城区/高速::城区交互任务-A',
-    project: '城区/高速',
-    task: '城区交互任务-A',
-    annotationSubmitted: 447,
+  taskRow('城区交互任务-A', '城区/高速', {
+    submitted: 447,
     goodRate: 75.4,
-    acceptanceAllocated: 102,
-    allocationCoverageRate: 22.8,
-    acceptanceCompleted: 93,
+    allocated: 102,
+    completed: 93,
     completionRate: 91.2,
     passRate: 90.3,
-  },
-  {
-    id: '园区::园区泊车任务-D',
-    project: '园区',
-    task: '园区泊车任务-D',
-    annotationSubmitted: 198,
+  }),
+  taskRow('园区泊车任务-D', '园区', {
+    submitted: 198,
     goodRate: 62.6,
-    acceptanceAllocated: 30,
-    allocationCoverageRate: 15.2,
-    acceptanceCompleted: 35,
+    allocated: 30,
+    completed: 35,
     completionRate: null,
     passRate: 68.6,
-  },
+  }),
 ]
+
+const baseProps = {
+  rows,
+  loading: false,
+  total: 2,
+  periodLabel: '2026-07-13 至 2026-07-26',
+  pinnedMetrics: [],
+  initialViewState: null,
+  savingConfig: false,
+  configDirty: false,
+  configNotice: '',
+  loadChildren: vi.fn(async () => false),
+}
 
 afterEach(cleanup)
 
 describe('TaskAnalysisTable', () => {
-  it('按任务展示逐步组织的标注和验收指标，不显示无意义的选择和展开列', () => {
+  it('默认只展示任务层，并提供日期、组、标注员逐级下钻入口', () => {
     render(TaskAnalysisTable, {
-      props: { rows, loading: false, total: 2 },
+      props: baseProps,
     })
 
-    expect(screen.getByRole('heading', { name: '按标注任务比较产出与验收' })).toBeTruthy()
-    expect(screen.getByText('任务信息')).toBeTruthy()
+    expect(
+      screen.getByRole('heading', {
+        name: '按标注任务定位到日期、组和标注员',
+      }),
+    ).toBeTruthy()
+    expect(screen.getByText('任务与下钻路径')).toBeTruthy()
     expect(screen.getByText('标注情况')).toBeTruthy()
     expect(screen.getByText('验收进度')).toBeTruthy()
     expect(screen.getByText('验收结果')).toBeTruthy()
     expect(screen.getByText('城区交互任务-A')).toBeTruthy()
-    expect(screen.queryByText('层级')).toBeNull()
+    expect(screen.queryByText('2026-07-13')).toBeNull()
     expect(screen.queryByLabelText(/选择/)).toBeNull()
+    expect(screen.getAllByRole('button', { name: /展开/ })).toHaveLength(2)
     expect(
       screen.getByLabelText('当前显示 2 个标注任务'),
     ).toBeTruthy()
-
-    expect(
-      screen
-        .getByRole('columnheader', { name: '任务信息' })
-        .getAttribute('colspan'),
-    ).toBe('2')
-    expect(
-      screen
-        .getByRole('columnheader', { name: '验收进度' })
-        .getAttribute('colspan'),
-    ).toBe('4')
   })
 
   it('任务文本列同时支持输入包含筛选和精确勾选', async () => {
     render(TaskAnalysisTable, {
-      props: { rows, loading: false, total: 2 },
+      props: baseProps,
     })
 
-    await fireEvent.click(screen.getByRole('button', { name: '标注任务筛选' }))
+    await fireEvent.click(
+      screen.getByRole('button', { name: '标注任务 / 下钻对象筛选' }),
+    )
     expect(screen.getByRole('searchbox')).toBeTruthy()
     expect(
       screen.getByRole('checkbox', { name: '园区泊车任务-D' }),
@@ -84,9 +122,9 @@ describe('TaskAnalysisTable', () => {
     ).toBeTruthy()
   })
 
-  it('可按 Good 占比这一业务列筛选任务', async () => {
-    render(TaskAnalysisTable, {
-      props: { rows, loading: false, total: 2 },
+  it('可按 Good 占比筛选，并点击业务指标打开构成详情', async () => {
+    const rendered = render(TaskAnalysisTable, {
+      props: baseProps,
     })
 
     await fireEvent.click(screen.getByRole('button', { name: 'Good 占比筛选' }))
@@ -94,6 +132,14 @@ describe('TaskAnalysisTable', () => {
     await fireEvent.update(inputs[0]!, '70')
 
     await waitFor(() => expect(screen.queryByText('园区泊车任务-D')).toBeNull())
-    expect(screen.getByText('城区交互任务-A')).toBeTruthy()
+    await fireEvent.click(
+      screen.getByRole('button', {
+        name: '查看 城区交互任务-A Good 占比详情',
+      }),
+    )
+    expect(rendered.emitted().openMetricDetail?.[0]?.[0]).toMatchObject({
+      metricId: 'annotation.good_rate',
+      row: { task: '城区交互任务-A' },
+    })
   })
 })

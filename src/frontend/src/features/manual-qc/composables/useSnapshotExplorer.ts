@@ -28,10 +28,10 @@ function formatLocalDate(value: Date): string {
 function defaultQuery(): Required<Pick<SnapshotQuery, 'stat_date_start' | 'stat_date_end'>> &
   SnapshotQuery {
   const today = new Date()
-  const sevenDaysAgo = new Date(today)
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+  const thirteenDaysAgo = new Date(today)
+  thirteenDaysAgo.setDate(thirteenDaysAgo.getDate() - 13)
   return {
-    stat_date_start: formatLocalDate(sevenDaysAgo),
+    stat_date_start: formatLocalDate(thirteenDaysAgo),
     stat_date_end: formatLocalDate(today),
     project_name: '',
     scene_name: '',

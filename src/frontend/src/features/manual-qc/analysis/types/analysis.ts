@@ -81,10 +81,45 @@ export interface AnalysisQueryResult {
   warnings: string[]
 }
 
-export interface TaskAnalysisRow {
-  id: string
+export interface AnalysisFacetRequest {
+  sourceId: string
+  scope: AnalysisScope
+  dimensionId:
+    | 'project'
+    | 'task'
+    | 'group'
+    | 'employee'
+    | 'question_label'
+    | 'question_option'
+  questionLabel?: string
+}
+
+export interface AnalysisFacetResult {
+  dimensionId: string
+  values: string[]
+}
+
+export type TaskAnalysisLevel = 'task' | 'date' | 'group' | 'employee'
+
+export interface TaskAnalysisPath {
   project: string
   task: string
+  date?: string
+  group?: string
+  employee?: string
+}
+
+export interface TaskAnalysisRow {
+  id: string
+  level: TaskAnalysisLevel
+  objectLabel: string
+  objectType: string
+  project: string
+  task: string
+  statDate: string
+  group: string
+  employee: string
+  path: TaskAnalysisPath
   annotationSubmitted: number
   goodRate: number | null
   acceptanceAllocated: number
@@ -92,4 +127,61 @@ export interface TaskAnalysisRow {
   acceptanceCompleted: number
   completionRate: number | null
   passRate: number | null
+  dynamicMeasures: Record<string, number | null>
+  hasChildren: boolean
+  children?: TaskAnalysisRow[]
+}
+
+export interface TaskTableColumnState {
+  visibility: Record<string, boolean>
+  order: string[]
+  sizing: Record<string, number>
+}
+
+export interface TaskTableConfig {
+  schemaVersion: 'manual-qc-task-table-v1'
+  pinnedMetrics: AnalysisMetricReference[]
+  columns: TaskTableColumnState
+}
+
+export interface TaskTableConfigResponse {
+  ownerId: string
+  pageKey: string
+  viewName: string
+  viewType: 'data_workbench'
+  config: TaskTableConfig
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TaskMetricDetailSelection {
+  row: TaskAnalysisRow
+  metricId:
+    | 'annotation.good_rate'
+    | 'acceptance.completion_rate'
+    | 'acceptance.pass_rate'
+}
+
+export interface TaskMetricDetailOption {
+  questionLabel: string
+  questionOption: string
+  annotationSubmitted: number
+  annotationRateOfBad: number | null
+  allocated: number
+  completed: number
+  completionRate: number | null
+  passed: number
+  rejected: number
+  passRate: number | null
+}
+
+export interface TaskMetricDetail {
+  selection: TaskMetricDetailSelection
+  summary: Record<string, number | null>
+  trend: Array<{
+    date: string
+    measures: Record<string, number | null>
+  }>
+  options: TaskMetricDetailOption[]
 }

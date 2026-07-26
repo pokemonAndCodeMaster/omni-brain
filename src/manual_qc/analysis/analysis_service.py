@@ -43,10 +43,13 @@ class AnalysisQueryService:
     def facets(
         self,
         *,
+        source_id: str,
         scope: AnalysisScope,
         dimension_id: str,
         question_label: str | None,
     ) -> list[str]:
+        if source_id != SOURCE_ID:
+            raise AnalysisValidationError(f"未知分析数据源：{source_id}")
         allowed = {
             "project",
             "task",

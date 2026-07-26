@@ -29,32 +29,6 @@ vi.mock('../composables/useSnapshotExplorer', async () => {
   }
 })
 
-vi.mock('../analysis/composables/useTaskAnalysis', async () => {
-  const { shallowRef } = await import('vue')
-  return {
-    useTaskAnalysis: () => ({
-      rows: shallowRef([
-        {
-          id: '城区/高速::城区交互任务-A',
-          project: '城区/高速',
-          task: '城区交互任务-A',
-          annotationSubmitted: 447,
-          goodRate: 75.4,
-          acceptanceAllocated: 98,
-          allocationCoverageRate: 21.9,
-          acceptanceCompleted: 93,
-          completionRate: 94.9,
-          passRate: 90.3,
-        },
-      ]),
-      loading: shallowRef(false),
-      error: shallowRef(''),
-      total: shallowRef(1),
-      load: vi.fn(),
-    }),
-  }
-})
-
 vi.mock('../analysis/composables/useAnalysisCatalog', async () => {
   const { shallowRef } = await import('vue')
   return {
@@ -135,22 +109,20 @@ vi.mock('../utils/snapshotOverview', () => ({
 
 import SnapshotPage from './SnapshotPage.vue'
 
-const TaskAnalysisTableStub = defineComponent({
+const TaskAnalysisWorkspaceStub = defineComponent({
   props: {
-    rows: { type: Array, required: true },
-    loading: { type: Boolean, required: true },
-    total: { type: Number, required: true },
+    pageQuery: { type: Object, required: true },
     catalog: { type: Object, required: false },
   },
   template: `
     <output data-testid="task-analysis-input">
-      {{ rows[0]?.task }} | {{ loading }} | {{ total }} | {{ catalog?.dimensions?.[0]?.label }}
+      {{ pageQuery.project_name || '全部项目' }} | {{ catalog?.dimensions?.[0]?.label }}
     </output>
   `,
 })
 
 describe('SnapshotPage', () => {
-  it('将任务分析的 Ref 值解包后交给任务表，而不是把 Ref 对象作为 props', () => {
+  it('把当前全页范围和分析目录交给任务分析工作区', () => {
     render(SnapshotPage, {
       global: {
         stubs: {
@@ -160,13 +132,13 @@ describe('SnapshotPage', () => {
           MetricCardGrid: true,
           SnapshotFilters: true,
           SnapshotSummaryChart: true,
-          TaskAnalysisTable: TaskAnalysisTableStub,
+          TaskAnalysisWorkspace: TaskAnalysisWorkspaceStub,
         },
       },
     })
 
     expect(screen.getByTestId('task-analysis-input').textContent).toContain(
-      '城区交互任务-A | false | 1 | 标注任务',
+      '全部项目 | 标注任务',
     )
   })
 })

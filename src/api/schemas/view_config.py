@@ -112,3 +112,40 @@ class DashboardConfigResponse(CamelModel):
     version: int = Field(ge=1)
     created_at: datetime
     updated_at: datetime
+
+
+class DataWorkbenchMetricReference(CamelModel):
+    id: str = Field(
+        pattern=r"^[A-Za-z0-9_.:-]{1,128}$",
+    )
+    parameters: dict[str, str] = Field(default_factory=dict, max_length=8)
+
+
+class DataWorkbenchColumnState(CamelModel):
+    visibility: dict[str, bool] = Field(default_factory=dict, max_length=80)
+    order: list[str] = Field(default_factory=list, max_length=80)
+    sizing: dict[str, int] = Field(default_factory=dict, max_length=80)
+
+
+class DataWorkbenchConfig(CamelModel):
+    schema_version: Literal["manual-qc-task-table-v1"] = (
+        "manual-qc-task-table-v1"
+    )
+    pinned_metrics: list[DataWorkbenchMetricReference] = Field(
+        default_factory=list,
+        max_length=5,
+    )
+    columns: DataWorkbenchColumnState = Field(
+        default_factory=DataWorkbenchColumnState,
+    )
+
+
+class DataWorkbenchConfigResponse(CamelModel):
+    owner_id: str
+    page_key: str
+    view_name: str
+    view_type: Literal["data_workbench"]
+    config: DataWorkbenchConfig
+    version: int = Field(ge=1)
+    created_at: datetime
+    updated_at: datetime

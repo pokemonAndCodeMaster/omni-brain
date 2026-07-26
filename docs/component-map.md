@@ -12,7 +12,7 @@
 | `AnalysisRepository` | 依据白名单维度和指标执行任务级聚合、比例筛选、问题选项参数查询与候选值读取 | 接受自由 SQL、自由公式或未登记字段 |
 | `AnalysisQueryService` | 校验人工质检指标目录、查询粒度、筛选、排序与问题选项参数 | 页面状态或 SQL 字符串拼接 |
 | FastAPI Router | 校验 HTTP 参数并调用 Service | 直接访问数据库 |
-| `ViewConfigRepository / Service` | 保存和恢复页面统计卡片定义、样式与布局 | 计算图表数据、解释指标 |
+| `ViewConfigRepository / Service` | 保存和恢复总览、统计卡片及任务表列配置 | 计算统计值、保存一次性筛选或展开状态 |
 
 数据依赖方向固定为 `Router → Service → Repository → Connector → PostgreSQL`。
 
@@ -36,8 +36,12 @@
 | `SnapshotFilters.vue` | 编辑日期、项目、标注任务、组和员工筛选 | `modelValue`；发出 `submit`、`reset` |
 | `SnapshotSummaryChart.vue` | 用数量柱、比率折线和 Bad 问题排行展示标注与验收，并切换任务/日期 | 最小快照行；发出任务/日期下钻 |
 | `SnapshotDataTable.vue` | 保留 V1 日期—项目根表实现，作为切片二迁移时的字段与懒加载参考；当前页面不再挂载 | 继续作为当前用户入口或复制领域公式到共享组件 |
-| `TaskAnalysisTable.vue` | 显示跨周期任务汇总，并按“任务信息→标注情况→验收进度→验收结果”组织首批业务列 | 接收任务汇总行、加载状态与指标目录；发出表头筛选的分析请求 |
-| `useTaskAnalysis` | 将顶部范围转成任务级受控查询并维护结果、加载与错误状态 | 接收页面筛选；输出只读任务行、总数、错误和 `load` 动作 |
+| `TaskAnalysisWorkspace.vue` | 组合任务树、指标详情和表格配置，并协调固定问题选项列 | 接收顶部范围和指标目录；发出当前表格分析请求 |
+| `TaskAnalysisTable.vue` | 显示任务 → 日期 → 组 → 标注员树，并按“路径→标注→验收进度→验收结果→固定选项”组织业务列 | 接收树节点、指标目录与列配置；发出下钻、详情、筛选和保存动作 |
+| `TaskMetricDetailDrawer.vue` | 展示所点指标的整体、Good/Bad、按日趋势和问题标签—选项明细 | 接收当前对象和查询结果；发出关闭与固定选项列动作 |
+| `useTaskAnalysisTree` | 把顶部范围转换为受控任务查询，并按父级路径懒加载日期、组和员工 | 输出只读树、总数、错误和 `load/loadChildren/setPinnedMetrics` |
+| `useTaskMetricDetail` | 按当前任务路径读取汇总、趋势和问题选项统计 | 输出只读详情、加载状态与错误 |
+| `useTaskTableWorkspace` | 恢复和保存列显隐、顺序、宽度及最多 5 个固定问题选项指标 | 不保存临时筛选、排序或展开状态 |
 | `useAnalysisCatalog` | 读取后端指标目录，作为表头名称和后续编辑器字段来源 | 输出只读目录、加载状态、错误和 `load` 动作；不维护领域公式副本 |
 | `snapshotChart.ts` | 按日期、项目、标注任务、组、员工和结果层级聚合指标 | 保存的查询卡片；返回用最新快照计算的图表结果 |
 | `snapshotOverview.ts` | 计算全量及各项目的总览指标 | 总览卡片定义和最小快照行；返回标注/验收结果 |
@@ -79,7 +83,8 @@ TanStack Table 是无样式的表格状态与行模型引擎，不是开箱即�
 | shadcn-vue Data Table | 工具栏、分面筛选、列管理、分页、行操作拆成组合部件 | `HeaderFilter`、`WorkbenchToolbar` 继续独立演进 |
 
 当前已实现列头文字包含/精确多选/日期/数值范围筛选、默认降序排序、调宽、显隐、顺序、
-选择和树形懒加载。下一批只有在
+选择和任务 → 日期 → 组 → 标注员树形懒加载；任务表还可把详情中的问题选项固定成
+可筛选、可排序列并持久化列配置。下一批只有在
 真实数据量或操作工况触发时，再接列固定、分面筛选、服务端分页与虚拟滚动。
 统计卡片是独立的 Dashboard 能力，通过“当前筛选结果”这一语义事件连接表格，
 不侵入 TanStack 内核。

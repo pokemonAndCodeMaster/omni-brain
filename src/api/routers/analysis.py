@@ -128,6 +128,7 @@ def facets(
 ) -> AnalysisFacetOut:
     try:
         values = service.facets(
+            source_id=payload.source_id,
             scope=_scope(payload),
             dimension_id=payload.dimension_id,
             question_label=payload.question_label,

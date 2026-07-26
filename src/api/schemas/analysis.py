@@ -105,6 +105,7 @@ class AnalysisQueryOut(AnalysisCamelModel):
 
 
 class AnalysisFacetIn(AnalysisCamelModel):
+    source_id: str = Field(min_length=1, max_length=128)
     scope: AnalysisScopeIn = Field(default_factory=AnalysisScopeIn)
     dimension_id: Literal[
         "project",

@@ -46,6 +46,7 @@ const props = withDefaults(
     showExpandColumn?: boolean
     filterScopeLabel?: string
     rowCountLabel?: string
+    initialViewState?: WorkbenchViewState | null
   }>(),
   {
     editors: () => ({}),
@@ -57,6 +58,7 @@ const props = withDefaults(
     showExpandColumn: true,
     filterScopeLabel: '表头筛选默认只影响明细',
     rowCountLabel: '条记录',
+    initialViewState: null,
   },
 )
 
@@ -215,8 +217,11 @@ function applyState(state: WorkbenchViewState): void {
   const businessOrder = state.columnOrder.filter(
     (id) => id !== '__select' && id !== '__expand',
   )
+  const utilityOrder = utilityColumns.value
+    .map((column) => column.id)
+    .filter((identifier): identifier is string => Boolean(identifier))
   columnOrder.value = businessOrder.length
-    ? ['__select', '__expand', ...businessOrder]
+    ? [...utilityOrder, ...businessOrder]
     : []
   columnSizing.value = cloneSerializable(state.columnSizing)
   columnFilters.value = cloneSerializable(state.columnFilters)
@@ -228,6 +233,14 @@ watch(
   [sorting, columnFilters, expanded, columnVisibility, columnOrder, columnSizing],
   () => emit('stateChange', exportState()),
   { deep: true },
+)
+
+watch(
+  () => props.initialViewState,
+  (state) => {
+    if (state) applyState(state)
+  },
+  { deep: true, immediate: true },
 )
 
 watch(
@@ -420,7 +433,7 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
                   @update:model-value="table.toggleAllRowsSelected($event)"
                 />
               </template>
-              <span v-else-if="header.column.id === '__expand'">层级</span>
+              <span v-else-if="header.column.id === '__expand'">展开</span>
               <div v-else class="header-content">
                 <button
                   class="header-button"
@@ -508,7 +521,7 @@ async function toggleExpanded(row: Row<TData>): Promise<void> {
                     }}
                   </button>
                   <span v-else class="leaf-dot">·</span>
-                  <small>L{{ row.depth + 1 }}</small>
+                  <small>{{ row.depth + 1 }} 级</small>
                 </div>
               </template>
               <template v-else-if="canEdit(row.original, cell.column.id)">

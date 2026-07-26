@@ -3,23 +3,45 @@ import { computed, h } from 'vue'
 import { createColumnHelper } from '@tanstack/vue-table'
 import type { ColumnDef } from '@tanstack/vue-table'
 import DataWorkbench from '@/shared/data-workbench/components/DataWorkbench.vue'
-import type { WorkbenchAnalysisRequest } from '@/shared/data-workbench/types'
+import type {
+  WorkbenchAnalysisRequest,
+  WorkbenchViewState,
+} from '@/shared/data-workbench/types'
 import {
   numberRangeFilter,
   textSelectionFilter,
 } from '@/shared/data-workbench/types'
-import type { AnalysisCatalog, TaskAnalysisRow } from '../types/analysis'
+import {
+  metricReferenceKey,
+} from '../utils'
+import type {
+  AnalysisCatalog,
+  AnalysisMetricReference,
+  TaskAnalysisRow,
+  TaskMetricDetailSelection,
+} from '../types/analysis'
 
 const props = defineProps<{
   rows: TaskAnalysisRow[]
   loading: boolean
   total: number
+  periodLabel: string
+  pinnedMetrics: AnalysisMetricReference[]
+  initialViewState: WorkbenchViewState | null
+  savingConfig: boolean
+  configDirty: boolean
+  configNotice: string
   catalog?: AnalysisCatalog | null
+  loadChildren: (row: TaskAnalysisRow) => Promise<boolean>
 }>()
 
 const emit = defineEmits<{
   createChart: [request: WorkbenchAnalysisRequest<TaskAnalysisRow>]
   applyFilters: [request: WorkbenchAnalysisRequest<TaskAnalysisRow>]
+  openMetricDetail: [selection: TaskMetricDetailSelection]
+  stateChange: [state: WorkbenchViewState]
+  saveConfig: []
+  removePinnedMetric: [reference: AnalysisMetricReference]
 }>()
 
 const columnHelper = createColumnHelper<TaskAnalysisRow>()
@@ -36,11 +58,64 @@ function percentCell(value: number | null): ReturnType<typeof h> {
   )
 }
 
+function detailCell(
+  row: TaskAnalysisRow,
+  value: number | null,
+  metricId: TaskMetricDetailSelection['metricId'],
+  metricLabel: string,
+): ReturnType<typeof h> {
+  return h(
+    'button',
+    {
+      class: 'metric-detail-button',
+      type: 'button',
+      'aria-label': `查看 ${row.objectLabel} ${metricLabel}详情`,
+      onClick: () => emit('openMetricDetail', { row, metricId }),
+    },
+    value == null ? '—' : `${value.toFixed(1)}%`,
+  )
+}
+
 function label(identifier: string, fallback: string): string {
   return (
     props.catalog?.dimensions.find((item) => item.id === identifier)?.label ??
     props.catalog?.metrics.find((item) => item.id === identifier)?.label ??
     fallback
+  )
+}
+
+function dynamicColumnId(reference: AnalysisMetricReference): string {
+  return `option:${metricReferenceKey(reference)}`
+}
+
+function dynamicColumnLabel(reference: AnalysisMetricReference): string {
+  const option =
+    reference.parameters?.questionOption ??
+    reference.parameters?.question_option ??
+    '问题选项'
+  const metricLabel = label(reference.id, reference.id)
+  return `${option} · ${metricLabel.replace('问题选项', '')}`
+}
+
+function dynamicColumn(
+  reference: AnalysisMetricReference,
+): ColumnDef<TaskAnalysisRow, unknown> {
+  const key = metricReferenceKey(reference)
+  const metric = props.catalog?.metrics.find((item) => item.id === reference.id)
+  return columnHelper.accessor(
+    (row) => row.dynamicMeasures[key] ?? null,
+    {
+      id: dynamicColumnId(reference),
+      header: dynamicColumnLabel(reference),
+      size: 156,
+      sortDescFirst: true,
+      sortUndefined: 'last',
+      filterFn: numberRangeFilter,
+      meta: { filter: { type: 'number-range' } },
+      cell: (context) => metric?.unit === 'percent'
+        ? percentCell(context.getValue() as number | null)
+        : countCell((context.getValue() as number | null) ?? 0),
+    },
   )
 }
 
@@ -52,17 +127,36 @@ const taskOptions = computed(() =>
   [...new Set(props.rows.map((row) => row.task))].sort(),
 )
 
+const levelOptions = ['标注任务', '日期', '组', '标注员']
+
 const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
   columnHelper.group({
     id: 'task-identity',
-    header: '任务信息',
+    header: '任务与下钻路径',
     columns: [
-      columnHelper.accessor('task', {
-        id: 'task',
-        header: label('task', '标注任务'),
-        size: 210,
+      columnHelper.accessor('objectLabel', {
+        id: 'object_label',
+        header: '标注任务 / 下钻对象',
+        size: 230,
         filterFn: textSelectionFilter,
-        meta: { filter: { type: 'text-select', options: taskOptions.value } },
+        meta: {
+          filter: {
+            type: 'text-select',
+            options: taskOptions.value,
+          },
+        },
+      }),
+      columnHelper.accessor('objectType', {
+        id: 'object_type',
+        header: '对象类型',
+        size: 88,
+        filterFn: textSelectionFilter,
+        meta: {
+          filter: {
+            type: 'text-select',
+            options: levelOptions,
+          },
+        },
       }),
       columnHelper.accessor('project', {
         id: 'project',
@@ -70,6 +164,14 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
         size: 128,
         filterFn: textSelectionFilter,
         meta: { filter: { type: 'text-select', options: projectOptions.value } },
+      }),
+      columnHelper.accessor('statDate', {
+        id: 'stat_date',
+        header: '统计日期',
+        size: 122,
+        filterFn: textSelectionFilter,
+        meta: { filter: { type: 'text' } },
+        cell: (context) => context.getValue() || props.periodLabel,
       }),
     ],
   }),
@@ -94,7 +196,12 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
         sortUndefined: 'last',
         filterFn: numberRangeFilter,
         meta: { filter: { type: 'number-range' } },
-        cell: (context) => percentCell(context.getValue()),
+        cell: (context) => detailCell(
+          context.row.original,
+          context.getValue(),
+          'annotation.good_rate',
+          'Good 占比',
+        ),
       }),
     ],
   }),
@@ -138,7 +245,12 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
         sortUndefined: 'last',
         filterFn: numberRangeFilter,
         meta: { filter: { type: 'number-range' } },
-        cell: (context) => percentCell(context.getValue()),
+        cell: (context) => detailCell(
+          context.row.original,
+          context.getValue(),
+          'acceptance.completion_rate',
+          '验收完成率',
+        ),
       }),
     ],
   }),
@@ -154,10 +266,24 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
         sortUndefined: 'last',
         filterFn: numberRangeFilter,
         meta: { filter: { type: 'number-range' } },
-        cell: (context) => percentCell(context.getValue()),
+        cell: (context) => detailCell(
+          context.row.original,
+          context.getValue(),
+          'acceptance.pass_rate',
+          '验收通过率',
+        ),
       }),
     ],
   }),
+  ...(props.pinnedMetrics.length
+    ? [
+        columnHelper.group({
+          id: 'pinned-options',
+          header: '固定问题选项',
+          columns: props.pinnedMetrics.map(dynamicColumn),
+        }),
+      ]
+    : []),
 ])
 </script>
 
@@ -165,23 +291,53 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
   <section class="task-analysis-table" aria-labelledby="task-analysis-title">
     <header class="table-header">
       <div>
-        <p class="section-index">任务汇总</p>
-        <h2 id="task-analysis-title">按标注任务比较产出与验收</h2>
+        <p class="section-index">任务汇总与下钻</p>
+        <h2 id="task-analysis-title">按标注任务定位到日期、组和标注员</h2>
       </div>
-      <p class="table-summary">
-        当前范围内共有 {{ total }} 个任务。先比较任务，再在后续切片展开日期、组和标注员。
-      </p>
+      <div class="table-actions">
+        <p class="table-summary">
+          当前范围内共有 {{ total }} 个任务。展开任务后按日期、组和标注员逐级查看。
+        </p>
+        <button
+          class="save-table-button"
+          type="button"
+          :disabled="savingConfig || !configDirty"
+          @click="emit('saveConfig')"
+        >
+          {{ savingConfig ? '保存中…' : configDirty ? '保存表格' : '表格已保存' }}
+        </button>
+      </div>
     </header>
+
+    <div v-if="pinnedMetrics.length" class="pinned-metrics">
+      <strong>已固定问题选项列</strong>
+      <button
+        v-for="reference in pinnedMetrics"
+        :key="metricReferenceKey(reference)"
+        type="button"
+        :aria-label="`移除 ${dynamicColumnLabel(reference)}`"
+        @click="emit('removePinnedMetric', reference)"
+      >
+        {{ dynamicColumnLabel(reference) }} ×
+      </button>
+    </div>
+    <p v-if="configNotice" class="table-notice" role="status">
+      {{ configNotice }}
+    </p>
     <p v-if="loading" class="table-status" role="status">正在汇总任务数据…</p>
+
     <DataWorkbench
       :rows="rows"
       :columns="columns"
+      :can-expand="(row) => row.hasChildren"
+      :load-children="loadChildren"
+      :initial-view-state="initialViewState"
       :enable-row-selection="false"
-      :show-expand-column="false"
-      filter-scope-label="表头筛选默认只影响当前任务比较"
+      filter-scope-label="表头筛选默认只影响当前已加载层级"
       row-count-label="个标注任务"
       enable-analysis
       empty-text="当前范围没有可汇总的标注任务。"
+      @state-change="emit('stateChange', $event)"
       @create-chart="emit('createChart', $event)"
       @apply-filters="emit('applyFilters', $event)"
     />
@@ -205,7 +361,8 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
 .section-index,
 .table-header h2,
 .table-summary,
-.table-status {
+.table-status,
+.table-notice {
   margin: 0;
 }
 
@@ -222,8 +379,16 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
   font-size: 15px;
 }
 
+.table-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .table-summary,
-.table-status {
+.table-status,
+.table-notice {
   color: var(--color-muted);
   font-size: 11px;
   line-height: 1.55;
@@ -234,7 +399,42 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
   text-align: right;
 }
 
-.table-status {
+.save-table-button,
+.pinned-metrics button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 5px;
+  background: white;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.save-table-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.pinned-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #cbd8ee;
+  border-radius: 6px;
+  background: #f5f8ff;
+  font-size: 11px;
+}
+
+.pinned-metrics button {
+  min-height: 26px;
+  padding: 3px 8px;
+  color: var(--color-primary);
+}
+
+.table-status,
+.table-notice {
   padding: 8px 10px;
   border-left: 3px solid var(--color-primary);
   background: var(--color-primary-soft);
@@ -257,8 +457,20 @@ const columns = computed<ColumnDef<TaskAnalysisRow, unknown>[]>(() => [
   font-weight: 700;
 }
 
+:deep(.metric-detail-button) {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted currentColor;
+  background: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  cursor: pointer;
+}
+
 @media (max-width: 760px) {
-  .table-header {
+  .table-header,
+  .table-actions {
     align-items: flex-start;
     flex-direction: column;
   }
