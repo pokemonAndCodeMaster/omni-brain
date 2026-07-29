@@ -20,21 +20,26 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_atomic_source_v13_3_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_source_boundary_v13_4_is_implemented_without_claiming_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_atomic_source_v13_3_awaiting_forward_test",
+            "implemented_source_boundary_v13_4_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_atomic_source_v13_3_awaiting_forward_test",
+            "implemented_source_boundary_v13_4_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
         self.assertIn("scripts/ingestion_workspace.py", ingestion["entrypoints"])
         self.assertNotIn("verified", ingestion["adoption"])
+
+    def test_root_contract_keeps_ingestion_source_reads_on_workbench_path(self) -> None:
+        contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("授权来源的正文只通过工作台 `source-read` 展示", contract)
+        self.assertIn("不得用原生 `read`", contract)
 
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in ("task-knowledge-prep", "ingest-knowledge"):

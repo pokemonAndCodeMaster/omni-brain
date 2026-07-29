@@ -42,6 +42,7 @@
 ## 知识摄入硬边界
 
 - 只读取用户授权的来源并保持来源只读；当前事实必须回到匹配的直接事实源，不能用综合摘要代替。
+- `ingest-knowledge` 初始化工作台后，授权来源的正文只通过工作台 `source-read` 展示；不得用原生 `read`、`head`、`sed`、`grep` 或其他 Shell 读取方式绕过该入口。原生文件工具仍可读取本项目的 Harness 文件和已生成工作台；来源清单用工作台 `files` 有界定位。
 - 候选只写入 `workspaces/knowledge-ingestion/<case-id>/`；用户批准前不得修改正式 `knowledge/` 或 `config/knowledge-domains.yaml`。
 - 不确定、冲突、缺少当前证据的内容必须显式保留，不能为了叙事完整或通过检查而补写。
 - 规范知识、领域位置视图和旅程/学习视图同步形成；视图引用规范内容，不复制另一套事实。
