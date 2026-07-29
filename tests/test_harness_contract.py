@@ -109,9 +109,9 @@ class HarnessContractTest(unittest.TestCase):
 
         expected_steps = (
             "## 1. 定义读者结果并建立工作台",
-            "## 2. 沿问题主线阅读直接事实源",
-            "## 3. 先设计知识地图，再写正文",
-            "## 4. 从全貌到细节编织候选",
+            "## 2. 先交付第一个可用知识单元",
+            "## 3. 按问题逐个扩展知识",
+            "## 4. 组装全貌与产品视图",
             "## 5. 先做内容消费，再做结构检查",
             "## 6. 人工审查、发布与立即使用",
         )
@@ -142,11 +142,11 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 每个问题实际用了什么", inventory)
         self.assertIn("## 来源主题地图", inventory)
         self.assertIn("## 已读内容与知识落点", inventory)
-        self.assertIn("## 写作前问题缺口复核", inventory)
+        self.assertIn("## 当前问题缺口复核", inventory)
         self.assertIn("可能补足的未读来源", inventory)
         self.assertIn("不可丢失的机制、条件、边界、冲突或未知", inventory)
         self.assertIn("作为独立命令直接执行", inventory)
-        self.assertIn("完成这次落地再选择下一组来源", (
+        self.assertIn("完成清单和正文两处落地再选择下一份来源", (
             ROOT / ".agents/skills/ingest-knowledge/SKILL.md"
         ).read_text(encoding="utf-8"))
         self.assertIn("source-select", brief)
@@ -186,10 +186,10 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不要在开始时预读整个 `assets/` 目录", skill)
         self.assertIn("一次只处理一份实质来源", skill)
         self.assertIn("不并行执行多份 `source-read`", skill)
-        self.assertIn("只有这份来源的具体机制和知识落点已经写入工作台", skill)
-        self.assertIn("将复合问题拆回它实际要求的各部分", skill)
+        self.assertIn("只有当前来源改变的具体内容已经离开会话上下文", skill)
+        self.assertIn("将当前复合问题拆回它实际要求的各部分", skill)
         self.assertIn("当前代码纵切只能证明当前实现", skill)
-        self.assertIn("不得用一个笼统理由批量筛掉", skill)
+        self.assertIn("正常摄入不得使用 `mark --all-unreviewed`", skill)
         self.assertIn("`.gitkeep`", skill)
         self.assertIn("相邻层围绕同一稳定主题", skill)
         self.assertNotIn("这里必须同步最后一次检查", review)
@@ -202,6 +202,22 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("[内容完成声明](completion.yaml)", review)
         self.assertIn("[机器来源摘要](source-summary.md)", review)
         self.assertLess(review.index("## 从这里开始看内容"), review.index("## 结构门禁"))
+
+    def test_ingestion_delivers_content_before_context_sprawls(self) -> None:
+        skill = (ROOT / ".agents/skills/ingest-knowledge/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        brief = (
+            ROOT / ".agents/skills/ingest-knowledge/assets/brief.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("一个读者问题就是一次最小交付", skill)
+        self.assertIn("开始第六份来源前", skill)
+        self.assertIn("非 `index.md` 的实质知识页", skill)
+        self.assertIn("立即把新增机制写入 `inventory.md` 和对应候选知识章节", skill)
+        self.assertIn("每个新增来源必须说明它准备补足哪个具体缺口", skill)
+        self.assertIn("## 当前交付问题", brief)
+        self.assertIn("不要等全部问题阅读完成后才第一次写正文", brief)
 
     def test_retired_knowledge_layout_is_absent(self) -> None:
         retired_paths = (
