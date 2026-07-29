@@ -20,21 +20,38 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_question_gap_v13_5_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_ingestion_is_implemented_without_claiming_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_question_gap_v13_5_awaiting_forward_test",
+            "implemented_knowledge_ingestion_awaiting_real_use_validation",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_question_gap_v13_5_awaiting_forward_test",
+            "implemented_knowledge_ingestion_awaiting_real_use_validation",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
         self.assertIn("scripts/ingestion_workspace.py", ingestion["entrypoints"])
         self.assertNotIn("verified", ingestion["adoption"])
+
+    def test_startup_context_does_not_expose_eval_history(self) -> None:
+        startup = "\n".join(
+            (ROOT / path).read_text(encoding="utf-8")
+            for path in ("harness.yaml", "docs/now.md", "docs/roadmap.md")
+        )
+        for leaked_term in (
+            "GLM",
+            "Luna",
+            "Kimi",
+            "MiniMax",
+            "Batch 1",
+            "batch-1",
+        ):
+            self.assertNotIn(leaked_term, startup)
+        self.assertIsNone(re.search(r"\bV\d+(?:\.\d+)?\b", startup))
+        self.assertIsNone(re.search(r"\b\d+/\d+\b", startup))
 
     def test_root_contract_keeps_ingestion_source_reads_on_workbench_path(self) -> None:
         contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")

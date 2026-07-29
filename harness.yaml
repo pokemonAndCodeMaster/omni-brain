@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_question_gap_v13_5_awaiting_forward_test
+  status: implemented_knowledge_ingestion_awaiting_real_use_validation
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,27 +41,18 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_question_gap_v13_5_awaiting_forward_test
+    adoption: implemented_knowledge_ingestion_awaiting_real_use_validation
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
       - scripts/knowledge_check.py
     limits:
-      - V10 已实现 source-read 有界连续展示与机器 displayed_complete，且 read_full 受该事实约束
-      - displayed_complete 只证明脚本完整输出，不证明 Agent 已理解或知识已经充分内化
-      - V11 已在 K0 Luna 工况验证 source-select 与三层 knowledge_path，但内容仍为 17/24
-      - V11 的主要失败是已读内容没有充分落页、公共能力回退和候选视图路径混乱
-      - V12 同条件模型比较选定 GLM 5.1 作为日常中档实验基线；当前内容结果为 19/24
-      - V13.1 已验证首读前完整 brief、阶段化模板加载、21 个选中来源串行直接展示和后置消费指令遵循；内容仍为 19/24
-      - V13.1 未验证自动结构收尾：恢复会话没有产生写入，主线机械修复后才通过
-      - V13.2 让公开模板与检查器同源，允许相邻知识层共置，并要求缺口责任与负面证据保真；等待前向验证
-      - V13.2 前向实验在进入知识写作前批量选择 43 份来源并停止，内容规则尚未得到验证
-      - V13.3 只允许一份未处理的已选来源，保护弱模型逐份读取和即时落位的注意力节奏；等待前向验证
-      - V13.3 前向实验被原生 read 绕过，24 份来源在 brief 前直接读取，单份约束未获得生效机会
-      - V13.4 已在 K0 GLM 5.1 工况验证根来源读取边界：原生来源读取由 24 次降为 0，模型自行交付结构 PASS 候选，内容为 20/24
-      - V13.5 在现有 Skill 和 inventory 中要求写作前逐题反查未答部分和未读候选来源，避免当前代码纵切挤掉完整流程、规则与责任知识；等待前向验证
+      - source-read 的 displayed_complete 只证明脚本完整输出，不证明 Agent 已理解或知识已经充分内化
+      - source-select 一次只允许一份未处理来源；工具约束节奏，不替代逐份语义落位
+      - 工作台初始化后的授权来源正文只能通过 source-read 展示
+      - 写作前必须按问题的未答部分反查合理候选来源，不能让局部实现替代完整范围
       - 只读检查不判断业务真伪或内容充分性
-      - 来源完整展示、关键来源选择、三层知识定位和来源读取边界取得 verified@slice，知识摄入结果尚未取得
+      - 当前只取得有限切片证据，完整知识摄入结果和跨场景稳定性尚未验证
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:
