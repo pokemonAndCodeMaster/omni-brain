@@ -20,16 +20,16 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_source_boundary_v13_4_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_question_gap_v13_5_is_implemented_without_claiming_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_source_boundary_v13_4_awaiting_forward_test",
+            "implemented_question_gap_v13_5_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_source_boundary_v13_4_awaiting_forward_test",
+            "implemented_question_gap_v13_5_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -125,6 +125,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 每个问题实际用了什么", inventory)
         self.assertIn("## 来源主题地图", inventory)
         self.assertIn("## 已读内容与知识落点", inventory)
+        self.assertIn("## 写作前问题缺口复核", inventory)
+        self.assertIn("可能补足的未读来源", inventory)
         self.assertIn("不可丢失的机制、条件、边界、冲突或未知", inventory)
         self.assertIn("作为独立命令直接执行", inventory)
         self.assertIn("完成这次落地再选择下一组来源", (
@@ -168,6 +170,9 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("一次只处理一份实质来源", skill)
         self.assertIn("不并行执行多份 `source-read`", skill)
         self.assertIn("只有这份来源的具体机制和知识落点已经写入工作台", skill)
+        self.assertIn("将复合问题拆回它实际要求的各部分", skill)
+        self.assertIn("当前代码纵切只能证明当前实现", skill)
+        self.assertIn("不得用一个笼统理由批量筛掉", skill)
         self.assertIn("`.gitkeep`", skill)
         self.assertIn("相邻层围绕同一稳定主题", skill)
         self.assertNotIn("这里必须同步最后一次检查", review)

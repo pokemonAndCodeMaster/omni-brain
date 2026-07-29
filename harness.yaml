@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_source_boundary_v13_4_awaiting_forward_test
+  status: implemented_question_gap_v13_5_awaiting_forward_test
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,7 +41,7 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_source_boundary_v13_4_awaiting_forward_test
+    adoption: implemented_question_gap_v13_5_awaiting_forward_test
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
@@ -58,9 +58,10 @@ capabilities:
       - V13.2 前向实验在进入知识写作前批量选择 43 份来源并停止，内容规则尚未得到验证
       - V13.3 只允许一份未处理的已选来源，保护弱模型逐份读取和即时落位的注意力节奏；等待前向验证
       - V13.3 前向实验被原生 read 绕过，24 份来源在 brief 前直接读取，单份约束未获得生效机会
-      - V13.4 在根运行契约限制来源正文读取入口，使 OpenCode 原生工具不能绕过工作台节奏；等待前向验证
+      - V13.4 已在 K0 GLM 5.1 工况验证根来源读取边界：原生来源读取由 24 次降为 0，模型自行交付结构 PASS 候选，内容为 20/24
+      - V13.5 在现有 Skill 和 inventory 中要求写作前逐题反查未答部分和未读候选来源，避免当前代码纵切挤掉完整流程、规则与责任知识；等待前向验证
       - 只读检查不判断业务真伪或内容充分性
-      - 只有来源完整展示、关键来源选择和三层知识定位取得 verified@slice，知识摄入结果尚未取得
+      - 来源完整展示、关键来源选择、三层知识定位和来源读取边界取得 verified@slice，知识摄入结果尚未取得
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:
