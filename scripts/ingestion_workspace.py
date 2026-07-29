@@ -879,7 +879,6 @@ def validate_completion(
         if isinstance(item, dict)
     }
     found_levels: set[str] = set()
-    primary_pages: dict[str, str] = {}
     knowledge_root = (root / "draft" / "knowledge").resolve()
     for item in knowledge_path:
         if not isinstance(item, dict):
@@ -956,14 +955,6 @@ def validate_completion(
                             f"completion.yaml knowledge_path {level} 主落点不存在："
                             f"{primary_page}"
                         )
-                    previous = primary_pages.get(primary_page)
-                    if previous is not None:
-                        errors.append(
-                            "completion.yaml knowledge_path 不同层次共用同一主落点："
-                            f"{previous}, {level} -> {primary_page}；"
-                            "若两层确实合并，请把其中一层标为 not_applicable 并说明理由"
-                        )
-                    primary_pages[primary_page] = level
             if level != "focus":
                 relation = item.get("relation_to_next")
                 if not isinstance(relation, str) or not relation.strip():

@@ -507,7 +507,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(1, result.returncode)
         self.assertIn("partial 需要同时说明已覆盖和仍缺范围", result.stdout)
 
-    def test_semantic_spine_rejects_shared_primary_page(self) -> None:
+    def test_semantic_spine_allows_shared_primary_page(self) -> None:
         case = self.init_case()
         for path, layer in (("one.md", "parent"), ("two.txt", "focus")):
             selected = self.run_tool(
@@ -563,8 +563,8 @@ class IngestionWorkspaceTest(unittest.TestCase):
             encoding="utf-8",
         )
         result = self.run_tool("check", "sample-case")
-        self.assertEqual(1, result.returncode)
-        self.assertIn("不同层次共用同一主落点", result.stdout)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn("不同层次共用同一主落点", result.stdout)
 
     def test_check_rejects_malformed_workbench_table(self) -> None:
         case = self.init_case()

@@ -20,16 +20,16 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_content_first_v13_1_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_content_first_v13_2_is_implemented_without_claiming_verified(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_content_first_v13_1_awaiting_forward_test",
+            "implemented_content_first_v13_2_awaiting_forward_test",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_content_first_v13_1_awaiting_forward_test",
+            "implemented_content_first_v13_2_awaiting_forward_test",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -129,6 +129,8 @@ class HarnessContractTest(unittest.TestCase):
         completion = (assets / "completion.yaml").read_text(encoding="utf-8")
         self.assertIn("knowledge_path:", completion)
         self.assertIn("covered/partial/unknown/not_applicable", completion)
+        self.assertIn("source_id: <source-id>", completion)
+        self.assertIn("相对于 draft/knowledge/ 根填写", completion)
         self.assertIn("level: parent", completion)
         self.assertIn("level: subject", completion)
         self.assertIn("level: focus", completion)
@@ -143,6 +145,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("每个有效问题必须恰好对应一行", reader_answers)
         self.assertIn("最多三篇规范页", reader_answers)
         self.assertIn("不能用焦点局部的完整答案代替更大范围", reader_answers)
+        self.assertIn("缺失事实、责任来源、对后续工作的影响和下一动作", reader_answers)
         self.assertIn("## 代码地图与职责", software_architecture)
         self.assertIn("## 核心对象和数据变化", software_architecture)
         self.assertIn("## 一次具体修改路径", software_architecture)
@@ -160,8 +163,18 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("一次只处理一份实质来源", skill)
         self.assertIn("不并行执行多份 `source-read`", skill)
         self.assertIn("只有这份来源的具体机制和知识落点已经写入工作台", skill)
+        self.assertIn("`.gitkeep`", skill)
+        self.assertIn("相邻层围绕同一稳定主题", skill)
         self.assertNotIn("这里必须同步最后一次检查", review)
-        self.assertLess(review.index("## 从这里开始看内容"), review.index("## 结构状态"))
+        for heading in (
+            "## Agent 内容声明（待人工审查）",
+            "## 结构门禁",
+            "## 人工门禁",
+        ):
+            self.assertIn(heading, review)
+        self.assertIn("[内容完成声明](completion.yaml)", review)
+        self.assertIn("[机器来源摘要](source-summary.md)", review)
+        self.assertLess(review.index("## 从这里开始看内容"), review.index("## 结构门禁"))
 
     def test_retired_knowledge_layout_is_absent(self) -> None:
         retired_paths = (

@@ -7,6 +7,13 @@ intended_outcome: <读完后能够理解、判断或执行什么>
 # 三层知识主线在阅读后、写正文前先填写 topic/source_files/primary_page；
 # 正文形成并复核后再把 status 从 pending 改为 covered/partial/unknown/not_applicable。
 # partial 必须在 rationale 同时说明“已覆盖什么”和“仍缺什么”。
+# source_files 的每一项必须使用下面的 mapping，不要只写路径字符串：
+#   - source_id: <source-id>
+#     path: <来源根内的精确相对路径>
+# primary_page 和 evidence_pages 都相对于 draft/knowledge/ 根填写，
+# 例如 domains/quality/overview.md；不要加 draft/knowledge/ 前缀。
+# 相邻层可以共用同一主落点，但必须在各自 rationale 说明为什么会一起维护，
+# 并在正文中用清楚章节分别承载两层问题；不能用焦点局部代替上级全貌。
 knowledge_path:
   - level: parent
     topic: <上级领域或根领域>
