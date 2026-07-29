@@ -71,6 +71,8 @@ python scripts/ingestion_workspace.py source-select <case-id> <source-id> \
   --reason '<它预计改变哪层理解>'
 ```
 
+`source-select` 一次只允许保留一份尚未处理的已选来源；同一来源可以补充多个层次，但必须先完成 `read_full` 或明确登记 `unread_blocked`，才能选择下一份。工具只约束阅读节奏，不能证明已经理解；在选择下一份前，仍须把当前来源改变的机制和知识落点写入工作台。
+
 每个适用层至少选择一份直接来源。确无来源时，将对应知识层标为 `unknown`，不能借焦点材料补位。
 
 实质内容按单文件读取：

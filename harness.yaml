@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_content_first_v13_2_awaiting_forward_test
+  status: implemented_atomic_source_v13_3_awaiting_forward_test
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,7 +41,7 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_content_first_v13_2_awaiting_forward_test
+    adoption: implemented_atomic_source_v13_3_awaiting_forward_test
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
@@ -55,6 +55,8 @@ capabilities:
       - V13.1 已验证首读前完整 brief、阶段化模板加载、21 个选中来源串行直接展示和后置消费指令遵循；内容仍为 19/24
       - V13.1 未验证自动结构收尾：恢复会话没有产生写入，主线机械修复后才通过
       - V13.2 让公开模板与检查器同源，允许相邻知识层共置，并要求缺口责任与负面证据保真；等待前向验证
+      - V13.2 前向实验在进入知识写作前批量选择 43 份来源并停止，内容规则尚未得到验证
+      - V13.3 只允许一份未处理的已选来源，保护弱模型逐份读取和即时落位的注意力节奏；等待前向验证
       - 只读检查不判断业务真伪或内容充分性
       - 只有来源完整展示、关键来源选择和三层知识定位取得 verified@slice，知识摄入结果尚未取得
   knowledge_query_and_context:

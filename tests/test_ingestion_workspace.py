@@ -354,6 +354,124 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(1, result.returncode)
         self.assertIn("已选择关键来源尚未阅读或阻塞", result.stdout)
 
+    def test_source_select_keeps_one_unresolved_source_at_a_time(self) -> None:
+        self.init_case()
+        first = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "one.md",
+            "--level",
+            "parent",
+            "--reason",
+            "先理解上级领域",
+        )
+        self.assertEqual(0, first.returncode, first.stderr)
+
+        same_source = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "one.md",
+            "--level",
+            "subject",
+            "--reason",
+            "同一来源也解释主题全貌",
+        )
+        self.assertEqual(0, same_source.returncode, same_source.stderr)
+        self.assertEqual(
+            ["parent", "subject"],
+            json.loads(same_source.stdout)["levels"],
+        )
+
+        blocked = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "two.txt",
+            "--level",
+            "focus",
+            "--reason",
+            "继续理解用户焦点",
+        )
+        self.assertEqual(2, blocked.returncode)
+        self.assertIn("已有选中来源尚未完成读取或明确阻塞", blocked.stderr)
+        self.assertIn("sample:one.md", blocked.stderr)
+
+        shown = self.run_tool(
+            "source-read", "sample-case", "sample", "--path", "one.md"
+        )
+        self.assertEqual(0, shown.returncode, shown.stderr)
+        marked = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "read_full",
+            "--reason",
+            "已理解上级和主题信息",
+            "--evidence",
+            "one.md#full-file",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(0, marked.returncode, marked.stderr)
+
+        second = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "two.txt",
+            "--level",
+            "focus",
+            "--reason",
+            "继续理解用户焦点",
+        )
+        self.assertEqual(0, second.returncode, second.stderr)
+
+    def test_source_select_can_continue_after_explicit_unread_block(self) -> None:
+        self.init_case()
+        first = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "one.md",
+            "--level",
+            "parent",
+            "--reason",
+            "尝试理解上级领域",
+        )
+        self.assertEqual(0, first.returncode, first.stderr)
+        blocked = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "unread_blocked",
+            "--reason",
+            "当前权限无法读取，保留为显式缺口",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(0, blocked.returncode, blocked.stderr)
+        second = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "two.txt",
+            "--level",
+            "focus",
+            "--reason",
+            "继续处理可访问的焦点来源",
+        )
+        self.assertEqual(0, second.returncode, second.stderr)
+
     def test_covered_semantic_spine_requires_selected_read_source(self) -> None:
         case = self.init_case()
         selected = self.run_tool(

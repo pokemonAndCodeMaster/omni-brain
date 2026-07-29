@@ -560,6 +560,28 @@ def select_source(args: argparse.Namespace) -> int:
 
     coverage = load_yaml(root / "coverage.yaml", "coverage.yaml")
     item = find_coverage_entry(coverage, args.source_id, args.path)
+    current_key = (args.source_id, args.path)
+    coverage_files = coverage.get("files")
+    if not isinstance(coverage_files, list):
+        raise IngestionWorkspaceError("coverage.yaml files 必须是列表")
+    pending_selections: list[tuple[str, str]] = []
+    for candidate in coverage_files:
+        if not isinstance(candidate, dict):
+            continue
+        key = (str(candidate.get("source_id")), str(candidate.get("path")))
+        if (
+            key != current_key
+            and isinstance(candidate.get("selection"), dict)
+            and candidate.get("status") not in {"read_full", "unread_blocked"}
+        ):
+            pending_selections.append(key)
+    if pending_selections:
+        source_id, path = pending_selections[0]
+        raise IngestionWorkspaceError(
+            "已有选中来源尚未完成读取或明确阻塞："
+            f"{source_id}:{path}。先用 source-read 完整展示并登记 read_full；"
+            "若确实无法读取则登记 unread_blocked，之后再选择下一份来源。"
+        )
     selection = item.get("selection")
     if selection is None:
         selection = {
@@ -1404,7 +1426,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="把一个精确来源绑定为三层知识主线的必读依据",
         description=(
             "选择是 Agent 的注意力契约，不判断来源是否正确。"
-            "被选择的来源在最终检查前必须 read_full 或 unread_blocked。"
+            "一次只能有一份尚未处理的已选来源；完成 read_full 或明确 "
+            "unread_blocked 后才能选择下一份。"
         ),
     )
     select.add_argument("case_id")
