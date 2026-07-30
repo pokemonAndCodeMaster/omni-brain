@@ -398,7 +398,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
             "继续理解用户焦点",
         )
         self.assertEqual(2, blocked.returncode)
-        self.assertIn("已有选中来源尚未完成读取或明确阻塞", blocked.stderr)
+        self.assertIn("已有选中来源尚未形成可复核的读取结论", blocked.stderr)
         self.assertIn("sample:one.md", blocked.stderr)
 
         shown = self.run_tool(
@@ -434,6 +434,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(0, second.returncode, second.stderr)
 
     def test_source_select_can_continue_after_explicit_unread_block(self) -> None:
+        (self.source / "one.md").write_text("x" * 7000, encoding="utf-8")
         self.init_case()
         first = self.run_tool(
             "source-select",
@@ -471,6 +472,130 @@ class IngestionWorkspaceTest(unittest.TestCase):
             "继续处理可访问的焦点来源",
         )
         self.assertEqual(0, second.returncode, second.stderr)
+
+    def test_source_select_accepts_targeted_read_as_resolved(self) -> None:
+        self.init_case()
+        first = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "one.md",
+            "--level",
+            "parent",
+            "--reason",
+            "只需要定位上级定义",
+        )
+        self.assertEqual(0, first.returncode, first.stderr)
+        targeted = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "read_targeted",
+            "--reason",
+            "标题已经提供本问题所需定义",
+            "--evidence",
+            "one.md#L1",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(0, targeted.returncode, targeted.stderr)
+        second = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "two.txt",
+            "--level",
+            "focus",
+            "--reason",
+            "继续处理焦点证据",
+        )
+        self.assertEqual(0, second.returncode, second.stderr)
+
+    def test_readable_source_cannot_be_declared_unread_blocked(self) -> None:
+        self.init_case()
+        blocked = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "unread_blocked",
+            "--reason",
+            "暂时不想继续读",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(2, blocked.returncode)
+        self.assertIn("可由 source-read 正常展示", blocked.stderr)
+
+    def test_sixth_selected_source_requires_substantive_content_update(self) -> None:
+        for name in ("three.md", "four.md", "five.md", "six.md"):
+            (self.source / name).write_text(f"# {name}\n", encoding="utf-8")
+        case = self.init_case()
+        paths = ("one.md", "two.txt", "three.md", "four.md", "five.md")
+        for path in paths:
+            selected = self.run_tool(
+                "source-select",
+                "sample-case",
+                "sample",
+                "--path",
+                path,
+                "--level",
+                "subject",
+                "--reason",
+                f"补充主题证据 {path}",
+            )
+            self.assertEqual(0, selected.returncode, selected.stderr)
+            shown = self.run_tool(
+                "source-read", "sample-case", "sample", "--path", path
+            )
+            self.assertEqual(0, shown.returncode, shown.stderr)
+            marked = self.run_tool(
+                "mark",
+                "sample-case",
+                "sample",
+                "--status",
+                "read_full",
+                "--reason",
+                f"已理解 {path}",
+                "--evidence",
+                f"{path}#full-file",
+                "--path",
+                path,
+            )
+            self.assertEqual(0, marked.returncode, marked.stderr)
+
+        sixth = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "six.md",
+            "--level",
+            "subject",
+            "--reason",
+            "继续补充主题证据",
+        )
+        self.assertEqual(2, sixth.returncode)
+        self.assertIn("规范知识正文尚未吸收", sixth.stderr)
+
+        page = case / "draft" / "knowledge" / "domains" / "sample" / "overview.md"
+        page.parent.mkdir(parents=True)
+        page.write_text("# 已形成的主题知识\n\n" + "可复核内容。" * 100, encoding="utf-8")
+        resumed = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "six.md",
+            "--level",
+            "subject",
+            "--reason",
+            "正文更新后继续补充",
+        )
+        self.assertEqual(0, resumed.returncode, resumed.stderr)
 
     def test_covered_semantic_spine_requires_selected_read_source(self) -> None:
         case = self.init_case()

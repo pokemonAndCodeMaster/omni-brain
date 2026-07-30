@@ -24,7 +24,7 @@ import yaml
 from knowledge_check import markdown_table_errors, validate_bundle
 
 
-SCHEMA_VERSION = "0.4"
+SCHEMA_VERSION = "0.5"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 SOURCE_ID_RE = CASE_ID_RE
 LINK_RE = re.compile(r"(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)")
@@ -59,6 +59,10 @@ COVERAGE_STATES = {
     "unread_blocked",
 }
 STRONG_READ_STATES = {"read_full", "read_targeted"}
+SELECTED_RESOLVED_STATES = {"read_full", "read_targeted", "unread_blocked"}
+SUBSTANTIVE_KNOWLEDGE_DIRS = ("domains", "systems", "capabilities")
+SUBSTANTIVE_PAGE_MIN_CHARS = 400
+MAX_SELECTED_SOURCES_WITHOUT_CONTENT_UPDATE = 5
 COMPLETION_STATES = {"covered", "partial", "unknown", "not_applicable"}
 COMPLETION_DIMENSIONS = {
     "operating_model",
@@ -77,6 +81,56 @@ class IngestionWorkspaceError(Exception):
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def parse_utc_timestamp(value: Any) -> float | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
+def latest_substantive_page_mtime(root: Path) -> float | None:
+    knowledge = root / "draft" / "knowledge"
+    latest: float | None = None
+    for directory in SUBSTANTIVE_KNOWLEDGE_DIRS:
+        area = knowledge / directory
+        if not area.is_dir():
+            continue
+        for path in area.rglob("*.md"):
+            if path.name == "index.md":
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+                modified = path.stat().st_mtime
+            except (OSError, UnicodeError):
+                continue
+            if len(text.strip()) < SUBSTANTIVE_PAGE_MIN_CHARS:
+                continue
+            latest = modified if latest is None else max(latest, modified)
+    return latest
+
+
+def selected_sources_since_content_update(root: Path, coverage: dict[str, Any]) -> int:
+    latest_content = latest_substantive_page_mtime(root)
+    files = coverage.get("files")
+    if not isinstance(files, list):
+        return 0
+    count = 0
+    for item in files:
+        if not isinstance(item, dict) or not isinstance(item.get("selection"), dict):
+            continue
+        if item.get("status") not in SELECTED_RESOLVED_STATES:
+            continue
+        updated = parse_utc_timestamp(item.get("updated_at"))
+        if latest_content is None or updated is None or updated > latest_content:
+            count += 1
+    return count
 
 
 def project_root() -> Path:
@@ -548,6 +602,23 @@ def source_read(args: argparse.Namespace) -> int:
     return 0
 
 
+def source_readability_error(root: Path, source_id: str, relative_path: str) -> str | None:
+    try:
+        source_path, _ = resolve_registered_source_file(root, source_id, relative_path)
+    except IngestionWorkspaceError as exc:
+        if "来源文件已变化" in str(exc):
+            raise
+        return str(exc)
+    try:
+        text = source_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        return f"无法按 UTF-8 展示：{exc}"
+    for number, line in enumerate(text.splitlines(), 1):
+        if len(line) > SOURCE_READ_MAX_CHARS:
+            return f"第 {number} 行超过 {SOURCE_READ_MAX_CHARS} 字符"
+    return None
+
+
 def select_source(args: argparse.Namespace) -> int:
     root = case_root(args)
     validate_id(args.source_id, "source id")
@@ -572,16 +643,26 @@ def select_source(args: argparse.Namespace) -> int:
         if (
             key != current_key
             and isinstance(candidate.get("selection"), dict)
-            and candidate.get("status") not in {"read_full", "unread_blocked"}
+            and candidate.get("status") not in SELECTED_RESOLVED_STATES
         ):
             pending_selections.append(key)
     if pending_selections:
         source_id, path = pending_selections[0]
         raise IngestionWorkspaceError(
-            "已有选中来源尚未完成读取或明确阻塞："
-            f"{source_id}:{path}。先用 source-read 完整展示并登记 read_full；"
-            "若确实无法读取则登记 unread_blocked，之后再选择下一份来源。"
+            "已有选中来源尚未形成可复核的读取结论："
+            f"{source_id}:{path}。继续 source-read 后登记 read_full，"
+            "或用精确证据登记 read_targeted；只有工具客观无法展示时才用 "
+            "unread_blocked。"
         )
+    if item.get("selection") is None:
+        sources_since_content = selected_sources_since_content_update(root, coverage)
+        if sources_since_content >= MAX_SELECTED_SOURCES_WITHOUT_CONTENT_UPDATE:
+            raise IngestionWorkspaceError(
+                f"已经处理 {sources_since_content} 份已选来源，但规范知识正文尚未吸收"
+                "这批新证据。先更新 draft/knowledge/domains、systems 或 capabilities "
+                "中的非 index 实质页面，再选择下一份来源。清单、状态、来源记录和"
+                "产品视图不算正文交付。"
+            )
     selection = item.get("selection")
     if selection is None:
         selection = {
@@ -615,7 +696,10 @@ def select_source(args: argparse.Namespace) -> int:
                 "path": args.path,
                 "levels": selection["levels"],
                 "assertion": "agent_declared",
-                "next": "use source-read, then mark read_full or unread_blocked",
+                "next": (
+                    "use source-read, then mark read_full/read_targeted; "
+                    "use unread_blocked only when the tool cannot display the file"
+                ),
             },
             ensure_ascii=False,
             indent=2,
@@ -631,6 +715,21 @@ def mark_coverage(args: argparse.Namespace) -> int:
         raise IngestionWorkspaceError(f"不可写入 coverage status：{args.status}")
     if not args.reason.strip():
         raise IngestionWorkspaceError("--reason 不能为空")
+    machine_blocker: str | None = None
+    if args.status == "unread_blocked":
+        if args.glob or args.all_unreviewed or len(args.path) != 1:
+            raise IngestionWorkspaceError(
+                "unread_blocked 每次必须且只能使用一个精确 --path"
+            )
+        machine_blocker = source_readability_error(
+            root, args.source_id, args.path[0]
+        )
+        if machine_blocker is None:
+            raise IngestionWorkspaceError(
+                "该来源可由 source-read 正常展示，不能登记 unread_blocked。"
+                "请继续读取并登记 read_full/read_targeted；若与当前问题无关，"
+                "在选择前使用 screened/excluded/duplicate。"
+            )
     if args.status in STRONG_READ_STATES:
         if args.glob or args.all_unreviewed:
             raise IngestionWorkspaceError(
@@ -698,6 +797,13 @@ def mark_coverage(args: argparse.Namespace) -> int:
         item["reason"] = args.reason.strip()
         item["evidence"] = list(args.evidence)
         item["updated_at"] = utc_now()
+        if args.status == "unread_blocked":
+            item["blocker"] = {
+                "assertion": "machine_observed",
+                "reason": machine_blocker,
+            }
+        else:
+            item.pop("blocker", None)
     dump_yaml(root / "coverage.yaml", coverage)
     print(
         json.dumps(
@@ -1123,6 +1229,7 @@ def check_case(args: argparse.Namespace) -> int:
     missing_assertions: list[tuple[Any, Any]] = []
     unbound_read_evidence: list[tuple[Any, Any]] = []
     unverified_full_reads: list[tuple[Any, Any]] = []
+    invalid_unread_blockers: list[tuple[Any, Any]] = []
     selected_unresolved: list[tuple[Any, Any]] = []
     invalid_selections: list[tuple[Any, Any]] = []
     for item in coverage_files:
@@ -1167,6 +1274,15 @@ def check_case(args: argparse.Namespace) -> int:
                     or display.get("displayed_complete") is not True
                 ):
                     unverified_full_reads.append(key)
+        if status == "unread_blocked":
+            blocker = item.get("blocker")
+            if (
+                not isinstance(blocker, dict)
+                or blocker.get("assertion") != "machine_observed"
+                or not isinstance(blocker.get("reason"), str)
+                or not blocker["reason"].strip()
+            ):
+                invalid_unread_blockers.append(key)
         selection = item.get("selection")
         if selection is not None:
             if not isinstance(selection, dict):
@@ -1187,7 +1303,7 @@ def check_case(args: argparse.Namespace) -> int:
                     or any(not isinstance(reason, str) or not reason.strip() for reason in reasons)
                 ):
                     invalid_selections.append(key)
-                if status not in {"read_full", "unread_blocked"}:
+                if status not in SELECTED_RESOLVED_STATES:
                     selected_unresolved.append(key)
     if unreviewed:
         errors.append(
@@ -1220,6 +1336,12 @@ def check_case(args: argparse.Namespace) -> int:
             f"coverage.yaml 有 {len(unverified_full_reads)} 个 read_full "
             "没有完整机器展示事实；"
             f"示例：{unverified_full_reads[:10]}"
+        )
+    if invalid_unread_blockers:
+        errors.append(
+            f"coverage.yaml 有 {len(invalid_unread_blockers)} 个 unread_blocked "
+            "缺少机器确认的不可展示原因；"
+            f"示例：{invalid_unread_blockers[:10]}"
         )
     if invalid_selections:
         errors.append(
@@ -1426,8 +1548,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="把一个精确来源绑定为三层知识主线的必读依据",
         description=(
             "选择是 Agent 的注意力契约，不判断来源是否正确。"
-            "一次只能有一份尚未处理的已选来源；完成 read_full 或明确 "
-            "unread_blocked 后才能选择下一份。"
+            "一次只能有一份尚未处理的已选来源；形成 read_full/read_targeted "
+            "结论，或由工具确认 unread_blocked 后才能选择下一份。"
+            "连续五份已选来源之后必须先更新规范知识正文。"
         ),
     )
     select.add_argument("case_id")
