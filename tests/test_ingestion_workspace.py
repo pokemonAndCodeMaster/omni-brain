@@ -200,6 +200,56 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(1, payload["updated"])
         self.assertEqual("agent_declared", payload["assertion"])
 
+    def test_bulk_weak_status_preserves_selected_and_strong_read_state(self) -> None:
+        case = self.init_case()
+        selected = self.run_tool(
+            "source-select",
+            "sample-case",
+            "sample",
+            "--path",
+            "one.md",
+            "--level",
+            "subject",
+            "--reason",
+            "用于主题证据",
+        )
+        self.assertEqual(0, selected.returncode, selected.stderr)
+        targeted = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "read_targeted",
+            "--reason",
+            "只需要定义段落",
+            "--evidence",
+            "one.md#L1",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(0, targeted.returncode, targeted.stderr)
+
+        bulk = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "screened",
+            "--reason",
+            "批量筛查其余材料",
+            "--glob",
+            "*",
+        )
+        self.assertEqual(0, bulk.returncode, bulk.stderr)
+        payload = json.loads(bulk.stdout)
+        self.assertEqual(1, payload["updated"])
+        self.assertEqual(1, payload["preserved"])
+
+        coverage = yaml.safe_load((case / "coverage.yaml").read_text(encoding="utf-8"))
+        states = {item["path"]: item["status"] for item in coverage["files"]}
+        self.assertEqual("read_targeted", states["one.md"])
+        self.assertEqual("screened", states["two.txt"])
+
     def test_source_read_emits_bounded_contiguous_chunks_and_records_completion(self) -> None:
         (self.source / "long.md").write_text(
             "\n".join(f"line {number}" for number in range(1, 166)) + "\n",

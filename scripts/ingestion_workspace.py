@@ -60,6 +60,7 @@ COVERAGE_STATES = {
 }
 STRONG_READ_STATES = {"read_full", "read_targeted"}
 SELECTED_RESOLVED_STATES = {"read_full", "read_targeted", "unread_blocked"}
+WEAK_COVERAGE_STATES = {"screened", "excluded", "duplicate"}
 SUBSTANTIVE_KNOWLEDGE_DIRS = ("domains", "systems", "capabilities")
 SUBSTANTIVE_PAGE_MIN_CHARS = 400
 MAX_SELECTED_SOURCES_WITHOUT_CONTENT_UPDATE = 5
@@ -762,6 +763,7 @@ def mark_coverage(args: argparse.Namespace) -> int:
     if not isinstance(files, list):
         raise IngestionWorkspaceError("coverage.yaml files 必须是列表")
     selected: list[dict[str, Any]] = []
+    preserved: list[dict[str, Any]] = []
     exact = set(args.path)
     patterns = args.glob
     for item in files:
@@ -772,8 +774,14 @@ def mark_coverage(args: argparse.Namespace) -> int:
         if args.all_unreviewed and item.get("status") == "unreviewed":
             matches = True
         if matches:
+            if args.status in WEAK_COVERAGE_STATES and (
+                item.get("status") in SELECTED_RESOLVED_STATES
+                or ((args.glob or args.all_unreviewed) and isinstance(item.get("selection"), dict))
+            ):
+                preserved.append(item)
+                continue
             selected.append(item)
-    if not selected:
+    if not selected and not preserved:
         raise IngestionWorkspaceError("没有 coverage 条目匹配本次选择")
     if args.status == "read_full":
         selected_item = selected[0]
@@ -811,8 +819,14 @@ def mark_coverage(args: argparse.Namespace) -> int:
                 "case_id": args.case_id,
                 "source_id": args.source_id,
                 "updated": len(selected),
+                "preserved": len(preserved),
                 "status": args.status,
                 "assertion": "agent_declared",
+                "note": (
+                    "批量弱状态不会覆盖已选来源或可复核阅读结论"
+                    if preserved
+                    else None
+                ),
             },
             ensure_ascii=False,
             indent=2,
