@@ -30,6 +30,7 @@ SOURCE_ID_RE = CASE_ID_RE
 LINK_RE = re.compile(r"(?<!!)\[([^\]\n]+)\]\(([^)\n]+)\)")
 SOURCE_READ_MAX_LINES = 80
 SOURCE_READ_MAX_CHARS = 6000
+SOURCE_OUTLINE_HEADING_MAX_CHARS = 160
 REQUIRED_ROOT_FILES = {
     "case.yaml",
     "brief.md",
@@ -850,16 +851,91 @@ def read_manifest(path: Path) -> list[dict[str, Any]]:
     return result
 
 
+def extract_source_outline(
+    root: Path, source_id: str, relative_path: str, heading_limit: int
+) -> dict[str, Any]:
+    source_path, manifest_entry = resolve_registered_source_file(
+        root, source_id, relative_path
+    )
+    result: dict[str, Any] = {
+        "path": relative_path,
+        "bytes": manifest_entry.get("bytes"),
+        "suffix": source_path.suffix.lower(),
+        "coverage_status": "unreviewed",
+    }
+    try:
+        text = source_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        result.update(
+            {
+                "text_readable": False,
+                "outline_error": f"无法按 UTF-8 提取标题：{exc}",
+                "title": source_path.name,
+                "headings": [],
+                "headings_truncated": False,
+            }
+        )
+        return result
+
+    headings: list[dict[str, Any]] = []
+    for line_number, line in enumerate(text.splitlines(), 1):
+        match = re.match(r"^(#{1,6})\s+(.+?)\s*$", line)
+        if not match:
+            continue
+        heading = re.sub(r"\s+#+\s*$", "", match.group(2)).strip()
+        if not heading:
+            continue
+        headings.append(
+            {
+                "level": len(match.group(1)),
+                "text": heading[:SOURCE_OUTLINE_HEADING_MAX_CHARS],
+                "line": line_number,
+            }
+        )
+    title = next(
+        (item["text"] for item in headings if item["level"] == 1),
+        headings[0]["text"] if headings else source_path.name,
+    )
+    result.update(
+        {
+            "text_readable": True,
+            "line_count": len(text.splitlines()),
+            "title": title,
+            "headings": headings[:heading_limit],
+            "headings_truncated": len(headings) > heading_limit,
+        }
+    )
+    return result
+
+
 def list_files(args: argparse.Namespace) -> int:
     root = case_root(args)
     validate_id(args.source_id, "source id")
     if not 1 <= args.limit <= 500:
         raise IngestionWorkspaceError("--limit 必须在 1-500 之间")
+    if not 1 <= args.heading_limit <= 50:
+        raise IngestionWorkspaceError("--heading-limit 必须在 1-50 之间")
     records = [
         item
         for item in read_manifest(root / "source-manifest.jsonl")
         if item.get("source_id") == args.source_id
     ]
+    coverage = load_yaml(root / "coverage.yaml", "coverage.yaml")
+    coverage_files = coverage.get("files")
+    if not isinstance(coverage_files, list):
+        raise IngestionWorkspaceError("coverage.yaml files 必须是列表")
+    status_by_path = {
+        str(item.get("path")): str(item.get("status"))
+        for item in coverage_files
+        if isinstance(item, dict) and item.get("source_id") == args.source_id
+    }
+    if args.status:
+        statuses = set(args.status)
+        records = [
+            item
+            for item in records
+            if status_by_path.get(str(item.get("path"))) in statuses
+        ]
     if args.glob:
         records = [
             item
@@ -871,20 +947,35 @@ def list_files(args: argparse.Namespace) -> int:
         ]
     total = len(records)
     shown = records[: args.limit]
-    print(
-        json.dumps(
+    payload: dict[str, Any] = {
+        "case_id": args.case_id,
+        "source_id": args.source_id,
+        "matched": total,
+        "shown": len(shown),
+        "truncated": total > len(shown),
+        "files": [item.get("path") for item in shown],
+    }
+    if args.describe:
+        descriptions = [
+            extract_source_outline(
+                root, args.source_id, str(item.get("path")), args.heading_limit
+            )
+            for item in shown
+        ]
+        for description in descriptions:
+            description["coverage_status"] = status_by_path.get(
+                str(description.get("path")), "unreviewed"
+            )
+        payload.update(
             {
-                "case_id": args.case_id,
-                "source_id": args.source_id,
-                "matched": total,
-                "shown": len(shown),
-                "truncated": total > len(shown),
-                "files": [item.get("path") for item in shown],
-            },
-            ensure_ascii=False,
-            indent=2,
+                "navigation_semantics": (
+                    "machine-extracted title and headings for source routing only; "
+                    "not evidence that the Agent read or understood the file"
+                ),
+                "descriptions": descriptions,
+            }
         )
-    )
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -1537,11 +1628,26 @@ def build_parser() -> argparse.ArgumentParser:
     status.add_argument("case_id")
     status.set_defaults(func=status_case)
 
-    files = subparsers.add_parser("files", help="按来源和 glob 有界查看机器文件清单")
+    files = subparsers.add_parser(
+        "files",
+        help="按来源、状态和 glob 有界查看文件清单或内容导航",
+        description=(
+            "默认只列路径；--describe 额外提取 UTF-8 文本的 Markdown 标题与章节，"
+            "只用于选源路由，不形成阅读或理解证据。"
+        ),
+    )
     files.add_argument("case_id")
     files.add_argument("source_id")
     files.add_argument("--glob", action="append", default=[])
+    files.add_argument(
+        "--status",
+        action="append",
+        default=[],
+        choices=sorted(COVERAGE_STATES),
+    )
     files.add_argument("--limit", type=int, default=100)
+    files.add_argument("--describe", action="store_true")
+    files.add_argument("--heading-limit", type=int, default=12)
     files.set_defaults(func=list_files)
 
     read = subparsers.add_parser(

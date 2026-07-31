@@ -127,6 +127,75 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(1, payload["matched"])
         self.assertEqual(["one.md"], payload["files"])
 
+    def test_files_describe_exposes_bounded_content_navigation_without_read_claim(self) -> None:
+        opaque = self.source / "22_78873977.md"
+        opaque.write_text(
+            "# 验收采样配额与任务选择设计\n"
+            "## 输入与输出\n"
+            "## 三种策略\n"
+            "### GroupSampler\n",
+            encoding="utf-8",
+        )
+        case = self.init_case()
+
+        result = self.run_tool(
+            "files",
+            "sample-case",
+            "sample",
+            "--glob",
+            "22_*.md",
+            "--describe",
+            "--heading-limit",
+            "2",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertIn("source routing only", payload["navigation_semantics"])
+        self.assertEqual(1, payload["matched"])
+        description = payload["descriptions"][0]
+        self.assertEqual("验收采样配额与任务选择设计", description["title"])
+        self.assertEqual(
+            ["验收采样配额与任务选择设计", "输入与输出"],
+            [item["text"] for item in description["headings"]],
+        )
+        self.assertTrue(description["headings_truncated"])
+        self.assertEqual("unreviewed", description["coverage_status"])
+
+        coverage = yaml.safe_load((case / "coverage.yaml").read_text(encoding="utf-8"))
+        item = next(
+            item for item in coverage["files"] if item["path"] == "22_78873977.md"
+        )
+        self.assertNotIn("display", item)
+        self.assertEqual("unreviewed", item["status"])
+
+    def test_files_can_describe_only_remaining_unreviewed_sources(self) -> None:
+        self.init_case()
+        marked = self.run_tool(
+            "mark",
+            "sample-case",
+            "sample",
+            "--status",
+            "screened",
+            "--reason",
+            "标题已经确认不涉及当前问题",
+            "--path",
+            "one.md",
+        )
+        self.assertEqual(0, marked.returncode, marked.stderr)
+
+        result = self.run_tool(
+            "files",
+            "sample-case",
+            "sample",
+            "--status",
+            "unreviewed",
+            "--describe",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(["two.txt"], payload["files"])
+        self.assertEqual("unreviewed", payload["descriptions"][0]["coverage_status"])
+
     def test_screen_and_check_pass_for_complete_empty_candidate(self) -> None:
         case = self.init_case()
         mark = self.run_tool(
