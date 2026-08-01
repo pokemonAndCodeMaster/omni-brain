@@ -114,18 +114,18 @@ python scripts/ingestion_workspace.py topic-add <case-id> <topic-id> \
 - `reality`：当前实现、当前决定、目标、历史、冲突和未知；
 - `navigation`：从全貌到细节的产品视图和继续工作入口。
 
-把每个适用角度映射到一个或多个主题；只有用户边界或读后发现能证明不适用时才排除：
+把每个适用角度映射到一个或多个主题，并用普通语言写出材料当前支持的**最大安全答案与仍未知边界**。这不是预先写正文，而是检查主题合起来能否兑现用户结果；如果一句话只能重复主题标题，说明目录或读后发现仍不充分。只有用户边界或读后发现能证明不适用时才排除：
 
 ```bash
 python scripts/ingestion_workspace.py plan-review <case-id> \
-  --lens position=<topic-id>[,<topic-id>] \
-  --lens lifecycle=<topic-id>[,<topic-id>] \
-  --lens data=<topic-id>[,<topic-id>] \
-  --lens rules=<topic-id>[,<topic-id>] \
-  --lens software=<topic-id>[,<topic-id>] \
-  --lens shared=<topic-id>[,<topic-id>] \
-  --lens reality=<topic-id>[,<topic-id>] \
-  --lens navigation=<topic-id>[,<topic-id>]
+  --lens 'position=<topic-id>[,<topic-id>] :: <能安全说明的位置关系；仍缺什么>' \
+  --lens 'lifecycle=<topic-id>[,<topic-id>] :: <能安全说明的端到端过程；仍缺什么>' \
+  --lens 'data=<topic-id>[,<topic-id>] :: <能安全说明的数据与状态；仍缺什么>' \
+  --lens 'rules=<topic-id>[,<topic-id>] :: <能安全说明的规则算法；仍缺什么>' \
+  --lens 'software=<topic-id>[,<topic-id>] :: <能安全说明的软件结构；仍缺什么>' \
+  --lens 'shared=<topic-id>[,<topic-id>] :: <能安全说明的公共能力；仍缺什么>' \
+  --lens 'reality=<topic-id>[,<topic-id>] :: <已确认的现实形态；仍缺什么>' \
+  --lens 'navigation=<topic-id>[,<topic-id>] :: <读者能怎样进入和下钻；仍缺什么>'
 ```
 
 不适用项使用 `--not-applicable <lens>=<依据>`。复核必须暴露未审材料组、未归位发现、未知主题和理解角度缺口；不要为了通过而把所有角度机械塞进一页。
@@ -141,7 +141,7 @@ python scripts/ingestion_workspace.py material-reopen <case-id> <group-id> \
 
 ### 2.4 按目录形成规范知识和产品视图
 
-目录复核通过后运行 `next`。它一次返回一个主题及其读后发现。重复调用保持当前主题不变。
+目录复核通过后运行 `next`。它一次返回一个主题、对应读后发现以及该主题承担的读者结果。重复调用保持当前主题不变。
 
 根据内容按需读取模板，不在开始时加载全部资产：
 
@@ -152,7 +152,7 @@ python scripts/ingestion_workspace.py material-reopen <case-id> <group-id> \
 - 来源记录：[source-record.md](assets/source-record.md)；
 - 公共能力抽取审查：[shared-capability-review.md](assets/shared-capability-review.md)。
 
-正文必须充分内化输入、转换、输出、条件、边界、失败方式和继续工作入口。引用只负责追溯，不能替代内容。章节先说明作用或核心判断；只加粗决定理解或行动的关键词、关系和限制。图表回答一个主要问题，并在邻近表格或段落补足图上没有的输入输出、约束和异常。
+正文必须充分内化输入、转换、输出、条件、边界、失败方式和继续工作入口，并兑现 `next` 返回的读者结果；材料不足的部分保留为未知，不能靠常识补齐。引用只负责追溯，不能替代内容。章节先说明作用或核心判断；只加粗决定理解或行动的关键词、关系和限制。图表回答一个主要问题，并在邻近表格或段落补足图上没有的输入输出、约束和异常。
 
 规范页与计划中的领域/旅程视图都形成后登记当前主题：
 
@@ -160,7 +160,7 @@ python scripts/ingestion_workspace.py material-reopen <case-id> <group-id> \
 python scripts/ingestion_workspace.py record-topic <case-id> <topic-id>
 ```
 
-工作台检查计划正文是否存在、内容是否过薄、计划视图是否存在并链接正文，然后推进到下一个主题。
+工作台检查计划正文是否存在、内容是否过薄、计划视图是否存在并链接正文，然后推进到下一个主题。全部主题完成后，运行 `review`，按“读者结果复核”逐项对照正文和产品视图；有一项未兑现时直接修改对应候选页再重建审查页，不新增独立门禁文件。
 
 ## 3. 聚焦代码或问题整理
 
