@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_simplified_ingestion_revised_after_failed_content_trial
+  status: implemented_shared_goal_coverage_revision_awaiting_document_replay
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,7 +41,7 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_simplified_question_first_slice_revised_after_failed_content_trial
+    adoption: implemented_shared_goal_coverage_revision_awaiting_document_replay
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
@@ -54,9 +54,9 @@ capabilities:
       - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
       - 只读检查不判断业务真伪或内容充分性
       - 真实文档和代码摄入均有失败证据，尚未达到发布线
-      - 最新代码摄入内容结果仍未达到接受线；后到证据和代表性边界例子曾未充分进入正文
-      - 来源身份、正文回写和正常/边界例子规则已修订，尚待模型 Trial
-      - 跨模型稳定性、文档防退化和内容发布仍未验证
+      - 代码摄入已达到当前用例接受线，但基础文档回归仍遗漏完整领域、软件结构、公共能力和完整算法
+      - 已最小强化完整目标到负责问题和知识落点的规划责任，尚待同材料模型重放
+      - 跨模型稳定性、基础文档内容发布和增量演进仍未验证
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:

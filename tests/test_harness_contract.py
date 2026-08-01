@@ -24,12 +24,12 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_simplified_ingestion_revised_after_failed_content_trial",
+            "implemented_shared_goal_coverage_revision_awaiting_document_replay",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_simplified_question_first_slice_revised_after_failed_content_trial",
+            "implemented_shared_goal_coverage_revision_awaiting_document_replay",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
