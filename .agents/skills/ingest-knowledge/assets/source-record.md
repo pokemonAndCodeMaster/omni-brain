@@ -15,7 +15,7 @@ tags: [source]
 - **所有者**：
 - **本轮实际读取范围**：
 - **机器盘点定位**：`<case-id> / <source-id> / <relative-path>`
-- **支撑的问题**：`<brief.md 中的问题 ID>`
+- **支撑的问题**：`<摄入案 case.json 中的问题 ID>`
 
 ## 能证明
 

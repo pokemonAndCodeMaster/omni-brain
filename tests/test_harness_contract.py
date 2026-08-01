@@ -24,12 +24,12 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_knowledge_ingestion_awaiting_real_use_validation",
+            "implemented_simplified_ingestion_awaiting_real_trial",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_knowledge_ingestion_awaiting_real_use_validation",
+            "implemented_simplified_question_first_slice_awaiting_trial",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -53,10 +53,11 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIsNone(re.search(r"\bV\d+(?:\.\d+)?\b", startup))
         self.assertIsNone(re.search(r"\b\d+/\d+\b", startup))
 
-    def test_root_contract_keeps_ingestion_source_reads_on_workbench_path(self) -> None:
+    def test_root_contract_keeps_ingestion_source_reads_in_current_packet(self) -> None:
         contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        self.assertIn("授权来源的正文只通过工作台 `source-read` 展示", contract)
-        self.assertIn("不得用原生 `read`", contract)
+        self.assertIn("先用工作台 `next` 取得当前小批来源", contract)
+        self.assertIn("不得绕过它递归搜索", contract)
+        self.assertIn("临时 Git worktree", contract)
 
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in ("task-knowledge-prep", "ingest-knowledge"):
@@ -104,120 +105,65 @@ class HarnessContractTest(unittest.TestCase):
         )
 
         self.assertIn("## 知识内容优先", agents)
-        self.assertIn("上级定位 → 主题全貌 → 用户焦点", agents)
-        self.assertIn("至少沿一个真实业务动作", agents)
+        self.assertIn("以一个读者问题为最小交付单位", agents)
+        self.assertIn("一小批直接来源", agents)
 
         expected_steps = (
-            "## 1. 定义读者结果并建立工作台",
-            "## 2. 先交付第一个可用知识单元",
-            "## 3. 按问题逐个扩展知识",
-            "## 4. 组装全貌与产品视图",
-            "## 5. 先做内容消费，再做结构检查",
-            "## 6. 人工审查、发布与立即使用",
+            "## 1. 建立读者问题",
+            "## 2. 规划当前知识单元",
+            "## 3. 取得一小批直接来源",
+            "## 4. 立即形成知识并登记结果",
+            "## 5. 取得真实运行证据",
+            "## 6. 收完一个问题",
+            "## 7. 人工审查与发布",
         )
         positions = [skill.index(step) for step in expected_steps]
         self.assertEqual(sorted(positions), positions)
         self.assertLess(
-            skill.index("逐个回答 `brief.md` 的问题主线"),
-            skill.index("python scripts/ingestion_workspace.py check <case-id>"),
+            skill.index("立即更新规范知识"),
+            skill.index("python scripts/ingestion_workspace.py check-unit"),
         )
 
     def test_ingestion_assets_drive_questions_sources_and_reading_routes(self) -> None:
         assets = ROOT / ".agents/skills/ingest-knowledge/assets"
-        brief = (assets / "brief.md").read_text(encoding="utf-8")
-        inventory = (assets / "inventory.md").read_text(encoding="utf-8")
         product_view = (assets / "product-view.md").read_text(encoding="utf-8")
-        reader_answers = (assets / "reader-answers.md").read_text(encoding="utf-8")
         software_architecture = (assets / "software-architecture.md").read_text(
             encoding="utf-8"
         )
         shared_capability = (assets / "shared-capability-review.md").read_text(
             encoding="utf-8"
         )
-        review = (assets / "review.md").read_text(encoding="utf-8")
-
-        self.assertIn("## 逐层内容地图", brief)
-        self.assertIn("## 读者问题主线", brief)
-        self.assertIn("代码地图、运行时序、核心类/数据关系", brief)
-        self.assertIn("## 每个问题实际用了什么", inventory)
-        self.assertIn("## 来源主题地图", inventory)
-        self.assertIn("## 已读内容与知识落点", inventory)
-        self.assertIn("## 当前问题缺口复核", inventory)
-        self.assertIn("可能补足的未读来源", inventory)
-        self.assertIn("不可丢失的机制、条件、边界、冲突或未知", inventory)
-        self.assertIn("作为独立命令直接执行", inventory)
-        self.assertIn("完成清单和正文两处落地再选择下一份来源", (
-            ROOT / ".agents/skills/ingest-knowledge/SKILL.md"
-        ).read_text(encoding="utf-8"))
-        self.assertIn("source-select", brief)
-        completion = (assets / "completion.yaml").read_text(encoding="utf-8")
-        self.assertIn("knowledge_path:", completion)
-        self.assertIn("covered/partial/unknown/not_applicable", completion)
-        self.assertIn("source_id: <source-id>", completion)
-        self.assertIn("相对于 draft/knowledge/ 根填写", completion)
-        self.assertIn("level: parent", completion)
-        self.assertIn("level: subject", completion)
-        self.assertIn("level: focus", completion)
-        self.assertIn("隐藏正文输出时，不得声明 `read_full`", inventory)
-        self.assertIn("## 软件与代码事实源", inventory)
         self.assertIn("## 推荐路线：从全貌到细节", product_view)
         self.assertIn("## 按问题查找", product_view)
         self.assertIn("最小充分路线", product_view)
         self.assertIn("draft/knowledge/views/by-domain/<slug>.md", product_view)
         self.assertIn("不要另建 `draft/views/`", product_view)
-        self.assertIn("## 逐题回答", reader_answers)
-        self.assertIn("每个有效问题必须恰好对应一行", reader_answers)
-        self.assertIn("最多三篇规范页", reader_answers)
-        self.assertIn("不能用焦点局部的完整答案代替更大范围", reader_answers)
-        self.assertIn("缺失事实、责任来源、对后续工作的影响和下一动作", reader_answers)
         self.assertIn("## 代码地图与职责", software_architecture)
         self.assertIn("## 核心对象和数据变化", software_architecture)
         self.assertIn("## 一次具体修改路径", software_architecture)
         self.assertIn("不要求先出现第二个外部领域", shared_capability)
         self.assertIn("draft/knowledge/capabilities/", shared_capability)
-        questions = (assets / "questions.md").read_text(encoding="utf-8")
-        self.assertIn("唯一状态源", questions)
-        self.assertIn("open / answered / accepted_unknown", questions)
         skill = (ROOT / ".agents/skills/ingest-knowledge/SKILL.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("只在进入某一步时读取该步点名的模板", skill)
-        self.assertIn("用户请求的完整范围", skill)
-        self.assertIn("不要在开始时预读整个 `assets/` 目录", skill)
-        self.assertIn("一次只处理一份实质来源", skill)
-        self.assertIn("不并行执行多份 `source-read`", skill)
-        self.assertIn("只有当前来源改变的具体内容已经离开会话上下文", skill)
-        self.assertIn("将当前复合问题拆回它实际要求的各部分", skill)
-        self.assertIn("当前代码纵切只能证明当前实现", skill)
-        self.assertIn("正常摄入不得使用 `mark --all-unreviewed`", skill)
-        self.assertIn("`.gitkeep`", skill)
-        self.assertIn("相邻层围绕同一稳定主题", skill)
-        self.assertNotIn("这里必须同步最后一次检查", review)
-        for heading in (
-            "## Agent 内容声明（待人工审查）",
-            "## 结构门禁",
-            "## 人工门禁",
-        ):
-            self.assertIn(heading, review)
-        self.assertIn("[内容完成声明](completion.yaml)", review)
-        self.assertIn("[机器来源摘要](source-summary.md)", review)
-        self.assertLess(review.index("## 从这里开始看内容"), review.index("## 结构门禁"))
+        self.assertIn("不要在开始时读取全部模板", skill)
+        self.assertIn("只打开返回的 `absolute_path`", skill)
+        self.assertIn("一个问题需要超过三篇正文", skill)
+        self.assertIn("不恢复逐文件 `mark`", skill)
+        retired_assets = (
+            "brief.md", "completion.yaml", "inventory.md", "questions.md",
+            "reader-answers.md", "review.md",
+        )
+        self.assertTrue(all(not (assets / name).exists() for name in retired_assets))
 
     def test_ingestion_delivers_content_before_context_sprawls(self) -> None:
         skill = (ROOT / ".agents/skills/ingest-knowledge/SKILL.md").read_text(
             encoding="utf-8"
         )
-        brief = (
-            ROOT / ".agents/skills/ingest-knowledge/assets/brief.md"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("一个读者问题就是一次最小交付", skill)
-        self.assertIn("开始第六份来源前", skill)
-        self.assertIn("非 `index.md` 的实质知识页", skill)
-        self.assertIn("立即把新增机制写入 `inventory.md` 和对应候选知识章节", skill)
-        self.assertIn("每个新增来源必须说明它准备补足哪个具体缺口", skill)
-        self.assertIn("## 当前交付问题", brief)
-        self.assertIn("不要等全部问题阅读完成后才第一次写正文", brief)
+        self.assertIn("一个读者问题，一小批直接来源", skill)
+        self.assertIn("读完当前小批后立即更新规范知识", skill)
+        self.assertIn("工具只返回当前 **1—8 份**候选", skill)
+        self.assertIn("不要再生成平行答案页或完成度表", skill)
 
     def test_retired_knowledge_layout_is_absent(self) -> None:
         retired_paths = (

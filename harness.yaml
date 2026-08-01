@@ -1,12 +1,12 @@
-schema_version: '0.3'
+schema_version: '0.4'
 name: omni-brain-harness
 release_channel: experiment
-release_date: '2026-07-29'
+release_date: '2026-08-01'
 roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_knowledge_ingestion_awaiting_real_use_validation
+  status: implemented_simplified_ingestion_awaiting_real_trial
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,20 +41,19 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_knowledge_ingestion_awaiting_real_use_validation
+    adoption: implemented_simplified_question_first_slice_awaiting_trial
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
       - scripts/knowledge_check.py
     limits:
-      - source-read 的 displayed_complete 只证明脚本完整输出，不证明 Agent 已理解或知识已经充分内化
-      - source-select 一次只允许一份未处理来源；连续五份已选来源没有正文更新时会停止继续选择
-      - read_targeted 可用精确证据收束局部阅读；批量弱状态不会覆盖已选或已读证据；unread_blocked 只接受工具客观无法展示的来源
-      - 工作台初始化后的授权来源正文只能通过 source-read 展示
-      - 运行验证只有实际作用于来源项目时才能作为其证据，Harness 自身测试不能冒充来源实现结果
-      - 写作前必须按问题的未答部分反查合理候选来源，不能让局部实现或总览摘要替代完整范围
+      - 全量来源只作为后台版本基线，next 的候选排序仍需 K0 与 E1 真实工况校准
+      - 当前候选召回只使用关键词、标题、正文命中和一跳 import，不包含向量或完整代码图
+      - 问题状态和知识落点由 Agent 语义登记，工具只能校验一致性，不能判断业务真伪
+      - 隔离运行首版只支持干净 Git 来源；项目环境和本地运行目录需显式 mount
+      - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
       - 只读检查不判断业务真伪或内容充分性
-      - 当前只取得有限切片证据，完整知识摄入结果和跨场景稳定性尚未验证
+      - 本版本只有确定性测试证据，K0、E1 内容质量与跨模型稳定性尚未验证
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:
