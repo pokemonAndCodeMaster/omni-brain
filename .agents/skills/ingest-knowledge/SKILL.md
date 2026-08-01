@@ -2,237 +2,245 @@
 name: ingest-knowledge
 description: >
   摄入一批有界的文档、代码、Schema 或人工材料，把它们整理为可浏览、可追溯、可继续工作的规范知识与产品视图。
-  当用户要求整理、导入、摄入或归并材料，或用新材料更新现有知识时使用；不用于只回答一个问题、直接改代码或无来源创作。
+  当用户要求整理、导入、摄入或归并材料，或用新材料更新现有知识时使用；同时支持宽范围完整整理与聚焦代码/问题整理。
+  不用于只回答一个问题、直接改代码或无来源创作。
 ---
 
 # 知识摄入
 
-以**问题闭环**推进：一个读者问题，一小批直接来源，一至三篇规范知识，一次可检查的结果。来源盘点和状态由工具在后台维护；主要精力必须用于理解、写知识和真实验证。
+把授权材料转化为**规范知识、产品视图和一份 `review.md`**。来源始终只读；候选只写入
+`workspaces/knowledge-ingestion/<case-id>/draft/`。用户批准前不得修改正式 `knowledge/` 或 `config/`。
 
-来源保持只读，候选只写入 `workspaces/knowledge-ingestion/<case-id>/draft/`。用户批准前不得修改正式 `knowledge/` 或 `config/`。
+机器状态只保存在 `.state/case.json` 和 `.state/source-manifest.jsonl`。使用工作台命令读写状态，不手工编辑这两个文件，也不把它们交给用户维护。
 
-## 1. 建立读者问题
+## 1. 选择最低充分模式
 
-从用户请求中提取：授权来源、目标读者、读完后要解决的问题，以及不能做错的边界。范围已经清楚时不要追问。
+- **宽范围完整整理（`complete`）**：用户交来一个领域、模块或混合材料包，希望从零建立可学习的全貌与细节。先审视材料地图和读后发现，再规划知识目录。不要在读材料前猜主题或现实身份。
+- **聚焦整理（`focused`）**：用户已限定一个代码动作、接口、指标、脚本或具体问题。直接按读者问题定向取源，保留真实运行能力，不要求先审视整个领域材料地图。
 
-把复合目标拆成读者实际会问的问题。问题必须能够用知识回答或明确说明缺口，不能写成“整理全部材料”之类工作动作。
+这是同一个 Skill、同一规范知识底座的轻重路由。范围已经清楚时直接选择，不向用户询问内部模式名称。
 
-**先检查目标覆盖，再启动。** 在回复中用一小段“用户最终要得到什么 → 哪个读者问题负责”完成映射，不新建中间文件。摄入对象是一个领域或模块时，至少保留一个问题负责说明它在更大整体中的位置和全貌，不能让若干细节问题拼起来冒充整体。完整领域、模块或代码摄入通常要按实际需求检查这些观察角度：
+## 2. 宽范围完整整理
 
-- 它位于什么上级范围，与上下游、相邻模块和目标读者怎样交接；
-- 业务怎样端到端运作，角色、对象、状态、数据和异常怎样变化；
-- 哪些规则、算法或关键口径决定结果；
-- 当前系统和代码怎样实现，目标设计和历史做法分别是什么；
-- 后续怎样学习、查询、修改、调试或验证；
-- 哪些内容仍未知、冲突、过时或需要外部责任人确认。
+### 2.1 固定用户承诺与材料范围
 
-这些是**覆盖检查角度，不是固定题库**。每项用户承诺和每个适用角度必须指向一个负责问题；不适用时在同一段映射中说明理由。理由必须来自用户范围或明确边界，不能因为最先看到的材料没有提及就判为不适用。不能用“证据和未知”一题代替业务、数据、算法或实现内容。若一个宏大目标只得到一两个局部问题，或者问题全部回答后仍无法兑现目标，就继续拆题，而不是先开始选源。
-
-随后启动摄入案：
+从请求中提取目标读者、读完后应具备的理解或行动能力、授权来源和不能做错的边界。启动时不预先编造读者问题或知识目录：
 
 ```bash
 python scripts/ingestion_workspace.py start <case-id> \
+  --mode complete \
   --goal '<读者最终能够理解、判断或执行什么>' \
   --reader '<目标读者>' \
   --source <source-id>=<authorized-directory> \
-  --question '<读者问题>' [--question '<下一个问题>'] \
+  [--source <next-source-id>=<authorized-directory>] \
   [--boundary '<不能做错的边界>']
 ```
 
-继续已有摄入案时，先运行：
+继续已有摄入案时先运行：
 
 ```bash
 python scripts/ingestion_workspace.py status <case-id>
 ```
 
-只恢复当前问题、知识落点、候选数量、运行结果和下一动作；不要读取 `.state/source-manifest.jsonl` 或手工编辑 `.state/case.json`。
+状态首页只看当前阶段、当前材料组或知识主题、已形成数量和下一动作。
 
-**完成标准：** 用户承诺的每项结果、摄入对象的整体位置和每个适用角度都能指向至少一个读者问题；被排除的角度有可复核理由；问题之间没有用同义句重复覆盖；来源与禁止事项已经明确。
+### 2.2 审视材料地图并形成读后发现
 
-## 2. 规划当前知识单元
-
-只为当前问题规划一至三个会被独立阅读或维护的规范落点：
+工作台只用路径、完全重复、文档链接和代码导入建立材料组。它不根据标题判断当前、历史或目标。先查看整体地图：
 
 ```bash
+python scripts/ingestion_workspace.py survey <case-id>
+python scripts/ingestion_workspace.py next <case-id>
+```
+
+`next` 始终返回同一个当前组，直到本组完成登记；重复调用不会丢状态或切换任务。按以下顺序处理：
+
+1. 用成员路径、标题和章节概要判断本组与用户目标的关系；
+2. 相关时，完整读取会改变结论的成员；完全重复组只完整读取一个代表文件并确认重复位置；
+3. 一组同时包含不同现实形态或多个稳定结论时，登记多项读后发现；
+4. 只用精确来源说明结论、现实形态、适用范围和限制，不用文件名或模型常识补全。
+
+每项读后发现使用稳定 ID：
+
+```bash
+python scripts/ingestion_workspace.py finding-add <case-id> <finding-id> \
+  --group-id <group-id> \
+  --content '<这项材料实际说明了什么>' \
+  --reality <current_implementation|current_decision|target_design|historical|conflict|unknown> \
+  --source '<source-id>:<path>' \
+  --scope '<结论适用于什么范围>' \
+  [--limit '<不能据此推出什么>'] \
+  [--topic '<可能进入的长期知识主题>']
+```
+
+同一组可以重复执行 `finding-add`；同一 ID、同一内容的重试是幂等的。随后登记整组：
+
+```bash
+python scripts/ingestion_workspace.py record-material <case-id> <group-id> \
+  --status <reviewed|irrelevant|partial|external> \
+  --summary '<本组提供了什么，或为何不影响用户结果>'
+```
+
+- `reviewed`：已形成至少一项带精确来源的发现；
+- `irrelevant`：概要审视后确认不影响用户承诺，理由必须面向结果而非文件名；
+- `partial`：已获得局部，但本组仍有会改变结论的内容未读或无法解释；游标留在本组；
+- `external`：文件格式、权限或外部依赖使材料无法可靠读取，概要中说明责任动作。
+
+继续运行 `next`，直到状态进入 `planning`。不维护逐文件阅读打卡，也不绕过当前材料组递归通读来源。
+
+### 2.3 规划并复核知识目录
+
+根据全部读后发现规划规范落点，而不是把来源目录翻译成知识目录。按独立变化和读者用途拆分；同一核心定义只有一个规范落点，产品视图只组织路线：
+
+```bash
+python scripts/ingestion_workspace.py topic-add <case-id> <topic-id> \
+  --title '<稳定、直观的知识标题>' \
+  --purpose '<这页让目标读者理解或完成什么>' \
+  --action <create|update|merge|view> \
+  --path 'draft/knowledge/<area>/<page>.md' \
+  --finding <finding-id> [--finding <finding-id>] \
+  --view 'draft/knowledge/views/by-domain/<slug>.md' \
+  --view 'draft/knowledge/views/by-journey/<slug>.md'
+```
+
+写正文前做第二遍目录复核。八个名称是**理解角度**，不是八篇固定页面：
+
+- `position`：上级位置、上下游和相邻边界；
+- `lifecycle`：端到端过程、角色、对象与异常循环；
+- `data`：数据对象、标识、状态、输入输出和新鲜度；
+- `rules`：规则、算法、口径与决定结果的条件；
+- `software`：软件结构、代码职责、调用链与修改入口；
+- `shared`：跨模块公共能力及其维护边界；
+- `reality`：当前实现、当前决定、目标、历史、冲突和未知；
+- `navigation`：从全貌到细节的产品视图和继续工作入口。
+
+把每个适用角度映射到一个或多个主题；只有用户边界或读后发现能证明不适用时才排除：
+
+```bash
+python scripts/ingestion_workspace.py plan-review <case-id> \
+  --lens position=<topic-id>[,<topic-id>] \
+  --lens lifecycle=<topic-id>[,<topic-id>] \
+  --lens data=<topic-id>[,<topic-id>] \
+  --lens rules=<topic-id>[,<topic-id>] \
+  --lens software=<topic-id>[,<topic-id>] \
+  --lens shared=<topic-id>[,<topic-id>] \
+  --lens reality=<topic-id>[,<topic-id>] \
+  --lens navigation=<topic-id>[,<topic-id>]
+```
+
+不适用项使用 `--not-applicable <lens>=<依据>`。复核必须暴露未审材料组、未归位发现、未知主题和理解角度缺口；不要为了通过而把所有角度机械塞进一页。
+
+目录复核前发现主题标题、落点、用途或发现归属不合理时，使用同一个 `topic-add` ID 重新提交完整计划；工作台会在尚未进入写作时更新它。若复核证明某个材料组被过早结束，显式回到该组：
+
+```bash
+python scripts/ingestion_workspace.py material-reopen <case-id> <group-id> \
+  --reason '<哪项读者理解或目录决定需要重新核对本组>'
+```
+
+随后按 `next → finding-add → record-material` 补齐，再重新复核目录。不要手改后台状态，也不要为了修一个主题重跑全部材料。
+
+### 2.4 按目录形成规范知识和产品视图
+
+目录复核通过后运行 `next`。它一次返回一个主题及其读后发现。重复调用保持当前主题不变。
+
+根据内容按需读取模板，不在开始时加载全部资产：
+
+- 通用规范页：[knowledge-page.md](assets/knowledge-page.md)；
+- 领域全貌：[domain-overview.md](assets/domain-overview.md)；
+- 软件结构：[software-architecture.md](assets/software-architecture.md)；
+- 产品视图：[product-view.md](assets/product-view.md)；
+- 来源记录：[source-record.md](assets/source-record.md)；
+- 公共能力抽取审查：[shared-capability-review.md](assets/shared-capability-review.md)。
+
+正文必须充分内化输入、转换、输出、条件、边界、失败方式和继续工作入口。引用只负责追溯，不能替代内容。章节先说明作用或核心判断；只加粗决定理解或行动的关键词、关系和限制。图表回答一个主要问题，并在邻近表格或段落补足图上没有的输入输出、约束和异常。
+
+规范页与计划中的领域/旅程视图都形成后登记当前主题：
+
+```bash
+python scripts/ingestion_workspace.py record-topic <case-id> <topic-id>
+```
+
+工作台检查计划正文是否存在、内容是否过薄、计划视图是否存在并链接正文，然后推进到下一个主题。
+
+## 3. 聚焦代码或问题整理
+
+聚焦模式保留已经验证的“小问题、小批来源、立即写知识”路径：
+
+启动前做一次简短的**目标覆盖**检查：用户承诺的每项结果都应由一个具体读者问题负责；不要让一两个局部问题悄悄替代完整请求。每题规划一至三个能够独立阅读和维护的规范落点；一个问题需要超过三篇正文时，先收束问题或调整知识地图，不用堆页面掩盖边界不清。
+
+```bash
+python scripts/ingestion_workspace.py start <case-id> \
+  --mode focused \
+  --goal '<读者最终能够理解或执行什么>' \
+  --reader '<目标读者>' \
+  --source <source-id>=<authorized-directory> \
+  --question '<具体读者问题>' \
+  [--boundary '<不能做错的边界>']
+
 python scripts/ingestion_workspace.py plan-unit <case-id> <question-id> <unit-id> \
   --title '<知识单元标题>' \
   --kind <business|data|software|run|other> \
   --path 'draft/knowledge/<area>/<page>.md' \
   [--require-run]
-```
 
-按独立变化划分，而不是按模板凑页：事实源、现实状态、更新节奏或读者任务不同，或者一种内容会淹没另一种内容时才拆开。一个问题需要超过三篇正文才能回答，说明问题或知识地图仍过宽，应先收束。
-
-写第一篇规范页时读取 [knowledge-page.md](assets/knowledge-page.md)。涉及领域全貌时再读 [domain-overview.md](assets/domain-overview.md)；涉及软件实现时再读 [software-architecture.md](assets/software-architecture.md)。不要在开始时读取全部模板。
-
-**完成标准：** 当前问题有一至三个清楚的规范落点；需要 API、SQL、页面或数值证明的问题已经标记真实运行要求。
-
-## 3. 取得一小批直接来源
-
-围绕当前问题提供精确业务词、字段、接口、表名、类名或页面名：
-
-```bash
 python scripts/ingestion_workspace.py next <case-id> <question-id> \
-  --query '<term>' [--query '<term>'] [--limit 6]
+  --query '<字段、接口、表、类、页面或业务词>' [--limit 6]
 ```
 
-工具只返回当前 **1—8 份**候选及其用途，并补充直接 import 邻接；它不会向会话倾倒全库目录。只打开返回的 `absolute_path`，不要自行递归搜索授权来源。查询太宽或方向错误时，用新的精确词重新运行 `next`；当前小批未登记前不能再取下一批。
-
-事实源优先级：
-
-- 当前软件行为：源码、Schema、配置和新鲜运行结果；
-- 当前业务语义：人工决定、业务原始记录和当前口径；
-- 目标方案与历史做法：分别标明，不能伪装成当前实现；
-- 综合文档与旧知识：用于定位和发现冲突，不能替代其指向的直接来源。
-
-代码问题至少沿真实业务动作连接适用部分：
-
-```text
-页面或命令入口
-→ 状态与交互
-→ API 与类型
-→ 路由、服务和数据访问
-→ SQL、Schema 与口径
-→ 返回转换、渲染和样式
-→ 运行与验证入口
-```
-
-这不是固定文件清单。某层不适用可以省略；缺失且会改变答案时继续补证据，不能让总览页代替中央实现。
-
-**完成标准：** 当前小批每份来源都预计改变问题的一部分；没有因为文件名像答案就跳过更直接的实现或业务来源。
-
-## 4. 立即形成知识并登记结果
-
-读完当前小批后立即更新规范知识，不要连续囤积来源。正文必须充分内化：解释输入、转换、输出、条件、边界、失败方式和继续工作入口；引用只负责追溯，不能代替内容。
-
-建立来源记录时读取 [source-record.md](assets/source-record.md)。每篇规范页使用标准 Markdown 相对链接回到来源记录，并区分当前实现、当前业务决定、目标设计、历史快照和开放问题。
-
-来源是 Git 时，来源记录必须使用 `start` 或 `status` 输出中的 `git.commit`、`git.scope` 和 `git.dirty`，不能只写“本轮机器盘点”或省略版本。工具已经公开这些身份，不要为此读取 `.state/`。
-
-**新证据必须先进入正文。** 每批直接来源读完后，先比较它与当前规范页：新增的字段转换、类型、默认值、正常/边界行为、输入输出和修改入口是否已经写入；后来的直接实现推翻或深化早期概述时，立即改正文。`record --summary` 只能概括正文里已经存在的内容，不能成为事实唯一落点。
-
-直接来源若揭示了**实现用户目标不可缺少、但当前没有问题和知识单元负责**的稳定主题，例如关键算法、数据契约、软件结构或跨模块公共能力，先用 `question-add` 补上负责问题并规划独立落点，再继续当前闭环。不能只把这类内容写进来源记录、开放问题或追溯页；也不要因为出现一个新名词就扩题，只有它会改变读者对整体、机制、修改或验证的理解时才补。
-
-完成正文后登记本批结果：
+只读取 `next` 返回的 `absolute_path`。代码问题沿实际需要连接入口、状态与交互、API 与类型、业务编排、算法、数据访问、Schema、返回转换和验证入口；不机械凑层，也不让 README 代替中央实现。每批来源读完后先更新正文，再登记：
 
 ```bash
 python scripts/ingestion_workspace.py record <case-id> <question-id> \
   --status <answered|partial|external_missing|conflict> \
-  --summary '<规范知识当前能回答什么>' \
+  --summary '<正文现在能回答什么>' \
   --source '<source-id>:<path>' \
   --knowledge 'draft/knowledge/<area>/<page>.md' \
-  [--missing '<还缺什么>'] \
-  [--dismiss-unused '<当前小批其余项为何不改变答案>'] \
-  [--close-candidates '<为什么可以停止继续取源>'] \
-  [--next-action '<下一动作>']
+  [--missing '<仍缺什么>'] \
+  [--dismiss-unused '<本批其余项为何不改变答案>'] \
+  [--close-candidates '<为何可以停止继续取源>']
 ```
 
-`record` 只登记**当前小批**带来的证据和知识。已经登记知识后，如果剩余候选确实不会改变答案，用独立命令停止继续取源；不需要为更新状态重新 `next`：
+已经形成可靠局部，但剩余候选不会改变当前答案时，可以用 `stop-search <case-id> <question-id> --reason '<停止理由和仍存边界>'` 结束继续取源，不需要重新运行 `next` 制造空批次。
 
-```bash
-python scripts/ingestion_workspace.py stop-search <case-id> <question-id> \
-  --reason '<为何剩余候选不会改变当前答案；仍缺内容为何必须由外部事实或后续任务补充>'
-```
-
-状态含义：
-
-- `answered`：规范知识已经能够独立回答；
-- `partial`：已有可用局部，但还缺会改变结论的内容；
-- `external_missing`：库内没有合理候选，缺失事实必须由外部系统或责任方补充；
-- `conflict`：直接来源不兼容，需要人决定。
-
-“没有读到”不等于“外部缺失”。相关候选仍在队列时，工具拒绝结束；`stop-search` 的理由必须同时回看用户目标和当前问题，不能只说“对当前段落没有帮助”，也不需要给全部未读文件逐项分类。
-
-**完成标准：** 当前来源带来的机制和边界已经进入规范页；状态、缺口、知识落点和下一动作一致；会话此时中断也能从 `status` 恢复。
-
-## 5. 取得真实运行证据
-
-知识要支持运行、调试、SQL、页面或数值判断时，静态阅读不够。先把来源项目自己的操作说明、环境声明、启动脚本和真实入口作为当前问题的一批直接来源，随后在临时 Git worktree 执行：
+需要 API、SQL、页面或数值证明时，在来源项目的临时 Git worktree 运行。优先把多步命令写入摄入案 `evidence/recipes/`，再用 `--command-file`；不在原来源目录写调试文件，不安装依赖，不把 Harness 测试冒充项目运行证据：
 
 ```bash
 python scripts/ingestion_workspace.py run <case-id> <question-id> \
   --source-id <source-id> \
   --kind <health|api|sql|page|other> \
-  --purpose '<这次运行准备证明什么>' \
-  --command '<可直接执行的完整命令>' \
+  --purpose '<准备证明什么>' \
+  --command-file 'evidence/recipes/<name>.sh' \
   [--mount '<必须保持存活的外部输入>'] \
   [--copy-mount '<需要私有可写副本的依赖>'] \
   [--runtime-note '<时钟、服务或数据快照边界>'] \
   [--artifact '<需要保留的相对路径>']
 ```
 
-单条命令使用 `--command`。多步启动、SQL 或 API 对账不要塞进多层 shell 引号；把可重放脚本保存到摄入案 `evidence/recipes/<name>.sh`，再把 `--command` 替换为：
+先把运行的输入范围、实际输出、环境身份和不能外推的边界写回规范页，再用 `record --run-id <run-id> --knowledge <path>` 登记。最后同步产品视图并运行一次 `check-unit`。
 
-```bash
---command-file 'evidence/recipes/<name>.sh'
-```
+## 4. 人工审查与发布
 
-运行前分清 Git 内事实与非 Git 输入。`--mount` 只引用必须保持存活的 socket/服务或运行目录；`--copy-mount` 为会写缓存的依赖创建私有副本。recipe 使用 `OMNI_MOUNT_1`、`OMNI_MOUNT_2` 等绝对路径，不在临时 worktree 中猜相对 socket；依赖工具能把缓存改到 `$TMPDIR` 时优先改缓存，避免复制大目录。时钟、远程服务、未入 Git 数据快照等不能私有复制的边界用 `--runtime-note` 明示。`run.json` 保存输入模式与运行范围；`runtime_scope=environment_bound` 时只能声称“本次环境成立”，不能声称已可重放固定基线。
-
-工具固定来源提交，在临时 worktree 运行，并把命令脚本、stdout、stderr 和声明的 artifact 一起保存在本次 run 下；原来源代码不被修改。只复用项目已经声明的环境，不安装依赖、不切换系统 Python、不连接未授权环境。
-
-软件纵切通常依次取得 health、固定 API、同范围 SQL 和页面证据。比较值时所有环节必须使用同一筛选范围；页面默认日期与数据库全量范围不同，不能据此宣布数值错误或一致。
-
-用户要求“真实例子”、异常语义或边界行为时，运行计划至少覆盖一个代表性正常对象和一个会改变结论的边界对象；全库或上级汇总只能作为补充，不能替代对象级 SQL/API/page 对账。对象由已读业务或源码证据选择，不把固定任务名写进工作流。
-
-每次运行后先把结论写回对应规范知识：说明输入范围、实际输出、环境身份和不能外推的边界；随后用已有 `record` 登记该次 run 并刷新问题状态，不重新取一批来源：
-
-```bash
-python scripts/ingestion_workspace.py record <case-id> <question-id> \
-  --status <answered|partial|external_missing|conflict> \
-  --summary '<运行后规范知识现在能回答什么>' \
-  --run-id <run-id> \
-  --knowledge 'draft/knowledge/<area>/<page>.md' \
-  [--missing '<仍未解决的真实缺口>']
-```
-
-在这一步完成前，问题保持“运行结果待写回”，不能通过 `check-unit`。Harness 自身测试不能冒充来源项目运行结果，失败运行也不能写成已验证；应以 `partial` 等真实状态登记失败说明和下一动作。
-
-**完成标准：** 需要运行证明的问题至少有一项通过的隔离运行；所有 run 都已写回相应规范页并登记；关键数值或行为能够在声明范围内复现，失败则有具体阻塞而不是假想命令。
-
-## 6. 收完一个问题
-
-知识形成后读取 [product-view.md](assets/product-view.md)，同步建立领域位置视图和旅程/学习视图，分别保存到 `draft/knowledge/views/by-domain/` 和 `draft/knowledge/views/by-journey/`。视图提供位置、阅读路线和问题入口，链接规范知识，不复制另一套事实。
-
-运行：
-
-```bash
-python scripts/ingestion_workspace.py check-unit <case-id> <question-id>
-```
-
-一次只检查一个问题，并只在该问题的正文、来源、运行写回和视图都已处理后运行一次；不要把 `check-unit` 当作边写边试的排版工具，也不要把多个检查并行或用 `&&` 串联。失败输出应直接指出文件和原因；领域地图问题按 [domain-overview.md](assets/domain-overview.md) 的最小示例修复，不读取检查器源码猜格式。
-
-它检查：计划知识是否形成、是否能从产品视图到达、相关候选是否已经处理或说明停止理由、直接依据是否存在、要求的真实运行是否通过，以及已回答页面是否仍残留“待核实/待补充”。结构问题回到对应知识页修复，不能靠改状态掩盖内容缺失。
-
-**完成标准：** `check-unit` 通过；读者从产品视图和最多三篇规范页能够回答原问题；可靠局部、外部缺失和冲突边界都清楚。
-
-## 7. 人工审查与发布
-
-所有当前问题形成可用结果后，先回看摄入案 `goal` 和启动时的目标映射：从产品视图逐项找到负责问题和规范知识。发现定位、流程、数据、算法、实现、公共能力或使用结果仍无人负责时，用 `question-add` 补上；只有确有范围或证据边界时才记录不适用或外部缺失。不以已有问题全部通过代替整体目标完成。随后运行：
-
-收尾前重新读取每个问题的**当前正文**，而不是只看状态摘要：确认最后一批来源和 run 的新事实已经出现，代表性正常/边界例子没有被总体汇总代替，Git 来源记录带有提交与 scope。发现缺失就先补正文，再生成审查页；不新建完成度文件。
+所有主题或问题形成后运行：
 
 ```bash
 python scripts/ingestion_workspace.py review <case-id>
 ```
 
-只把根 `review.md` 交给用户。它链接候选知识和产品视图，汇总问题结果、真实运行及需要人工决定的事项；不要再生成平行答案页或完成度表。
+只把候选知识、产品视图和根 `review.md` 交给用户。完整模式只有在目录主题全部形成、知识结构通过且领域/旅程视图都存在时才进入 `publish_ready`。
 
-用户批准后才把候选知识合并到正式目录，更新知识入口、来源记录、领域地图和日志，并运行：
+用户批准后才把候选合并到正式目录，更新知识入口、来源记录、领域地图和日志，并执行：
 
 ```bash
 python scripts/knowledge_check.py
 git diff -- knowledge config
 ```
 
-最后从正式 `knowledge/index.md` 完成一次真实浏览或问题消费。结构检查通过只说明链接和格式成立，不代表内容正确；人工批准、正式发布和真实消费全部完成后才能报告摄入结束。
-
-**完成标准：** 用户只需审查知识、视图和 `review.md`；正式变更可追溯、可回滚，发布后的知识能够直接用于下一次学习、查询或开发。
+最后从正式 `knowledge/index.md` 完成一次真实浏览或问题消费。结构检查只证明链接和声明一致，不证明业务事实正确；内容审查、正式发布和真实消费全部完成后才能报告摄入结束。
 
 ## 护栏
 
-- 不手工编辑 `.state/`，不把机器 manifest 当作用户产物。
-- 不恢复逐文件 `mark`、覆盖率或“所有文件必须分类”的完成方式。
-- 不用模型常识补关键业务事实，不把目标设计写成当前实现。
-- 不在原来源代码目录运行会写文件的命令；隔离运行仍须遵守来源项目自己的安全边界。
-- 公共能力只有出现真实复用、共同契约和明确维护责任时才读取 [shared-capability-review.md](assets/shared-capability-review.md) 并提出抽取，不因名称相似自动合并。
+- 不用模型常识填补关键业务事实，不把目标设计写成当前实现；一个材料组可以同时产生多种现实形态。
+- 不恢复逐文件 `mark`、文件覆盖率或“所有文件必须分类”；完整模式审视材料组，聚焦模式处理当前小批。
+- 不让来源记录、引用或一两句摘要替代知识内化；新证据先进入正文，再登记状态。
+- 公共能力只有出现真实复用、共同契约和明确维护责任时才提出抽取，不因名称相似自动合并。
+- 不绕过当前游标并行推进多个材料组或主题；命令失败时先运行 `status`，按公开下一动作恢复，不读取工作台源码猜状态。

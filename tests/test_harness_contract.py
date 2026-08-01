@@ -24,12 +24,12 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_goal_coverage_revision_failed_document_replay",
+            "implemented_material_map_plan_review_candidate",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_goal_coverage_revision_failed_document_replay",
+            "implemented_material_map_plan_review_candidate",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -89,7 +89,7 @@ class HarnessContractTest(unittest.TestCase):
     def test_release_surface_contains_only_runtime_assets(self) -> None:
         skill = (ROOT / ".agents/skills/ingest-knowledge/SKILL.md").read_text(encoding="utf-8")
         self.assertIn("review.md", skill)
-        self.assertIn("同步建立领域位置视图和旅程/学习视图", skill)
+        self.assertIn("领域/旅程视图都存在", skill)
         self.assertIn("python scripts/knowledge_check.py", skill)
         self.assertIn("python scripts/ingestion_workspace.py", skill)
         self.assertFalse((ROOT / "eval").exists())
@@ -109,19 +109,20 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("一小批直接来源", agents)
 
         expected_steps = (
-            "## 1. 建立读者问题",
-            "## 2. 规划当前知识单元",
-            "## 3. 取得一小批直接来源",
-            "## 4. 立即形成知识并登记结果",
-            "## 5. 取得真实运行证据",
-            "## 6. 收完一个问题",
-            "## 7. 人工审查与发布",
+            "## 1. 选择最低充分模式",
+            "## 2. 宽范围完整整理",
+            "### 2.1 固定用户承诺与材料范围",
+            "### 2.2 审视材料地图并形成读后发现",
+            "### 2.3 规划并复核知识目录",
+            "### 2.4 按目录形成规范知识和产品视图",
+            "## 3. 聚焦代码或问题整理",
+            "## 4. 人工审查与发布",
         )
         positions = [skill.index(step) for step in expected_steps]
         self.assertEqual(sorted(positions), positions)
         self.assertLess(
-            skill.index("立即更新规范知识"),
-            skill.index("python scripts/ingestion_workspace.py check-unit"),
+            skill.index("审视材料地图并形成读后发现"),
+            skill.index("规划并复核知识目录"),
         )
 
     def test_ingestion_assets_drive_questions_sources_and_reading_routes(self) -> None:
@@ -146,8 +147,8 @@ class HarnessContractTest(unittest.TestCase):
         skill = (ROOT / ".agents/skills/ingest-knowledge/SKILL.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("不要在开始时读取全部模板", skill)
-        self.assertIn("只打开返回的 `absolute_path`", skill)
+        self.assertIn("不在开始时加载全部资产", skill)
+        self.assertIn("只读取 `next` 返回的 `absolute_path`", skill)
         self.assertIn("一个问题需要超过三篇正文", skill)
         self.assertIn("不恢复逐文件 `mark`", skill)
         self.assertIn("目标覆盖", skill)
@@ -159,14 +160,15 @@ class HarnessContractTest(unittest.TestCase):
         )
         self.assertTrue(all(not (assets / name).exists() for name in retired_assets))
 
-    def test_ingestion_delivers_content_before_context_sprawls(self) -> None:
+    def test_ingestion_keeps_complete_and_focused_reading_bounded(self) -> None:
         skill = (ROOT / ".agents/skills/ingest-knowledge/SKILL.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("一个读者问题，一小批直接来源", skill)
-        self.assertIn("读完当前小批后立即更新规范知识", skill)
-        self.assertIn("工具只返回当前 **1—8 份**候选", skill)
-        self.assertIn("不要再生成平行答案页或完成度表", skill)
+        self.assertIn("不维护逐文件阅读打卡", skill)
+        self.assertIn("同一个当前组", skill)
+        self.assertIn("只读取 `next` 返回的 `absolute_path`", skill)
+        self.assertIn("正文必须充分内化", skill)
+        self.assertIn("只把候选知识、产品视图和根 `review.md` 交给用户", skill)
 
     def test_retired_knowledge_layout_is_absent(self) -> None:
         retired_paths = (

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive a question-first knowledge-ingestion workbench.
+"""Drive a recoverable complete or focused knowledge-ingestion workbench.
 
 The tool keeps deterministic source identity and small recoverable state. It does
 not decide knowledge truth, write domain content, or replace human review.
@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections import Counter, defaultdict
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -25,14 +26,14 @@ from typing import Any
 from knowledge_check import validate_bundle
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 QUESTION_ID_RE = re.compile(r"^q-[0-9]{3}$")
 UNIT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 LINK_RE = re.compile(r"(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)")
 HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.MULTILINE)
 TS_IMPORT_RE = re.compile(
-    r"(?:from\s+|import\s*\()\s*['\"](?P<module>\.{1,2}/[^'\"]+)['\"]"
+    r"(?:from\s+|import\s*\()\s*['\"](?P<module>(?:\.{1,2}/|@/)[^'\"]+)['\"]"
 )
 PYTHON_FROM_RE = re.compile(r"^\s*from\s+(?P<module>\.*[A-Za-z_][\w.]*)\s+import\s+", re.MULTILINE)
 PYTHON_IMPORT_RE = re.compile(r"^\s*import\s+(?P<module>[A-Za-z_][\w.]*)", re.MULTILINE)
@@ -52,7 +53,7 @@ IGNORED_DIRECTORIES = {
     ".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv",
     ".runtime", "__pycache__", "build", "dist", "node_modules",
 }
-IGNORED_FILENAMES = {".env"}
+IGNORED_FILENAMES = {".env", "SHA256SUMS"}
 QUESTION_STATES = {"working", "answered", "partial", "external_missing", "conflict"}
 QUESTION_STATUS_LABELS = {
     "working": "处理中",
@@ -63,6 +64,28 @@ QUESTION_STATUS_LABELS = {
 }
 RUN_KINDS = {"health", "api", "sql", "page", "other"}
 MAX_CANDIDATE_POOL = 24
+MAX_MATERIAL_GROUP_MEMBERS = 12
+MAX_MATERIAL_GROUP_BYTES = 100_000
+INGESTION_MODES = {"focused", "complete"}
+MATERIAL_GROUP_STATES = {"unreviewed", "partial", "reviewed", "irrelevant", "external"}
+REALITY_STATES = {
+    "current_implementation",
+    "current_decision",
+    "target_design",
+    "historical",
+    "conflict",
+    "unknown",
+}
+PLAN_LENSES = {
+    "position",
+    "lifecycle",
+    "data",
+    "rules",
+    "software",
+    "shared",
+    "reality",
+    "navigation",
+}
 
 
 class IngestionError(Exception):
@@ -281,6 +304,265 @@ def read_manifest(root: Path) -> list[dict[str, Any]]:
     return records
 
 
+def manifest_ref(item: dict[str, Any]) -> str:
+    return source_ref(item["source_id"], item["path"])
+
+
+def split_path_cluster(
+    source_id: str,
+    records: list[dict[str, Any]],
+    prefix: tuple[str, ...] = (),
+) -> list[dict[str, Any]]:
+    """Split one source by observable path structure without assigning meaning."""
+    if (
+        len(records) <= MAX_MATERIAL_GROUP_MEMBERS
+        and sum(item["bytes"] for item in records) <= MAX_MATERIAL_GROUP_BYTES
+    ):
+        return [{"source_id": source_id, "prefix": prefix, "records": records}]
+
+    direct: list[dict[str, Any]] = []
+    children: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    depth = len(prefix)
+    for item in records:
+        parts = PurePosixPath(item["path"]).parts
+        if len(parts) <= depth + 1:
+            direct.append(item)
+        else:
+            children[parts[depth]].append(item)
+
+    clusters: list[dict[str, Any]] = []
+    if direct:
+        chunks: list[list[dict[str, Any]]] = []
+        current: list[dict[str, Any]] = []
+        current_bytes = 0
+        for item in direct:
+            if current and (
+                len(current) >= MAX_MATERIAL_GROUP_MEMBERS
+                or current_bytes + item["bytes"] > MAX_MATERIAL_GROUP_BYTES
+            ):
+                chunks.append(current)
+                current = []
+                current_bytes = 0
+            current.append(item)
+            current_bytes += item["bytes"]
+        if current:
+            chunks.append(current)
+        for chunk in chunks:
+            clusters.append(
+                {
+                    "source_id": source_id,
+                    "prefix": prefix,
+                    "records": chunk,
+                }
+            )
+    for name in sorted(children):
+        clusters.extend(split_path_cluster(source_id, children[name], (*prefix, name)))
+    return clusters
+
+
+def material_group_label(source_id: str, prefix: tuple[str, ...], part: int | None = None) -> str:
+    location = "/".join(prefix) if prefix else "根目录"
+    suffix = f"（第 {part} 组）" if part is not None else ""
+    return f"{source_id}:{location}{suffix}"
+
+
+def build_material_groups(
+    case: dict[str, Any], manifest: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Build non-overlapping groups from paths and exact hashes only."""
+    by_hash: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for item in manifest:
+        by_hash[item["sha256"]].append(item)
+
+    clusters: list[dict[str, Any]] = []
+    duplicate_refs: set[str] = set()
+    for digest, records in sorted(by_hash.items()):
+        if len(records) < 2:
+            continue
+        duplicate_refs.update(manifest_ref(item) for item in records)
+        clusters.append(
+            {
+                "kind": "exact_duplicate",
+                "label": f"完全重复内容 {digest[:8]}",
+                "basis": "sha256 完全相同；只需完整读取一个代表文件，其余用于确认重复位置",
+                "records": sorted(records, key=manifest_ref),
+            }
+        )
+
+    by_source: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for item in manifest:
+        if manifest_ref(item) not in duplicate_refs:
+            by_source[item["source_id"]].append(item)
+    for source_id in sorted(by_source):
+        path_clusters = split_path_cluster(
+            source_id,
+            sorted(by_source[source_id], key=lambda item: item["path"]),
+        )
+        label_counts = Counter(tuple(item["prefix"]) for item in path_clusters)
+        label_seen: Counter[tuple[str, ...]] = Counter()
+        for cluster in path_clusters:
+            prefix = tuple(cluster["prefix"])
+            label_seen[prefix] += 1
+            part = label_seen[prefix] if label_counts[prefix] > 1 else None
+            clusters.append(
+                {
+                    "kind": "path_cluster",
+                    "label": material_group_label(source_id, prefix, part),
+                    "basis": "同一授权来源中的共同路径前缀",
+                    "records": cluster["records"],
+                }
+            )
+
+    groups: list[dict[str, Any]] = []
+    ref_to_group: dict[str, str] = {}
+    for number, cluster in enumerate(clusters, 1):
+        group_id = f"group-{number:03d}"
+        records = cluster.pop("records")
+        members = [manifest_ref(item) for item in records]
+        for ref in members:
+            ref_to_group[ref] = group_id
+        groups.append(
+            {
+                "id": group_id,
+                "kind": cluster["kind"],
+                "label": cluster["label"],
+                "basis": cluster["basis"],
+                "members": members,
+                "member_count": len(members),
+                "total_bytes": sum(item["bytes"] for item in records),
+                "suffixes": dict(sorted(Counter(item["suffix"] or "[none]" for item in records).items())),
+                "representative_paths": [item["path"] for item in records[:5]],
+                "related_groups": [],
+                "status": "unreviewed",
+                "summary": "",
+                "finding_ids": [],
+                "updated_at": None,
+            }
+        )
+
+    # Relations remain observable: direct code imports and relative Markdown links.
+    by_ref = {manifest_ref(item): item for item in manifest}
+    relation_bases: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for ref, item in by_ref.items():
+        origin = ref_to_group[ref]
+        text = read_source_text(case, item)
+        if not text:
+            continue
+        targets = direct_import_refs(item, text, by_ref)
+        if item["suffix"] in {".md", ".txt", ".rst"}:
+            parent = PurePosixPath(item["path"]).parent
+            for raw in LINK_RE.findall(text):
+                target = raw.split("#", 1)[0].split("?", 1)[0]
+                if not target or "://" in target or target.startswith("#"):
+                    continue
+                candidate = parent / target
+                parts: list[str] = []
+                valid = True
+                for part in candidate.parts:
+                    if part == "..":
+                        if not parts:
+                            valid = False
+                            break
+                        parts.pop()
+                    elif part != ".":
+                        parts.append(part)
+                if valid:
+                    linked = source_ref(item["source_id"], PurePosixPath(*parts).as_posix())
+                    if linked in by_ref:
+                        targets.add(linked)
+        for target in targets:
+            destination = ref_to_group.get(target)
+            if destination and destination != origin:
+                basis = "code_import" if item["suffix"] in {".py", ".ts", ".tsx", ".js", ".jsx", ".vue"} else "document_link"
+                relation_bases[(origin, destination)].add(basis)
+
+    by_group = {item["id"]: item for item in groups}
+    for (origin, destination), bases in sorted(relation_bases.items()):
+        by_group[origin]["related_groups"].append(
+            {"group_id": destination, "basis": sorted(bases)}
+        )
+    return groups
+
+
+def group_by_id(case: dict[str, Any], group_id: str) -> dict[str, Any]:
+    for group in case.get("material_groups", []):
+        if group.get("id") == group_id:
+            return group
+    raise IngestionError(f"材料组不存在：{group_id}")
+
+
+def finding_by_id(case: dict[str, Any], finding_id: str) -> dict[str, Any]:
+    for finding in case.get("findings", []):
+        if finding.get("id") == finding_id:
+            return finding
+    raise IngestionError(f"读后发现不存在：{finding_id}")
+
+
+def topic_by_id(case: dict[str, Any], topic_id: str) -> dict[str, Any]:
+    for topic in case.get("topics", []):
+        if topic.get("id") == topic_id:
+            return topic
+    raise IngestionError(f"知识主题不存在：{topic_id}")
+
+
+def ensure_complete(case: dict[str, Any]) -> None:
+    if case.get("mode") != "complete":
+        raise IngestionError("该命令只用于宽范围完整整理；聚焦整理继续使用问题驱动命令")
+
+
+def refresh_complete_cursor(case: dict[str, Any]) -> None:
+    """Move to the first unfinished item; repeated reads never advance it."""
+    ensure_complete(case)
+    if case.get("stage") == "publish_ready":
+        case["cursor"] = {"item_type": None, "item_id": None}
+        case["next_action"] = "请用户审查候选知识、产品视图和 review.md，决定发布或退回"
+        return
+    for group in case.get("material_groups", []):
+        if group["status"] in {"unreviewed", "partial"}:
+            case["stage"] = "discovering"
+            case["cursor"] = {"item_type": "material_group", "item_id": group["id"]}
+            case["next_action"] = f"运行 next 取得并审视材料组 {group['id']}"
+            return
+    if not case.get("plan_review", {}).get("passed"):
+        case["stage"] = "planning"
+        case["cursor"] = {"item_type": None, "item_id": None}
+        case["next_action"] = "根据读后发现规划知识主题，再运行 plan-review 复核目录"
+        return
+    for topic in case.get("topics", []):
+        if topic["status"] != "ready":
+            case["stage"] = "writing"
+            case["cursor"] = {"item_type": "knowledge_topic", "item_id": topic["id"]}
+            case["next_action"] = f"形成知识主题 {topic['id']} 的正文与产品视图，再运行 record-topic"
+            return
+    case["stage"] = "reviewing"
+    case["cursor"] = {"item_type": None, "item_id": None}
+    case["next_action"] = "运行 review 重建人工审查页并检查候选知识"
+
+
+def public_material_group(
+    case: dict[str, Any], manifest: list[dict[str, Any]], group: dict[str, Any], *, members: bool
+) -> dict[str, Any]:
+    payload = {key: value for key, value in group.items() if key != "members"}
+    if members:
+        manifest_by_ref = {manifest_ref(item): item for item in manifest}
+        sources = source_map(case)
+        payload["members"] = []
+        for ref in group["members"]:
+            item = manifest_by_ref[ref]
+            source_id, relative = split_source_ref(ref)
+            payload["members"].append(
+                {
+                    "ref": ref,
+                    "absolute_path": str(Path(sources[source_id]["root"]) / relative),
+                    "bytes": item["bytes"],
+                    "suffix": item["suffix"],
+                    "title": item.get("title"),
+                    "headings": item.get("headings", []),
+                }
+            )
+    return payload
+
+
 def source_map(case: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {item["id"]: item for item in case.get("sources", [])}
 
@@ -382,7 +664,7 @@ def start_case(args: argparse.Namespace) -> int:
     if root.exists() and any(root.iterdir()):
         raise IngestionError(f"摄入案目录已存在且非空：{root}")
     questions = [item.strip() for item in args.question if item.strip()]
-    if not questions:
+    if args.mode == "focused" and not questions:
         raise IngestionError("至少需要一个 --question；问题主线不能由工具猜测")
     sources, manifest = scan_sources(args.source)
     root.mkdir(parents=True, exist_ok=True)
@@ -391,15 +673,29 @@ def start_case(args: argparse.Namespace) -> int:
     case = {
         "schema_version": SCHEMA_VERSION,
         "id": args.case_id,
+        "mode": args.mode,
         "goal": args.goal.strip(),
         "target_reader": args.reader.strip(),
         "boundaries": [item.strip() for item in args.boundary if item.strip()],
         "sources": sources,
         "questions": [new_question(index, text) for index, text in enumerate(questions, 1)],
+        "stage": "focused" if args.mode == "focused" else "mapping",
+        "cursor": {"item_type": None, "item_id": None},
+        "material_groups": [],
+        "findings": [],
+        "topics": [],
+        "plan_review": {"passed": False, "lenses": {}, "not_applicable": {}, "issues": []},
         "created_at": now,
         "updated_at": now,
-        "next_action": "为 q-001 规划一至三个知识单元，再取得第一小批直接来源",
+        "next_action": (
+            "为 q-001 规划一至三个知识单元，再取得第一小批直接来源"
+            if args.mode == "focused"
+            else "查看材料地图，再从第一个材料组开始读后发现"
+        ),
     }
+    if args.mode == "complete":
+        case["material_groups"] = build_material_groups(case, manifest)
+        refresh_complete_cursor(case)
     write_manifest(root / ".state" / "source-manifest.jsonl", manifest)
     save_case(root, case)
     generate_review(root, case)
@@ -407,10 +703,12 @@ def start_case(args: argparse.Namespace) -> int:
         json.dumps(
             {
                 "case_id": args.case_id,
+                "mode": case["mode"],
                 "goal": case["goal"],
                 "questions": [{"id": item["id"], "text": item["text"]} for item in case["questions"]],
                 "sources": [public_source_identity(item) for item in case["sources"]],
                 "source_files": len(manifest),
+                "material_groups": len(case["material_groups"]),
                 "user_visible": ["draft/knowledge/", "review.md"],
                 "internal_state": [".state/case.json", ".state/source-manifest.jsonl"],
                 "next": case["next_action"],
@@ -542,6 +840,20 @@ def initial_rank(case: dict[str, Any], manifest: list[dict[str, Any]], terms: li
 
 def resolve_ts_import(importer: dict[str, Any], module: str, manifest_by_ref: dict[str, dict[str, Any]]) -> str | None:
     source_id = importer["source_id"]
+    if module.startswith("@/"):
+        tail = module[2:]
+        candidate_suffixes = [
+            f"/src/{tail}",
+            *[f"/src/{tail}{suffix}" for suffix in (".ts", ".tsx", ".js", ".jsx", ".vue")],
+            *[f"/src/{tail}/index{suffix}" for suffix in (".ts", ".tsx", ".js", ".jsx", ".vue")],
+        ]
+        matches = sorted(
+            ref
+            for ref, item in manifest_by_ref.items()
+            if item["source_id"] == source_id
+            and any(f"/{item['path']}".endswith(suffix) for suffix in candidate_suffixes)
+        )
+        return matches[0] if len(matches) == 1 else None
     base = PurePosixPath(importer["path"]).parent / module
     normalized = PurePosixPath(*[part for part in base.parts if part != "."])
     candidates = [
@@ -733,8 +1045,342 @@ def take_diverse_packet(queue: list[dict[str, Any]], limit: int) -> tuple[list[d
     return chosen, remaining
 
 
+def survey_materials(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    ensure_complete(case)
+    manifest = read_manifest(root)
+    print(
+        json.dumps(
+            {
+                "case_id": case["id"],
+                "mode": case["mode"],
+                "source_collections": [public_source_identity(item) for item in case["sources"]],
+                "group_count": len(case["material_groups"]),
+                "groups": [
+                    public_material_group(case, manifest, item, members=args.members)
+                    for item in case["material_groups"]
+                ],
+                "boundary": (
+                    "分组只来自路径、完全重复、文档链接和代码导入；"
+                    "title/headings 只作为阅读导航，不代表现状、历史或目标身份"
+                ),
+                "next": case["next_action"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def next_complete_item(root: Path, case: dict[str, Any]) -> int:
+    refresh_complete_cursor(case)
+    save_case(root, case)
+    cursor = case["cursor"]
+    if cursor["item_type"] == "material_group":
+        manifest = read_manifest(root)
+        group = group_by_id(case, cursor["item_id"])
+        payload = {
+            "stage": case["stage"],
+            "current": public_material_group(case, manifest, group, members=True),
+            "reading_rule": (
+                "先用路径、标题和章节建立本组概要；若与用户目标相关，完整读取会改变结论的成员，"
+                "形成一个或多个带精确来源的读后发现后再登记本组。不要由文件名推断现实身份"
+            ),
+            "next": case["next_action"],
+        }
+    elif cursor["item_type"] == "knowledge_topic":
+        topic = topic_by_id(case, cursor["item_id"])
+        findings = [finding_by_id(case, item) for item in topic["finding_ids"]]
+        payload = {
+            "stage": case["stage"],
+            "current": topic,
+            "findings": findings,
+            "writing_rule": (
+                "把读后发现充分内化到计划落点，并同步形成计划中的产品视图；"
+                "引用负责追溯，不能代替正文"
+            ),
+            "next": case["next_action"],
+        }
+    elif case["stage"] == "planning":
+        payload = {
+            "stage": case["stage"],
+            "current": {
+                "material_groups": [
+                    {
+                        "id": item["id"],
+                        "label": item["label"],
+                        "status": item["status"],
+                        "summary": item["summary"],
+                        "finding_ids": item["finding_ids"],
+                    }
+                    for item in case["material_groups"]
+                ],
+                "findings": case["findings"],
+                "planned_topics": case["topics"],
+                "last_review_issues": case["plan_review"].get("issues", []),
+            },
+            "planning_rule": (
+                "先让每项读后发现进入一个长期可维护主题，再从读者心智模型、材料覆盖和唯一规范落点"
+                "做第二遍目录复核；不要按来源目录直接建页"
+            ),
+            "next": case["next_action"],
+        }
+    else:
+        payload = {
+            "stage": case["stage"],
+            "current": None,
+            "next": case["next_action"],
+        }
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
+def add_finding(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    ensure_complete(case)
+    validate_id(args.finding_id, "finding id", UNIT_ID_RE)
+    group = group_by_id(case, args.group_id)
+    sources = list(dict.fromkeys(args.source))
+    if not sources:
+        raise IngestionError("读后发现至少需要一项精确 --source")
+    unknown_sources = [item for item in sources if item not in group["members"]]
+    if unknown_sources:
+        raise IngestionError("读后发现来源不属于该材料组：" + ", ".join(unknown_sources))
+    for ref in sources:
+        path = resolve_source(case, ref)
+        manifest_item = next(item for item in read_manifest(root) if manifest_ref(item) == ref)
+        if digest_bytes(path.read_bytes()) != manifest_item["sha256"]:
+            raise IngestionError(f"来源自摄入案开始后发生变化：{ref}")
+    finding = {
+        "id": args.finding_id,
+        "group_id": args.group_id,
+        "content": args.content.strip(),
+        "reality": args.reality,
+        "sources": sources,
+        "scope": args.scope.strip(),
+        "limits": [item.strip() for item in args.limit if item.strip()],
+        "candidate_topics": [item.strip() for item in args.topic if item.strip()],
+    }
+    existing = next((item for item in case["findings"] if item["id"] == args.finding_id), None)
+    if existing:
+        comparable = {key: existing[key] for key in finding}
+        if comparable != finding:
+            raise IngestionError(f"读后发现 {args.finding_id} 已存在且内容不同")
+        print(json.dumps({"finding": existing, "already_recorded": True, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+        return 0
+    if group["status"] not in {"unreviewed", "partial"}:
+        raise IngestionError(f"材料组 {group['id']} 已结束，不能追加新的读后发现")
+    finding["recorded_at"] = utc_now()
+    case["findings"].append(finding)
+    group["finding_ids"].append(finding["id"])
+    save_case(root, case)
+    print(json.dumps({"finding": finding, "already_recorded": False, "next": f"登记材料组 {group['id']} 的审视结果"}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def record_material(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    ensure_complete(case)
+    group = group_by_id(case, args.group_id)
+    if group["status"] == args.status and group["summary"] == args.summary.strip():
+        print(json.dumps({"group_id": group["id"], "status": group["status"], "already_recorded": True, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+        return 0
+    if args.status == "reviewed" and not group["finding_ids"]:
+        raise IngestionError("相关材料组标为 reviewed 前必须先形成至少一个读后发现")
+    if args.status == "irrelevant" and group["finding_ids"]:
+        raise IngestionError("已有读后发现的材料组不能标为 irrelevant")
+    if group["status"] not in {"unreviewed", "partial"}:
+        raise IngestionError(f"材料组 {group['id']} 已登记且本次内容不同")
+    current = case.get("cursor", {})
+    if current.get("item_type") != "material_group" or current.get("item_id") != group["id"]:
+        raise IngestionError(f"当前应处理 {current.get('item_id') or '无'}，不能跳到 {group['id']}")
+    group["status"] = args.status
+    group["summary"] = args.summary.strip()
+    group["updated_at"] = utc_now()
+    refresh_complete_cursor(case)
+    save_case(root, case)
+    print(json.dumps({"group_id": group["id"], "status": group["status"], "finding_ids": group["finding_ids"], "already_recorded": False, "stage": case["stage"], "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def reopen_material(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    ensure_complete(case)
+    if case["stage"] != "planning":
+        raise IngestionError("只在知识目录规划阶段重新打开已经审视的材料组")
+    group = group_by_id(case, args.group_id)
+    if group["status"] in {"unreviewed", "partial"}:
+        if group["status"] == "partial" and group.get("reopen_reason") == args.reason.strip():
+            print(json.dumps({"group_id": group["id"], "already_reopened": True, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+            return 0
+        raise IngestionError(f"材料组 {group['id']} 尚未结束，不需要重新打开")
+    group["status"] = "partial"
+    group["reopen_reason"] = args.reason.strip()
+    group["updated_at"] = utc_now()
+    case["plan_review"] = {"passed": False, "lenses": {}, "not_applicable": {}, "issues": []}
+    refresh_complete_cursor(case)
+    save_case(root, case)
+    print(json.dumps({"group_id": group["id"], "already_reopened": False, "stage": case["stage"], "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def add_topic(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    ensure_complete(case)
+    if case["stage"] != "planning":
+        raise IngestionError("只有材料发现完成后才能规划知识主题")
+    validate_id(args.topic_id, "topic id", UNIT_ID_RE)
+    path = normalize_knowledge_path(args.path)
+    finding_ids = list(dict.fromkeys(args.finding))
+    if not finding_ids:
+        raise IngestionError("知识主题至少关联一个读后发现")
+    for finding_id in finding_ids:
+        finding_by_id(case, finding_id)
+    view_paths = [normalize_knowledge_path(item) for item in args.view]
+    topic = {
+        "id": args.topic_id,
+        "title": args.title.strip(),
+        "purpose": args.purpose.strip(),
+        "action": args.action,
+        "path": path,
+        "finding_ids": finding_ids,
+        "view_paths": view_paths,
+        "status": "planned",
+    }
+    existing = next((item for item in case["topics"] if item["id"] == args.topic_id), None)
+    if existing:
+        if existing == topic:
+            print(json.dumps({"topic": existing, "already_recorded": True, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+            return 0
+        if existing["status"] != "planned" or case["plan_review"].get("passed"):
+            raise IngestionError(f"知识主题 {args.topic_id} 已进入写作，不能修改计划")
+        if any(item["id"] != args.topic_id and item["path"] == path for item in case["topics"]):
+            raise IngestionError(f"规范知识落点已由其他主题使用：{path}")
+        existing.clear()
+        existing.update(topic)
+        case["plan_review"] = {"passed": False, "lenses": {}, "not_applicable": {}, "issues": []}
+        save_case(root, case)
+        print(json.dumps({"topic": existing, "already_recorded": False, "updated": True, "next": "继续补全目录；完成后运行 plan-review"}, ensure_ascii=False, indent=2))
+        return 0
+    if any(item["path"] == path for item in case["topics"]):
+        raise IngestionError(f"规范知识落点已由其他主题使用：{path}")
+    case["topics"].append(topic)
+    save_case(root, case)
+    print(json.dumps({"topic": topic, "already_recorded": False, "next": "继续补全目录；完成后运行 plan-review"}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def parse_key_values(values: list[str], label: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for value in values:
+        key, separator, content = value.partition("=")
+        if not separator or not key.strip() or not content.strip():
+            raise IngestionError(f"{label} 必须使用 <name>=<value>：{value}")
+        key = key.strip()
+        if key in result:
+            raise IngestionError(f"{label} 重复：{key}")
+        result[key] = content.strip()
+    return result
+
+
+def review_knowledge_plan(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    ensure_complete(case)
+    if case["stage"] != "planning":
+        raise IngestionError("当前尚未进入知识目录复核阶段")
+    lens_values = parse_key_values(args.lens, "--lens")
+    not_applicable = parse_key_values(args.not_applicable, "--not-applicable")
+    unknown_lenses = (set(lens_values) | set(not_applicable)) - PLAN_LENSES
+    if unknown_lenses:
+        raise IngestionError("未知复核角度：" + ", ".join(sorted(unknown_lenses)))
+    overlap = set(lens_values) & set(not_applicable)
+    if overlap:
+        raise IngestionError("同一复核角度不能同时映射和排除：" + ", ".join(sorted(overlap)))
+    lens_topics = {
+        lens: [item.strip() for item in value.split(",") if item.strip()]
+        for lens, value in lens_values.items()
+    }
+    topic_ids = {item["id"] for item in case["topics"]}
+    errors: list[str] = []
+    if not case["topics"]:
+        errors.append("尚未规划任何知识主题")
+    unfinished = [item["id"] for item in case["material_groups"] if item["status"] in {"unreviewed", "partial"}]
+    if unfinished:
+        errors.append("以下材料组尚未完成审视：" + ", ".join(unfinished))
+    empty_relevant = [item["id"] for item in case["material_groups"] if item["status"] == "reviewed" and not item["finding_ids"]]
+    if empty_relevant:
+        errors.append("以下相关材料组没有读后发现：" + ", ".join(empty_relevant))
+    mapped_findings = {finding_id for topic in case["topics"] for finding_id in topic["finding_ids"]}
+    missing_findings = [item["id"] for item in case["findings"] if item["id"] not in mapped_findings]
+    if missing_findings:
+        errors.append("以下读后发现尚未进入任何知识主题：" + ", ".join(missing_findings))
+    missing_lenses = PLAN_LENSES - set(lens_topics) - set(not_applicable)
+    if missing_lenses:
+        errors.append("以下读者理解角度尚未映射或说明不适用：" + ", ".join(sorted(missing_lenses)))
+    for lens, values in lens_topics.items():
+        unknown_topics = [item for item in values if item not in topic_ids]
+        if unknown_topics:
+            errors.append(f"复核角度 {lens} 引用了未知主题：" + ", ".join(unknown_topics))
+        if not values:
+            errors.append(f"复核角度 {lens} 没有主题")
+    report = {
+        "passed": not errors,
+        "lenses": lens_topics,
+        "not_applicable": not_applicable,
+        "issues": errors,
+        "reviewed_at": utc_now(),
+    }
+    case["plan_review"] = report
+    if report["passed"]:
+        refresh_complete_cursor(case)
+    else:
+        case["next_action"] = "修正知识目录或复核映射后重新运行 plan-review"
+    save_case(root, case)
+    print(json.dumps({"plan_review": report, "stage": case["stage"], "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    return 0 if report["passed"] else 1
+
+
+def record_topic(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    ensure_complete(case)
+    topic = topic_by_id(case, args.topic_id)
+    if topic["status"] == "ready":
+        print(json.dumps({"topic_id": topic["id"], "already_recorded": True, "stage": case["stage"], "next": case["next_action"]}, ensure_ascii=False, indent=2))
+        return 0
+    current = case.get("cursor", {})
+    if current.get("item_type") != "knowledge_topic" or current.get("item_id") != topic["id"]:
+        raise IngestionError(f"当前应形成 {current.get('item_id') or '无'}，不能跳到 {topic['id']}")
+    path = root / topic["path"]
+    if not path.is_file():
+        raise IngestionError(f"计划的规范知识尚未形成：{topic['path']}")
+    if len(path.read_text(encoding="utf-8").strip()) < 400:
+        raise IngestionError(f"规范知识内容过薄：{topic['path']}")
+    for view_path in topic["view_paths"]:
+        view = root / view_path
+        if not view.is_file():
+            raise IngestionError(f"计划的产品视图尚未形成：{view_path}")
+        if path.resolve() not in markdown_link_targets(view):
+            raise IngestionError(f"计划产品视图 {view_path} 尚未链接规范知识：{topic['path']}")
+    topic["status"] = "ready"
+    topic["recorded_at"] = utc_now()
+    refresh_complete_cursor(case)
+    save_case(root, case)
+    generate_review(root, case)
+    print(json.dumps({"topic_id": topic["id"], "already_recorded": False, "stage": case["stage"], "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    return 0
+
+
 def next_sources(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
+    if case.get("mode", "focused") == "complete":
+        if args.question_id:
+            raise IngestionError("宽范围完整整理的 next 不接收 question id")
+        if args.query:
+            raise IngestionError("宽范围完整整理按当前材料组推进，next 不接收 --query")
+        return next_complete_item(root, case)
+    if not args.question_id:
+        raise IngestionError("聚焦整理的 next 需要 question id")
     question = question_by_id(case, args.question_id)
     if question["active_packet"]:
         raise IngestionError("当前小批来源尚未 record；先写知识并登记结果")
@@ -953,21 +1599,27 @@ def stop_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def markdown_link_targets(path: Path) -> set[Path]:
+    targets: set[Path] = set()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return targets
+    for raw in LINK_RE.findall(text):
+        target = raw.split("#", 1)[0].split("?", 1)[0]
+        if not target or "://" in target or target.startswith("#"):
+            continue
+        targets.add((path.parent / target).resolve())
+    return targets
+
+
 def view_targets(root: Path) -> set[Path]:
     targets: set[Path] = set()
     views = root / "draft" / "knowledge" / "views"
     if not views.is_dir():
         return targets
     for path in views.rglob("*.md"):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            continue
-        for raw in LINK_RE.findall(text):
-            target = raw.split("#", 1)[0].split("?", 1)[0]
-            if not target or "://" in target or target.startswith("#"):
-                continue
-            targets.add((path.parent / target).resolve())
+        targets.update(markdown_link_targets(path))
     return targets
 
 
@@ -1307,7 +1959,104 @@ def document_title(path: Path) -> str:
     return heading_match.group(1).strip() if heading_match else path.stem
 
 
+def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
+    views = sorted(
+        path for path in (root / "draft" / "knowledge" / "views").rglob("*.md")
+        if path.name != "index.md"
+    )
+    lines = [
+        "# 知识摄入审查",
+        "",
+        f"> **目标：** {case['goal']}  ",
+        f"> **目标读者：** {case['target_reader']}  ",
+        f"> **当前阶段：** {case['stage']}  ",
+        "> 正式知识尚未修改；本页只汇总候选知识、事实边界和需要人工决定的事项。",
+        "",
+        "## 从这里开始看内容",
+        "",
+    ]
+    if views:
+        lines.extend(
+            f"- [{document_title(path)}]({relative_link(root / 'review.md', path)})"
+            for path in views
+        )
+    else:
+        lines.append("- 产品视图尚未形成。")
+    lines.extend(
+        [
+            "",
+            "## 知识目录与完成状态",
+            "",
+            "| 知识主题 | 读者用途 | 处理方式 | 规范落点 | 状态 |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for topic in case["topics"]:
+        target = root / topic["path"]
+        purpose = topic["purpose"].replace("|", "\\|")
+        link = (
+            f"[{topic['path']}]({relative_link(root / 'review.md', target)})"
+            if target.is_file()
+            else topic["path"]
+        )
+        lines.append(
+            f"| {topic['id']} {topic['title']} | {purpose} | "
+            f"{topic['action']} | {link} | {topic['status']} |"
+        )
+    if not case["topics"]:
+        lines.append("| 尚未形成 | 尚未形成知识目录 | - | - | - |")
+
+    counts = Counter(item["status"] for item in case["material_groups"])
+    lines.extend(
+        [
+            "",
+            "## 材料范围与读后发现",
+            "",
+            f"- **材料集合：** {len(case['sources'])} 个；**材料组：** {len(case['material_groups'])} 个。",
+            "- **材料组状态：** "
+            + "；".join(f"{status} {count} 个" for status, count in sorted(counts.items()))
+            + "。",
+            f"- **带精确来源的读后发现：** {len(case['findings'])} 项。",
+            "",
+        ]
+    )
+    for finding in case["findings"]:
+        sources = "、".join(f"`{item}`" for item in finding["sources"])
+        limits = "；".join(finding["limits"]) or "无额外限制"
+        lines.append(
+            f"- **{finding['id']} · {finding['reality']}：** {finding['content']} "
+            f"适用范围：{finding['scope']}。限制：{limits}。来源：{sources}。"
+        )
+
+    lines.extend(["", "## 仍需补充或人工决定", ""])
+    uncertain = [item for item in case["findings"] if item["reality"] in {"conflict", "unknown"}]
+    if uncertain:
+        for finding in uncertain:
+            lines.append(f"- **{finding['id']}：** {finding['content']}（{finding['reality']}）。")
+    else:
+        lines.append("- 当前没有登记冲突或未知；这不代表材料之外不存在未知。")
+    if case.get("plan_review", {}).get("issues"):
+        for issue in case["plan_review"]["issues"]:
+            lines.append(f"- **知识目录复核：** {issue}")
+
+    lines.extend(
+        [
+            "",
+            "## 发布决定",
+            "",
+            "- [ ] 候选知识的范围、事实和未知边界可以接受",
+            "- [ ] 产品视图能够支持实际浏览和继续工作",
+            "- [ ] 批准把候选变更合并到正式 `knowledge/` 和 `config/`",
+            "",
+        ]
+    )
+    atomic_write_text(root / "review.md", "\n".join(lines))
+
+
 def generate_review(root: Path, case: dict[str, Any]) -> None:
+    if case.get("mode") == "complete":
+        generate_complete_review(root, case)
+        return
     views = sorted(
         path for path in (root / "draft" / "knowledge" / "views").rglob("*.md")
         if path.name != "index.md"
@@ -1416,6 +2165,32 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
 
 def review_case(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
+    if case.get("mode") == "complete":
+        ensure_complete(case)
+        errors: list[str] = []
+        if case["stage"] not in {"reviewing", "publish_ready"}:
+            errors.append(f"当前仍处于 {case['stage']}，尚未完成全部知识主题")
+        unfinished = [item["id"] for item in case["topics"] if item["status"] != "ready"]
+        if unfinished:
+            errors.append("以下知识主题尚未完成：" + ", ".join(unfinished))
+        report = validate_bundle(
+            root / "draft" / "knowledge", root / "draft" / "config" / "knowledge-domains.yaml"
+        )
+        errors.extend(f"知识结构：{item}" for item in report.errors)
+        for area, label in (("by-domain", "领域位置视图"), ("by-journey", "旅程/学习视图")):
+            view_files = [
+                path for path in (root / "draft" / "knowledge" / "views" / area).glob("*.md")
+                if path.name != "index.md"
+            ]
+            if not view_files:
+                errors.append(f"尚未形成{label}")
+        if not errors:
+            case["stage"] = "publish_ready"
+            case["next_action"] = "请用户审查候选知识、产品视图和 review.md，决定发布或退回"
+            save_case(root, case)
+        generate_review(root, case)
+        print(json.dumps({"review": str(root / "review.md"), "ready": not errors, "errors": errors, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+        return 0 if not errors else 1
     generate_review(root, case)
     print(str(root / "review.md"))
     return 0
@@ -1423,6 +2198,49 @@ def review_case(args: argparse.Namespace) -> int:
 
 def status_case(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
+    if case.get("mode") == "complete":
+        refresh_complete_cursor(case)
+        save_case(root, case)
+        group_counts = Counter(item["status"] for item in case["material_groups"])
+        topic_counts = Counter(item["status"] for item in case["topics"])
+        cursor = case["cursor"]
+        current: dict[str, Any] | None = None
+        if cursor["item_type"] == "material_group":
+            group = group_by_id(case, cursor["item_id"])
+            sources = source_map(case)
+            current = {
+                "id": group["id"],
+                "label": group["label"],
+                "open_paths": [
+                    str(Path(sources[source_id]["root"]) / relative)
+                    for source_id, relative in (split_source_ref(ref) for ref in group["members"])
+                ],
+            }
+        elif cursor["item_type"] == "knowledge_topic":
+            topic = topic_by_id(case, cursor["item_id"])
+            current = {
+                "id": topic["id"],
+                "title": topic["title"],
+                "open_paths": [str(root / topic["path"]), *[str(root / item) for item in topic["view_paths"]]],
+            }
+        payload = {
+            "case_id": case["id"],
+            "mode": case["mode"],
+            "goal": case["goal"],
+            "target_reader": case["target_reader"],
+            "stage": case["stage"],
+            "cursor": case["cursor"],
+            "current": current,
+            "sources": [public_source_identity(item) for item in case["sources"]],
+            "material_groups": dict(sorted(group_counts.items())),
+            "findings": len(case["findings"]),
+            "knowledge_topics": dict(sorted(topic_counts.items())),
+            "plan_review_passed": bool(case["plan_review"].get("passed")),
+            "review": str(root / "review.md"),
+            "next": case["next_action"],
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
     payload = {
         "case_id": case["id"],
         "goal": case["goal"],
@@ -1454,14 +2272,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cases-root", type=Path, default=default_cases_root())
     subparsers = parser.add_subparsers(dest="action", required=True)
 
-    start = subparsers.add_parser("start", help="创建问题驱动的摄入案和后台来源基线")
+    start = subparsers.add_parser("start", help="创建聚焦或宽范围完整摄入案和后台来源基线")
     start.add_argument("case_id")
+    start.add_argument("--mode", choices=sorted(INGESTION_MODES), default="focused")
     start.add_argument("--goal", required=True)
     start.add_argument("--reader", required=True)
     start.add_argument("--source", action="append", default=[])
     start.add_argument("--question", action="append", default=[])
     start.add_argument("--boundary", action="append", default=[])
     start.set_defaults(func=start_case)
+
+    survey = subparsers.add_parser("survey", help="查看完整整理的客观材料地图")
+    survey.add_argument("case_id")
+    survey.add_argument("--members", action="store_true", help="同时显示各组全部成员")
+    survey.set_defaults(func=survey_materials)
 
     question = subparsers.add_parser("question-add", help="新增一个随证据出现的读者问题")
     question.add_argument("case_id")
@@ -1478,12 +2302,59 @@ def build_parser() -> argparse.ArgumentParser:
     unit.add_argument("--require-run", action="store_true")
     unit.set_defaults(func=plan_unit)
 
-    next_command = subparsers.add_parser("next", help="为当前问题取得一小批直接来源")
+    next_command = subparsers.add_parser("next", help="取得当前材料组、知识主题或聚焦问题的小批来源")
     next_command.add_argument("case_id")
-    next_command.add_argument("question_id")
+    next_command.add_argument("question_id", nargs="?")
     next_command.add_argument("--query", action="append", default=[])
     next_command.add_argument("--limit", type=int, choices=range(1, 9), default=6)
     next_command.set_defaults(func=next_sources)
+
+    finding = subparsers.add_parser("finding-add", help="为当前材料组登记一项带精确来源的读后发现")
+    finding.add_argument("case_id")
+    finding.add_argument("finding_id")
+    finding.add_argument("--group-id", required=True)
+    finding.add_argument("--content", required=True)
+    finding.add_argument("--reality", choices=sorted(REALITY_STATES), required=True)
+    finding.add_argument("--source", action="append", default=[])
+    finding.add_argument("--scope", required=True)
+    finding.add_argument("--limit", action="append", default=[])
+    finding.add_argument("--topic", action="append", default=[])
+    finding.set_defaults(func=add_finding)
+
+    material = subparsers.add_parser("record-material", help="登记当前材料组的相关性与概要")
+    material.add_argument("case_id")
+    material.add_argument("group_id")
+    material.add_argument("--status", choices=sorted(MATERIAL_GROUP_STATES - {"unreviewed"}), required=True)
+    material.add_argument("--summary", required=True)
+    material.set_defaults(func=record_material)
+
+    reopen = subparsers.add_parser("material-reopen", help="目录规划发现漏读时重新审视一个已结束材料组")
+    reopen.add_argument("case_id")
+    reopen.add_argument("group_id")
+    reopen.add_argument("--reason", required=True)
+    reopen.set_defaults(func=reopen_material)
+
+    topic = subparsers.add_parser("topic-add", help="根据读后发现规划一个规范知识主题")
+    topic.add_argument("case_id")
+    topic.add_argument("topic_id")
+    topic.add_argument("--title", required=True)
+    topic.add_argument("--purpose", required=True)
+    topic.add_argument("--action", choices=("create", "update", "merge", "view"), required=True)
+    topic.add_argument("--path", required=True)
+    topic.add_argument("--finding", action="append", default=[])
+    topic.add_argument("--view", action="append", default=[])
+    topic.set_defaults(func=add_topic)
+
+    plan_review = subparsers.add_parser("plan-review", help="写作前复核知识目录、材料覆盖和维护边界")
+    plan_review.add_argument("case_id")
+    plan_review.add_argument("--lens", action="append", default=[])
+    plan_review.add_argument("--not-applicable", action="append", default=[])
+    plan_review.set_defaults(func=review_knowledge_plan)
+
+    topic_record = subparsers.add_parser("record-topic", help="登记当前知识主题正文和产品视图已经形成")
+    topic_record.add_argument("case_id")
+    topic_record.add_argument("topic_id")
+    topic_record.set_defaults(func=record_topic)
 
     record = subparsers.add_parser("record", help="登记当前小批来源形成的知识和缺口")
     record.add_argument("case_id")
@@ -1545,7 +2416,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action in {
-            "question-add", "plan-unit", "next", "record", "stop-search",
+            "question-add", "plan-unit", "next", "finding-add", "record-material", "material-reopen",
+            "topic-add", "plan-review", "record-topic", "record", "stop-search",
             "check-unit", "run", "review",
         }:
             with case_state_lock(args.cases_root, args.case_id):

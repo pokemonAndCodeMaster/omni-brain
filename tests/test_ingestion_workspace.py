@@ -71,6 +71,66 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stderr)
         return self.cases / "sample-case"
 
+    def start_complete(self) -> Path:
+        result = self.run_tool(
+            "start",
+            "complete-case",
+            "--mode",
+            "complete",
+            "--goal",
+            "让新成员从全貌到细节理解这批材料并继续工作",
+            "--reader",
+            "首次接触该领域的成员",
+            "--source",
+            f"materials={self.source}",
+            "--boundary",
+            "不能把目标设计写成当前实现",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        return self.cases / "complete-case"
+
+    def finish_complete_discovery(self) -> list[str]:
+        finding_ids: list[str] = []
+        number = 1
+        while True:
+            status = json.loads(self.run_tool("status", "complete-case").stdout)
+            if status["stage"] != "discovering":
+                break
+            current = json.loads(self.run_tool("next", "complete-case").stdout)["current"]
+            finding_id = f"finding-{number:03d}"
+            source_ref = current["members"][0]["ref"]
+            added = self.run_tool(
+                "finding-add",
+                "complete-case",
+                finding_id,
+                "--group-id",
+                current["id"],
+                "--content",
+                f"材料组 {current['id']} 提供可用于读者理解的直接信息",
+                "--reality",
+                "unknown",
+                "--source",
+                source_ref,
+                "--scope",
+                "仅限当前固定材料包",
+                "--topic",
+                "指标链路",
+            )
+            self.assertEqual(0, added.returncode, added.stderr)
+            recorded = self.run_tool(
+                "record-material",
+                "complete-case",
+                current["id"],
+                "--status",
+                "reviewed",
+                "--summary",
+                "已阅读本组并记录精确来源、适用范围和现实边界",
+            )
+            self.assertEqual(0, recorded.returncode, recorded.stderr)
+            finding_ids.append(finding_id)
+            number += 1
+        return finding_ids
+
     def plan(self, *, require_run: bool = False) -> None:
         arguments = [
             "plan-unit",
@@ -191,6 +251,181 @@ class IngestionWorkspaceTest(unittest.TestCase):
         ]
         self.assertEqual(4, len(records))
 
+    def test_complete_start_builds_observable_groups_without_reality_labels(self) -> None:
+        duplicate = self.source / "README-copy.md"
+        duplicate.write_bytes((self.source / "README.md").read_bytes())
+        case = self.start_complete()
+        survey = self.run_tool("survey", "complete-case", "--members")
+        self.assertEqual(0, survey.returncode, survey.stderr)
+        payload = json.loads(survey.stdout)
+        self.assertEqual("complete", payload["mode"])
+        self.assertTrue(any(item["kind"] == "exact_duplicate" for item in payload["groups"]))
+        self.assertNotIn("reality_hints", survey.stdout)
+        for group in payload["groups"]:
+            self.assertNotIn("reality", group)
+        state = json.loads((case / ".state" / "case.json").read_text(encoding="utf-8"))
+        self.assertEqual("discovering", state["stage"])
+        self.assertEqual(["case.json", "source-manifest.jsonl"], sorted(path.name for path in (case / ".state").iterdir()))
+
+    def test_material_groups_limit_count_and_total_bytes_and_ignore_package_checksum(self) -> None:
+        bulk = self.source / "bulk"
+        bulk.mkdir()
+        for index, marker in enumerate(("a", "b", "c"), 1):
+            (bulk / f"{index}.md").write_text(marker * 45_000, encoding="utf-8")
+        (self.source / "SHA256SUMS").write_text("package checksum metadata\n", encoding="utf-8")
+        self.start_complete()
+        payload = json.loads(self.run_tool("survey", "complete-case", "--members").stdout)
+        refs = [member["ref"] for group in payload["groups"] for member in group["members"]]
+        self.assertNotIn("materials:SHA256SUMS", refs)
+        for group in payload["groups"]:
+            self.assertLessEqual(group["member_count"], 12)
+            self.assertTrue(
+                group["total_bytes"] <= 100_000 or group["member_count"] == 1,
+                group,
+            )
+
+    def test_complete_next_and_material_record_are_idempotent(self) -> None:
+        self.start_complete()
+        first = self.run_tool("next", "complete-case")
+        second = self.run_tool("next", "complete-case")
+        self.assertEqual(0, first.returncode, first.stderr)
+        self.assertEqual(0, second.returncode, second.stderr)
+        first_payload = json.loads(first.stdout)
+        second_payload = json.loads(second.stdout)
+        self.assertEqual(first_payload["current"]["id"], second_payload["current"]["id"])
+        status = json.loads(self.run_tool("status", "complete-case").stdout)
+        self.assertEqual(first_payload["current"]["id"], status["current"]["id"])
+        self.assertTrue(status["current"]["open_paths"])
+        group = first_payload["current"]
+        source_ref = group["members"][0]["ref"]
+        finding_args = (
+            "finding-add", "complete-case", "finding-001",
+            "--group-id", group["id"],
+            "--content", "本组说明页面和接口之间存在直接调用关系",
+            "--reality", "current_implementation",
+            "--source", source_ref,
+            "--scope", "当前固定源码",
+            "--topic", "指标链路",
+        )
+        added = self.run_tool(*finding_args)
+        repeated_add = self.run_tool(*finding_args)
+        self.assertEqual(0, added.returncode, added.stderr)
+        self.assertTrue(json.loads(repeated_add.stdout)["already_recorded"])
+        record_args = (
+            "record-material", "complete-case", group["id"],
+            "--status", "reviewed",
+            "--summary", "已读完会改变调用链结论的成员并形成发现",
+        )
+        recorded = self.run_tool(*record_args)
+        repeated_record = self.run_tool(*record_args)
+        self.assertEqual(0, recorded.returncode, recorded.stderr)
+        self.assertTrue(json.loads(repeated_record.stdout)["already_recorded"])
+
+    def test_plan_review_blocks_unreviewed_materials_and_missing_lenses(self) -> None:
+        self.start_complete()
+        too_early = self.run_tool(
+            "plan-review", "complete-case",
+            "--not-applicable", "position=范围明确不涉及上级位置",
+        )
+        self.assertEqual(2, too_early.returncode)
+        self.assertIn("尚未进入", too_early.stderr)
+
+        findings = self.finish_complete_discovery()
+        reopened = self.run_tool(
+            "material-reopen", "complete-case", "group-001",
+            "--reason", "目录复核需要重新核对第一组的现实边界",
+        )
+        self.assertEqual(0, reopened.returncode, reopened.stderr)
+        self.assertEqual("discovering", json.loads(reopened.stdout)["stage"])
+        closed_again = self.run_tool(
+            "record-material", "complete-case", "group-001",
+            "--status", "reviewed",
+            "--summary", "重新核对后原有发现和适用边界仍然成立",
+        )
+        self.assertEqual(0, closed_again.returncode, closed_again.stderr)
+        topic = self.run_tool(
+            "topic-add", "complete-case", "metric-flow",
+            "--title", "指标数据链路",
+            "--purpose", "让读者定位指标从入口到输出的变化",
+            "--action", "create",
+            "--path", "draft/knowledge/systems/metric-flow.md",
+            *sum((["--finding", item] for item in findings), []),
+            "--view", "draft/knowledge/views/by-domain/metric-flow.md",
+            "--view", "draft/knowledge/views/by-journey/metric-flow.md",
+        )
+        self.assertEqual(0, topic.returncode, topic.stderr)
+        updated = self.run_tool(
+            "topic-add", "complete-case", "metric-flow",
+            "--title", "指标数据链路",
+            "--purpose", "让读者从输入、转换和输出理解指标链路并定位修改入口",
+            "--action", "create",
+            "--path", "draft/knowledge/systems/metric-flow.md",
+            *sum((["--finding", item] for item in findings), []),
+            "--view", "draft/knowledge/views/by-domain/metric-flow.md",
+            "--view", "draft/knowledge/views/by-journey/metric-flow.md",
+        )
+        self.assertEqual(0, updated.returncode, updated.stderr)
+        self.assertTrue(json.loads(updated.stdout)["updated"])
+        incomplete = self.run_tool(
+            "plan-review", "complete-case",
+            "--lens", "software=metric-flow",
+        )
+        self.assertEqual(1, incomplete.returncode)
+        report = json.loads(incomplete.stdout)["plan_review"]
+        self.assertTrue(any("读者理解角度" in item for item in report["issues"]))
+
+    def test_complete_flow_reaches_publish_review_with_one_cursor(self) -> None:
+        case = self.start_complete()
+        findings = self.finish_complete_discovery()
+        planning = json.loads(self.run_tool("next", "complete-case").stdout)
+        self.assertEqual("planning", planning["stage"])
+        self.assertEqual(set(findings), {item["id"] for item in planning["current"]["findings"]})
+        self.write_candidate(case)
+        topic_args = [
+            "topic-add", "complete-case", "metric-flow",
+            "--title", "指标数据链路",
+            "--purpose", "让读者从系统位置进入一次真实修改链路",
+            "--action", "create",
+            "--path", "draft/knowledge/systems/metric-flow.md",
+        ]
+        for finding_id in findings:
+            topic_args.extend(["--finding", finding_id])
+        topic_args.extend(
+            [
+                "--view", "draft/knowledge/views/by-domain/metric-flow.md",
+                "--view", "draft/knowledge/views/by-journey/metric-flow.md",
+            ]
+        )
+        self.assertEqual(0, self.run_tool(*topic_args).returncode)
+        lenses: list[str] = []
+        for lens in ("position", "lifecycle", "data", "rules", "software", "shared", "reality", "navigation"):
+            lenses.extend(["--lens", f"{lens}=metric-flow"])
+        reviewed = self.run_tool("plan-review", "complete-case", *lenses)
+        self.assertEqual(0, reviewed.returncode, reviewed.stderr)
+        first = json.loads(self.run_tool("next", "complete-case").stdout)
+        second = json.loads(self.run_tool("next", "complete-case").stdout)
+        self.assertEqual("metric-flow", first["current"]["id"])
+        self.assertEqual(first["current"]["id"], second["current"]["id"])
+        journey = case / "draft" / "knowledge" / "views" / "by-journey" / "metric-flow.md"
+        journey.write_text(
+            "---\ntype: Navigation View\ntitle: 空旅程\ndescription: 暂未链接正文\n---\n\n# 空旅程\n",
+            encoding="utf-8",
+        )
+        rejected = self.run_tool("record-topic", "complete-case", "metric-flow")
+        self.assertEqual(2, rejected.returncode)
+        self.assertIn("尚未链接规范知识", rejected.stderr)
+        self.write_candidate(case)
+        recorded = self.run_tool("record-topic", "complete-case", "metric-flow")
+        self.assertEqual(0, recorded.returncode, recorded.stderr)
+        final_review = self.run_tool("review", "complete-case")
+        self.assertEqual(0, final_review.returncode, final_review.stdout + final_review.stderr)
+        self.assertTrue(json.loads(final_review.stdout)["ready"])
+        status = json.loads(self.run_tool("status", "complete-case").stdout)
+        self.assertEqual("publish_ready", status["stage"])
+        review_text = (case / "review.md").read_text(encoding="utf-8")
+        self.assertIn("知识目录与完成状态", review_text)
+        self.assertIn("材料范围与读后发现", review_text)
+
     def test_next_returns_a_small_ranked_packet_and_import_neighbour(self) -> None:
         self.start()
         payload = self.get_packet()
@@ -200,6 +435,26 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertIn("app:api.ts", refs)
         self.assertNotIn("app:unrelated.txt", refs)
         self.assertNotIn("source-manifest", payload)
+
+    def test_next_resolves_common_vite_at_alias_without_project_specific_config(self) -> None:
+        features = self.source / "frontend" / "src" / "features"
+        shared = self.source / "frontend" / "src" / "shared"
+        features.mkdir(parents=True)
+        shared.mkdir(parents=True)
+        (features / "page.ts").write_text(
+            "import { helper } from '@/shared/tool'\nexport const unique_metric = helper()\n",
+            encoding="utf-8",
+        )
+        (shared / "tool.ts").write_text("export const helper = () => 42\n", encoding="utf-8")
+        self.start()
+        result = self.run_tool(
+            "next", "sample-case", "q-001",
+            "--query", "unique_metric", "--limit", "2",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        refs = {item["ref"] for item in json.loads(result.stdout)["packet"]}
+        self.assertIn("app:frontend/src/features/page.ts", refs)
+        self.assertIn("app:frontend/src/shared/tool.ts", refs)
 
     def test_next_diversifies_a_code_packet_across_runtime_layers(self) -> None:
         (self.source / "src").mkdir()

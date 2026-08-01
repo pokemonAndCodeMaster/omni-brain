@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_goal_coverage_revision_failed_document_replay
+  status: implemented_material_map_plan_review_candidate
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,23 +41,21 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_goal_coverage_revision_failed_document_replay
+    adoption: implemented_material_map_plan_review_candidate
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
       - scripts/knowledge_check.py
     limits:
-      - 全量来源只作为后台版本基线，next 的候选排序仍需 K0 与 E1 真实工况校准
-      - 当前候选召回只使用关键词、标题、正文命中和一跳 import，不包含向量或完整代码图
-      - 问题状态和知识落点由 Agent 语义登记，工具只能校验一致性，不能判断业务真伪
+      - 宽范围完整整理只按路径、完全重复、文档链接和代码导入建立材料组，不在读前判断现实身份
+      - 材料组当前以最多 12 个文件且约 100 KB 为首版容量边界，只在首个真实基础文档材料包检查过
+      - 读后发现、知识主题和目录复核仍由 Agent 语义登记，工具只能校验顺序、引用和一致性，不能判断业务真伪
+      - 聚焦问题召回只使用关键词、标题、正文命中和有限 import，不包含向量或完整代码图
       - 隔离运行支持现场只读引用和私有可写副本；环境绑定结果不能冒充固定基线
       - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
       - 只读检查不判断业务真伪或内容充分性
-      - 真实文档和代码摄入均有失败证据，尚未达到发布线
-      - 代码摄入已达到当前用例接受线，但基础文档同材料复跑仍遗漏完整领域、数据状态、结论规则和公共能力
-      - 目标覆盖修订改善问题规划和软件内容，但没有解决知识主题与证据角色的整体规划
-      - 已停止继续修改 Skill 文案，下一步需在设计仓库确认目标建模与知识规划组件方案
-      - 跨模型稳定性、基础文档内容发布和增量演进仍未验证
+      - 聚焦代码摄入已达到当前用例接受线；新的完整整理路线只有确定性测试和真实材料地图证据
+      - 基础文档内容质量、跨模型稳定性、正式发布和增量演进仍未验证
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:
