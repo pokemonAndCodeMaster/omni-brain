@@ -8,6 +8,7 @@ not decide knowledge truth, write domain content, or replace human review.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -16,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -36,6 +38,10 @@ PYTHON_FROM_RE = re.compile(r"^\s*from\s+(?P<module>\.*[A-Za-z_][\w.]*)\s+import
 PYTHON_IMPORT_RE = re.compile(r"^\s*import\s+(?P<module>[A-Za-z_][\w.]*)", re.MULTILINE)
 PATH_LITERAL_RE = re.compile(r"['\"](?P<path>/(?:api/)?[A-Za-z0-9_./{}:-]{4,})['\"]")
 STALE_MARKERS = ("待核实", "待补充", "TODO", "TBD")
+PLACEHOLDER_RE = re.compile(
+    r"<(?:case-id|question-id|source-id|unit-id|area|page|path|slug|"
+    r"[^>\n]*[\u4e00-\u9fff][^>\n]*)>"
+)
 TEXT_SUFFIXES = {
     ".c", ".cc", ".cfg", ".conf", ".cpp", ".css", ".csv", ".go",
     ".h", ".hpp", ".html", ".ini", ".java", ".js", ".json", ".jsx",
@@ -130,6 +136,19 @@ def load_case(cases_root: Path, case_id: str) -> tuple[Path, dict[str, Any]]:
 def save_case(root: Path, case: dict[str, Any]) -> None:
     case["updated_at"] = utc_now()
     atomic_write_json(root / ".state" / "case.json", case)
+
+
+@contextmanager
+def case_state_lock(cases_root: Path, case_id: str):
+    """Serialize mutations without adding another workbench state file."""
+    root = case_root(cases_root, case_id)
+    descriptor = os.open(root / ".state", os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
 
 
 def question_by_id(case: dict[str, Any], question_id: str) -> dict[str, Any]:
@@ -327,6 +346,8 @@ def new_question(number: int, text: str) -> dict[str, Any]:
         "knowledge_paths": [],
         "requires_run": False,
         "run_ids": [],
+        "pending_run_ids": [],
+        "integrated_run_ids": [],
         "evidence": [],
         "query_terms": [],
         "candidate_queue": [],
@@ -761,6 +782,17 @@ def record_result(args: argparse.Namespace) -> int:
         raise IngestionError(f"无效问题状态：{args.status}")
     active = {item["ref"]: item for item in question["active_packet"]}
     used = list(dict.fromkeys(args.source))
+    used_runs = list(dict.fromkeys(args.run_id))
+    runs_by_id = {item["id"]: item for item in case.get("runs", [])}
+    unknown_runs = [item for item in used_runs if item not in runs_by_id]
+    if unknown_runs:
+        raise IngestionError("以下 --run-id 不属于本摄入案：" + ", ".join(unknown_runs))
+    wrong_question_runs = [
+        item for item in used_runs
+        if runs_by_id[item].get("question_id") != question["id"]
+    ]
+    if wrong_question_runs:
+        raise IngestionError("以下运行证据不属于当前问题：" + ", ".join(wrong_question_runs))
     unknown = [item for item in used if item not in active]
     if unknown:
         available = ", ".join(active) or "（当前没有活动小批，请先 next）"
@@ -773,13 +805,15 @@ def record_result(args: argparse.Namespace) -> int:
     unused = [item for item in active if item not in used]
     if unused and not args.dismiss_unused:
         raise IngestionError("当前小批仍有未使用来源；提供 --dismiss-unused 说明整批剩余项为何不改变答案")
-    if not used and args.status in {"answered", "partial", "conflict"}:
-        raise IngestionError(f"{args.status} 至少需要一项当前直接来源")
+    if not used and not used_runs and args.status in {"answered", "partial", "conflict"}:
+        raise IngestionError(f"{args.status} 至少需要一项当前直接来源或运行证据")
     if args.status == "answered" and args.missing:
         raise IngestionError("answered 不应同时登记 missing；应改为 partial")
     if args.status in {"partial", "external_missing", "conflict"} and not args.missing:
         raise IngestionError(f"{args.status} 必须说明缺失或冲突内容")
     knowledge_paths = [normalize_knowledge_path(item) for item in args.knowledge]
+    if used_runs and not knowledge_paths:
+        raise IngestionError("登记运行证据时必须用 --knowledge 指明已经写回的规范知识")
     for path in knowledge_paths:
         if not (root / path).is_file():
             raise IngestionError(f"规范知识尚未形成：{root / path}")
@@ -816,10 +850,23 @@ def record_result(args: argparse.Namespace) -> int:
     if args.status == "external_missing" and used:
         # Direct evidence may establish the reliable boundary before the external gap.
         pass
+    failed_runs = [
+        item for item in used_runs
+        if not runs_by_id[item].get("evidence_complete", True)
+        or runs_by_id[item].get("exit_code") != runs_by_id[item].get("expected_exit")
+    ]
+    if args.status == "answered" and failed_runs:
+        raise IngestionError("失败或证据不完整的运行不能把问题登记为 answered：" + ", ".join(failed_runs))
     question["status"] = args.status
     question["summary"] = args.summary.strip()
     question["missing"] = [item.strip() for item in args.missing if item.strip()]
     question["knowledge_paths"] = list(dict.fromkeys([*question["knowledge_paths"], *knowledge_paths]))
+    question.setdefault("integrated_run_ids", [])
+    question["integrated_run_ids"] = list(
+        dict.fromkeys([*question["integrated_run_ids"], *used_runs])
+    )
+    pending_runs = question.setdefault("pending_run_ids", [])
+    question["pending_run_ids"] = [item for item in pending_runs if item not in used_runs]
     question["next_action"] = args.next_action.strip() if args.next_action else (
         "运行 check-unit 核对知识、候选来源、产品视图和运行证据"
         if args.status in {"answered", "external_missing"}
@@ -835,6 +882,8 @@ def record_result(args: argparse.Namespace) -> int:
                 "question_id": question["id"],
                 "status": question["status"],
                 "used_sources": used,
+                "integrated_run_ids": used_runs,
+                "pending_run_ids": question["pending_run_ids"],
                 "dismissed_as_packet": unused,
                 "remaining_relevant_candidates": len(question["candidate_queue"]),
                 "knowledge_paths": question["knowledge_paths"],
@@ -920,7 +969,7 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
         text = path.read_text(encoding="utf-8")
         if len(text.strip()) < 400:
             errors.append(f"知识单元内容过薄：{unit['path']}")
-        if re.search(r"<[^>\n]{2,80}>", text):
+        if PLACEHOLDER_RE.search(text):
             errors.append(f"知识单元仍含模板占位符：{unit['path']}")
         if path.resolve() not in linked:
             errors.append(f"产品视图尚未链接知识单元：{unit['path']}")
@@ -947,10 +996,18 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
             errors.append("未说明缺失或冲突内容")
         if not question["next_action"]:
             errors.append("未说明下一补充动作")
+    pending_runs = question.get("pending_run_ids", [])
+    if pending_runs:
+        errors.append(
+            "以下运行结果尚未写回规范知识并用 record --run-id 登记："
+            + ", ".join(pending_runs)
+        )
     if question["requires_run"]:
         passed_runs = [
             item for item in case.get("runs", [])
-            if item.get("id") in question["run_ids"] and item.get("exit_code") == item.get("expected_exit")
+            if item.get("id") in question["run_ids"]
+            and item.get("exit_code") == item.get("expected_exit")
+            and item.get("evidence_complete", True)
         ]
         if not passed_runs:
             errors.append("本问题要求真实运行，但尚无通过的隔离运行证据")
@@ -1061,8 +1118,37 @@ def run_project(args: argparse.Namespace) -> int:
                 "PYTHONDONTWRITEBYTECODE": "1",
             }
         )
+        command_file: str | None = None
+        command_file_sha256: str | None = None
+        if args.command_file:
+            relative_command = PurePosixPath(args.command_file)
+            if (
+                relative_command.is_absolute()
+                or ".." in relative_command.parts
+                or relative_command.suffix != ".sh"
+                or relative_command.parts[:2] != ("evidence", "recipes")
+            ):
+                raise IngestionError(
+                    "--command-file 必须是摄入案 evidence/recipes/ 下的相对 .sh 文件"
+                )
+            source_command = (root / relative_command.as_posix()).resolve()
+            try:
+                source_command.relative_to(root.resolve())
+            except ValueError as exc:
+                raise IngestionError("--command-file 路径越界") from exc
+            if not source_command.is_file() or source_command.is_symlink():
+                raise IngestionError(f"--command-file 不存在或不是普通文件：{source_command}")
+            command_copy = evidence_dir / "command.sh"
+            shutil.copy2(source_command, command_copy)
+            command_file = relative_command.as_posix()
+            command_file_sha256 = digest_bytes(command_copy.read_bytes())
+            command_argv = ["bash", "-euo", "pipefail", str(command_copy)]
+            recorded_command = f"bash -euo pipefail {command_file}"
+        else:
+            command_argv = ["bash", "-lc", args.command]
+            recorded_command = args.command
         result = subprocess.run(
-            ["bash", "-lc", args.command],
+            command_argv,
             cwd=run_root,
             check=False,
             capture_output=True,
@@ -1070,7 +1156,10 @@ def run_project(args: argparse.Namespace) -> int:
             timeout=args.timeout,
             env=environment,
         )
+        atomic_write_text(evidence_dir / "stdout.log", result.stdout)
+        atomic_write_text(evidence_dir / "stderr.log", result.stderr)
         artifacts: list[str] = []
+        artifact_errors: list[str] = []
         artifact_dir = evidence_dir / "artifacts"
         for raw in args.artifact:
             relative = PurePosixPath(raw)
@@ -1082,13 +1171,13 @@ def run_project(args: argparse.Namespace) -> int:
             except ValueError as exc:
                 raise IngestionError(f"artifact 路径越界：{raw}") from exc
             if not candidate.is_file():
-                raise IngestionError(f"声明的 artifact 不存在：{candidate}")
+                artifact_errors.append(f"声明的 artifact 不存在：{candidate}")
+                continue
             target = artifact_dir / relative.as_posix()
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(candidate, target)
             artifacts.append(str(target.relative_to(root)))
-        atomic_write_text(evidence_dir / "stdout.log", result.stdout)
-        atomic_write_text(evidence_dir / "stderr.log", result.stderr)
+        evidence_complete = not artifact_errors
         run_record = {
             "id": run_id,
             "question_id": question["id"],
@@ -1096,11 +1185,15 @@ def run_project(args: argparse.Namespace) -> int:
             "source_commit": git["commit"],
             "kind": args.kind,
             "purpose": args.purpose.strip(),
-            "command": args.command,
+            "command": recorded_command,
+            "command_file": command_file,
+            "command_file_sha256": command_file_sha256,
             "expected_exit": args.expect_exit,
             "exit_code": result.returncode,
             "started_and_completed_at": utc_now(),
             "artifacts": artifacts,
+            "artifact_errors": artifact_errors,
+            "evidence_complete": evidence_complete,
             "stdout": str((evidence_dir / "stdout.log").relative_to(root)),
             "stderr": str((evidence_dir / "stderr.log").relative_to(root)),
             "isolation": "temporary_git_worktree",
@@ -1109,16 +1202,17 @@ def run_project(args: argparse.Namespace) -> int:
         atomic_write_json(evidence_dir / "run.json", run_record)
         case.setdefault("runs", []).append(run_record)
         question["run_ids"].append(run_id)
+        question.setdefault("pending_run_ids", []).append(run_id)
         question["updated_at"] = utc_now()
         case["next_action"] = (
-            f"把 {args.kind} 运行结论写入规范知识，再检查 {question['id']}"
-            if result.returncode == args.expect_exit
-            else f"分析隔离运行失败并修正环境或知识；run={run_id}"
+            f"先把 {args.kind} 运行结论写入规范知识，再用 record --run-id {run_id} 更新 {question['id']}"
+            if result.returncode == args.expect_exit and evidence_complete
+            else f"把运行失败或证据缺失写入规范知识，再用 record --run-id {run_id} 更新 {question['id']}"
         )
         save_case(root, case)
         generate_review(root, case)
         print(json.dumps(run_record, ensure_ascii=False, indent=2))
-        return 0 if result.returncode == args.expect_exit else 1
+        return 0 if result.returncode == args.expect_exit and evidence_complete else 1
     except subprocess.TimeoutExpired as exc:
         atomic_write_text(evidence_dir / "stdout.log", exc.stdout or "")
         atomic_write_text(evidence_dir / "stderr.log", exc.stderr or "")
@@ -1201,13 +1295,27 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
     lines.append(f"- 已登记不重复直接来源：{len(evidence_refs)} 项。")
     if case.get("runs"):
         for run in case["runs"]:
-            status = "通过" if run["exit_code"] == run["expected_exit"] else "失败"
+            status = (
+                "通过"
+                if run["exit_code"] == run["expected_exit"] and run.get("evidence_complete", True)
+                else "失败"
+            )
             target = root / "evidence" / "runs" / run["id"] / "run.json"
             lines.append(
                 f"- [{run['kind']}：{run['purpose']}]({relative_link(root / 'review.md', target)})：{status}。"
             )
     else:
         lines.append("- 本轮尚无真实运行证据。")
+    pending_runs = [
+        run_id
+        for question in case["questions"]
+        for run_id in question.get("pending_run_ids", [])
+    ]
+    if pending_runs:
+        lines.append(
+            "- **尚待写回知识的运行结果：** " + "、".join(pending_runs)
+            + "。先更新对应规范页，再用 `record --run-id` 登记。"
+        )
     lines.extend(["", "## 仍需补充或人工决定", ""])
     decisions = [
         item for item in case["questions"]
@@ -1258,6 +1366,7 @@ def status_case(args: argparse.Namespace) -> int:
                 "remaining_candidates": len(item["candidate_queue"]),
                 "knowledge_paths": item["knowledge_paths"],
                 "run_ids": item["run_ids"],
+                "pending_run_ids": item.get("pending_run_ids", []),
                 "next": item["next_action"],
             }
             for item in case["questions"]
@@ -1272,7 +1381,7 @@ def status_case(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases-root", type=Path, default=default_cases_root())
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="action", required=True)
 
     start = subparsers.add_parser("start", help="创建问题驱动的摄入案和后台来源基线")
     start.add_argument("case_id")
@@ -1311,6 +1420,7 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--status", required=True, choices=sorted(QUESTION_STATES - {"working"}))
     record.add_argument("--summary", required=True)
     record.add_argument("--source", action="append", default=[])
+    record.add_argument("--run-id", action="append", default=[])
     record.add_argument("--knowledge", action="append", default=[])
     record.add_argument("--missing", action="append", default=[])
     record.add_argument("--dismiss-unused")
@@ -1339,7 +1449,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--source-id", required=True)
     run.add_argument("--kind", choices=sorted(RUN_KINDS), required=True)
     run.add_argument("--purpose", required=True)
-    run.add_argument("--command", required=True)
+    command = run.add_mutually_exclusive_group(required=True)
+    command.add_argument("--command")
+    command.add_argument("--command-file")
     run.add_argument("--expect-exit", type=int, default=0)
     run.add_argument("--timeout", type=int, default=120)
     run.add_argument("--mount", action="append", default=[])
@@ -1359,6 +1471,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.action in {
+            "question-add", "plan-unit", "next", "record", "stop-search",
+            "check-unit", "run", "review",
+        }:
+            with case_state_lock(args.cases_root, args.case_id):
+                return args.func(args)
         return args.func(args)
     except IngestionError as exc:
         print(f"ingestion-workspace: ERROR\n- {exc}", file=sys.stderr)

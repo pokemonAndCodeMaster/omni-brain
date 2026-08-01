@@ -153,13 +153,30 @@ python scripts/ingestion_workspace.py run <case-id> <question-id> \
   [--artifact '<需要保留的相对路径>']
 ```
 
-工具固定来源提交，在临时 worktree 运行并保存命令、输出和 artifact；原来源代码不被修改。只复用项目已经声明的环境，不安装依赖、不切换系统 Python、不连接未授权环境。
+单条命令使用 `--command`。多步启动、SQL 或 API 对账不要塞进多层 shell 引号；把可重放脚本保存到摄入案 `evidence/recipes/<name>.sh`，再把 `--command` 替换为：
+
+```bash
+--command-file 'evidence/recipes/<name>.sh'
+```
+
+工具固定来源提交，在临时 worktree 运行，并把命令脚本、stdout、stderr 和声明的 artifact 一起保存在本次 run 下；原来源代码不被修改。只复用项目已经声明的环境，不安装依赖、不切换系统 Python、不连接未授权环境。
 
 软件纵切通常依次取得 health、固定 API、同范围 SQL 和页面证据。比较值时所有环节必须使用同一筛选范围；页面默认日期与数据库全量范围不同，不能据此宣布数值错误或一致。
 
-把运行结论写回规范知识：说明输入范围、实际输出、环境身份和不能外推的边界。Harness 自身测试不能冒充来源项目运行结果，失败运行也不能写成已验证。
+每次运行后先把结论写回对应规范知识：说明输入范围、实际输出、环境身份和不能外推的边界；随后用已有 `record` 登记该次 run 并刷新问题状态，不重新取一批来源：
 
-**完成标准：** 需要运行证明的问题至少有一项通过的隔离运行；关键数值或行为能够在声明范围内复现，失败则有具体阻塞而不是假想命令。
+```bash
+python scripts/ingestion_workspace.py record <case-id> <question-id> \
+  --status <answered|partial|external_missing|conflict> \
+  --summary '<运行后规范知识现在能回答什么>' \
+  --run-id <run-id> \
+  --knowledge 'draft/knowledge/<area>/<page>.md' \
+  [--missing '<仍未解决的真实缺口>']
+```
+
+在这一步完成前，问题保持“运行结果待写回”，不能通过 `check-unit`。Harness 自身测试不能冒充来源项目运行结果，失败运行也不能写成已验证；应以 `partial` 等真实状态登记失败说明和下一动作。
+
+**完成标准：** 需要运行证明的问题至少有一项通过的隔离运行；所有 run 都已写回相应规范页并登记；关键数值或行为能够在声明范围内复现，失败则有具体阻塞而不是假想命令。
 
 ## 6. 收完一个问题
 
@@ -171,7 +188,7 @@ python scripts/ingestion_workspace.py run <case-id> <question-id> \
 python scripts/ingestion_workspace.py check-unit <case-id> <question-id>
 ```
 
-一次只检查一个问题，不把多个 `check-unit` 用 `&&` 串在同一命令里。失败输出应直接指出文件和原因；领域地图问题按 [domain-overview.md](assets/domain-overview.md) 的最小示例修复，不读取检查器源码猜格式。
+一次只检查一个问题，并只在该问题的正文、来源、运行写回和视图都已处理后运行一次；不要把 `check-unit` 当作边写边试的排版工具，也不要把多个检查并行或用 `&&` 串联。失败输出应直接指出文件和原因；领域地图问题按 [domain-overview.md](assets/domain-overview.md) 的最小示例修复，不读取检查器源码猜格式。
 
 它检查：计划知识是否形成、是否能从产品视图到达、相关候选是否已经处理或说明停止理由、直接依据是否存在、要求的真实运行是否通过，以及已回答页面是否仍残留“待核实/待补充”。结构问题回到对应知识页修复，不能靠改状态掩盖内容缺失。
 

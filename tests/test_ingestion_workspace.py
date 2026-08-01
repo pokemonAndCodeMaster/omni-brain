@@ -259,6 +259,18 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertIn("指标数据链路", review)
         self.assertNotIn("coverage", review)
 
+    def test_document_flow_does_not_require_a_run_or_run_integration(self) -> None:
+        case = self.start()
+        self.plan()
+        self.write_candidate(case)
+        packet = self.get_packet()
+        self.assertEqual(0, self.record_answer(packet).returncode)
+
+        status = json.loads(self.run_tool("status", "sample-case").stdout)
+        self.assertEqual([], status["questions"][0]["run_ids"])
+        self.assertEqual([], status["questions"][0]["pending_run_ids"])
+        self.assertEqual(0, self.run_tool("check-unit", "sample-case", "q-001").returncode)
+
     def test_answered_unit_rejects_stale_unknown_markers(self) -> None:
         case = self.start()
         self.plan()
@@ -354,6 +366,116 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual("fresh-run\n", (evidence / "stdout.log").read_text(encoding="utf-8"))
         self.assertEqual("ok", (evidence / "artifacts" / "generated.txt").read_text(encoding="utf-8"))
         self.assertEqual("", subprocess.run(["git", "status", "--short"], cwd=self.source, capture_output=True, text=True).stdout)
+
+    def test_command_file_run_must_be_integrated_before_unit_can_close(self) -> None:
+        case = self.start(require_git=True)
+        self.plan(require_run=True)
+        self.write_candidate(case)
+        knowledge_path = "draft/knowledge/systems/metric-flow.md"
+        packet = self.get_packet()
+        refs = [item["ref"] for item in packet["packet"]]
+        record_arguments = [
+            "record", "sample-case", "q-001",
+            "--status", "partial",
+            "--summary", "静态调用链已经形成，仍需隔离运行",
+            "--source", refs[0],
+            "--knowledge", knowledge_path,
+            "--missing", "真实运行结果尚未写回",
+            "--close-candidates", "当前源码链已经充分，剩余缺口只能由运行证明",
+        ]
+        if len(refs) > 1:
+            record_arguments.extend(["--dismiss-unused", "当前包其余文件只重复入口线索"])
+        self.assertEqual(0, self.run_tool(*record_arguments).returncode)
+
+        recipe = case / "evidence" / "recipes" / "verify.sh"
+        recipe.parent.mkdir(parents=True)
+        recipe.write_text("printf 'api=42\\nsql=42\\n'\n", encoding="utf-8")
+        run = self.run_tool(
+            "run", "sample-case", "q-001",
+            "--source-id", "app",
+            "--kind", "api",
+            "--purpose", "核对固定范围 API 与 SQL",
+            "--command-file", "evidence/recipes/verify.sh",
+        )
+        self.assertEqual(0, run.returncode, run.stderr)
+        run_payload = json.loads(run.stdout)
+        run_id = run_payload["id"]
+        evidence = case / "evidence" / "runs" / run_id
+        self.assertEqual("api=42\nsql=42\n", (evidence / "stdout.log").read_text(encoding="utf-8"))
+        self.assertTrue((evidence / "command.sh").is_file())
+
+        before_integration = self.run_tool("check-unit", "sample-case", "q-001")
+        self.assertEqual(1, before_integration.returncode)
+        self.assertIn("尚未写回规范知识", before_integration.stdout)
+
+        page = case / knowledge_path
+        page.write_text(
+            page.read_text(encoding="utf-8")
+            + "\n## 运行核对\n\n```vue\n<script setup>\n```\n\n"
+            + "**结果：** 固定范围 API 与 SQL 都返回 42，当前实验范围内一致。\n",
+            encoding="utf-8",
+        )
+        integrated = self.run_tool(
+            "record", "sample-case", "q-001",
+            "--status", "answered",
+            "--summary", "静态调用链和固定范围运行结果均已写入规范知识",
+            "--run-id", run_id,
+            "--knowledge", knowledge_path,
+        )
+        self.assertEqual(0, integrated.returncode, integrated.stderr)
+        self.assertEqual(0, self.run_tool("check-unit", "sample-case", "q-001").returncode)
+        review = (case / "review.md").read_text(encoding="utf-8")
+        self.assertNotIn("真实运行结果尚未写回", review)
+        self.assertNotIn("尚待写回知识的运行结果", review)
+
+    def test_missing_declared_artifact_preserves_failed_run_evidence(self) -> None:
+        case = self.start(require_git=True)
+        self.plan(require_run=True)
+        result = self.run_tool(
+            "run", "sample-case", "q-001",
+            "--source-id", "app",
+            "--kind", "other",
+            "--purpose", "验证缺少声明产物时仍保留命令输出",
+            "--command", "printf 'command-finished\\n'",
+            "--artifact", "missing.txt",
+        )
+        self.assertEqual(1, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertFalse(payload["evidence_complete"])
+        self.assertTrue(payload["artifact_errors"])
+        evidence = case / "evidence" / "runs" / payload["id"]
+        self.assertEqual("command-finished\n", (evidence / "stdout.log").read_text(encoding="utf-8"))
+        self.assertTrue((evidence / "run.json").is_file())
+
+    def test_parallel_mutations_do_not_lose_questions(self) -> None:
+        self.start()
+        base = [
+            sys.executable,
+            str(SCRIPT),
+            "--cases-root",
+            str(self.cases),
+            "question-add",
+            "sample-case",
+            "--text",
+        ]
+        first = subprocess.Popen(
+            [*base, "补充业务边界？"], cwd=ROOT, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True,
+        )
+        second = subprocess.Popen(
+            [*base, "补充运行路径？"], cwd=ROOT, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True,
+        )
+        first_stdout, first_stderr = first.communicate(timeout=10)
+        second_stdout, second_stderr = second.communicate(timeout=10)
+        self.assertEqual(0, first.returncode, first_stdout + first_stderr)
+        self.assertEqual(0, second.returncode, second_stdout + second_stderr)
+
+        case = json.loads(
+            (self.cases / "sample-case" / ".state" / "case.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(3, len(case["questions"]))
+        self.assertEqual({"q-001", "q-002", "q-003"}, {item["id"] for item in case["questions"]})
 
     def test_status_restores_questions_knowledge_candidates_and_next_action(self) -> None:
         self.start()

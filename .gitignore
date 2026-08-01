@@ -7,6 +7,8 @@ __pycache__/
 .ruff_cache/
 .coverage
 *.log
+!workspaces/knowledge-ingestion/**/evidence/runs/**/stdout.log
+!workspaces/knowledge-ingestion/**/evidence/runs/**/stderr.log
 *.tmp
 .env
 .env.*
