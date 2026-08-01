@@ -9,6 +9,20 @@ tags: []
 
 > 本页保存为领域目录的 `overview.md`，是领域正文的唯一规范落点。同目录 `index.md` 只链接本页和直接下级，不复制正文。
 
+同时在 `draft/config/knowledge-domains.yaml` 登记领域。每项都必须包含 `id/title/parent/scope/excludes`；根领域的 `parent` 使用 `null`，不要用自造字段代替：
+
+```yaml
+schema_version: '0.1'
+domains:
+  - id: manual-qa
+    title: 人工质检
+    parent: null
+    scope: 人工质检从任务准备到交付及其直接支撑能力
+    excludes: 自动质检和跨领域公共基础设施的内部实现
+```
+
+有子领域时，子领域 ID 以父 ID 加 `.` 延伸，例如 `quality.manual`；必须先登记父领域。`overview.md` 路径由领域目录表达，不需要在领域地图里另造 `overview` 字段。
+
 ## 一句话理解
 
 说明本领域为什么存在、评价或处理什么对象、产生什么结果。

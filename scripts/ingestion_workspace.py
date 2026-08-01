@@ -763,7 +763,13 @@ def record_result(args: argparse.Namespace) -> int:
     used = list(dict.fromkeys(args.source))
     unknown = [item for item in used if item not in active]
     if unknown:
-        raise IngestionError("record 只能引用当前小批来源：" + ", ".join(unknown))
+        available = ", ".join(active) or "（当前没有活动小批，请先 next）"
+        raise IngestionError(
+            "以下 --source 不在当前小批，不能登记："
+            + ", ".join(unknown)
+            + "；当前可登记来源："
+            + available
+        )
     unused = [item for item in active if item not in used]
     if unused and not args.dismiss_unused:
         raise IngestionError("当前小批仍有未使用来源；提供 --dismiss-unused 说明整批剩余项为何不改变答案")
@@ -832,6 +838,44 @@ def record_result(args: argparse.Namespace) -> int:
                 "dismissed_as_packet": unused,
                 "remaining_relevant_candidates": len(question["candidate_queue"]),
                 "knowledge_paths": question["knowledge_paths"],
+                "next": question["next_action"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def stop_search(args: argparse.Namespace) -> int:
+    """Close the remaining candidate queue after useful knowledge is recorded."""
+    root, case = load_case(args.cases_root, args.case_id)
+    question = question_by_id(case, args.question_id)
+    if question["active_packet"]:
+        raise IngestionError("当前小批来源尚未 record；先写入知识并登记本批结果")
+    if question["status"] == "working" or not question["knowledge_paths"]:
+        raise IngestionError("停止继续取源前，必须先 record 已形成的规范知识和当前缺口")
+    remaining = [item["ref"] for item in question["candidate_queue"]]
+    question["candidate_closure"] = {
+        "reason": args.reason.strip(),
+        "remaining_refs": remaining,
+        "recorded_at": utc_now(),
+    }
+    question["candidate_queue"] = []
+    question["next_action"] = args.next_action.strip() if args.next_action else (
+        "运行 check-unit 核对知识、产品视图、直接依据和运行证据"
+    )
+    question["updated_at"] = utc_now()
+    case["next_action"] = f"处理 {question['id']}：{question['next_action']}"
+    save_case(root, case)
+    generate_review(root, case)
+    print(
+        json.dumps(
+            {
+                "question_id": question["id"],
+                "stopped": True,
+                "closed_candidate_count": len(remaining),
+                "reason": question["candidate_closure"]["reason"],
                 "next": question["next_action"],
             },
             ensure_ascii=False,
@@ -914,6 +958,14 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
         root / "draft" / "knowledge", root / "draft" / "config" / "knowledge-domains.yaml"
     )
     errors.extend(f"知识结构：{item}" for item in report.errors)
+    if any(
+        "domain[" in item or "domain map" in item or "directory is not declared" in item
+        for item in report.errors
+    ):
+        errors.append(
+            "知识结构：领域地图每项必须包含 id/title/parent/scope/excludes；"
+            "可直接套用 .agents/skills/ingest-knowledge/assets/domain-overview.md 中的最小示例"
+        )
     warnings.extend(f"知识结构：{item}" for item in report.warnings)
     return {
         "question_id": question["id"],
@@ -1141,8 +1193,12 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
             )
         )
     lines.extend(["", "## 直接依据与真实运行", ""])
-    evidence_count = sum(len(item["evidence"]) for item in case["questions"])
-    lines.append(f"- 已登记直接来源：{evidence_count} 项。")
+    evidence_refs = {
+        evidence["ref"]
+        for question in case["questions"]
+        for evidence in question["evidence"]
+    }
+    lines.append(f"- 已登记不重复直接来源：{len(evidence_refs)} 项。")
     if case.get("runs"):
         for run in case["runs"]:
             status = "通过" if run["exit_code"] == run["expected_exit"] else "失败"
@@ -1152,13 +1208,16 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
             )
     else:
         lines.append("- 本轮尚无真实运行证据。")
-    lines.extend(["", "## 需要人工决定", ""])
-    decisions = [item for item in case["questions"] if item["status"] in {"conflict", "external_missing"}]
+    lines.extend(["", "## 仍需补充或人工决定", ""])
+    decisions = [
+        item for item in case["questions"]
+        if item["status"] in {"partial", "conflict", "external_missing"} and item["missing"]
+    ]
     if decisions:
         for question in decisions:
             lines.append(f"- **{question['id']}：** {'；'.join(question['missing'])}。")
     else:
-        lines.append("- 当前没有登记冲突或必须由外部责任方补充的事项。")
+        lines.append("- 当前没有登记缺口、冲突或必须由外部责任方补充的事项。")
     lines.extend(
         [
             "",
@@ -1258,6 +1317,15 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--close-candidates")
     record.add_argument("--next-action")
     record.set_defaults(func=record_result)
+
+    stop = subparsers.add_parser(
+        "stop-search", help="已有可用知识后，说明理由并停止为该问题继续选源"
+    )
+    stop.add_argument("case_id")
+    stop.add_argument("question_id")
+    stop.add_argument("--reason", required=True)
+    stop.add_argument("--next-action")
+    stop.set_defaults(func=stop_search)
 
     check = subparsers.add_parser("check-unit", help="核对一个问题的知识、候选、视图和运行证据")
     check.add_argument("case_id")

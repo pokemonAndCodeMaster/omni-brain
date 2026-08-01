@@ -24,12 +24,12 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_simplified_ingestion_awaiting_real_trial",
+            "implemented_simplified_ingestion_revised_after_failed_content_trial",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_simplified_question_first_slice_awaiting_trial",
+            "implemented_simplified_question_first_slice_revised_after_failed_content_trial",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
@@ -150,6 +150,9 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("只打开返回的 `absolute_path`", skill)
         self.assertIn("一个问题需要超过三篇正文", skill)
         self.assertIn("不恢复逐文件 `mark`", skill)
+        self.assertIn("目标覆盖", skill)
+        self.assertIn("stop-search", skill)
+        self.assertIn("id/title/parent/scope/excludes", (assets / "domain-overview.md").read_text(encoding="utf-8"))
         retired_assets = (
             "brief.md", "completion.yaml", "inventory.md", "questions.md",
             "reader-answers.md", "review.md",

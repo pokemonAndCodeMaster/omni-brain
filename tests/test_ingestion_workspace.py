@@ -285,6 +285,52 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(2, result.returncode)
         self.assertIn("相关候选", result.stderr)
 
+    def test_stop_search_closes_remaining_candidates_without_requerying_sources(self) -> None:
+        case = self.start()
+        self.plan()
+        self.write_candidate(case)
+        packet = self.get_packet()
+        refs = [item["ref"] for item in packet["packet"]]
+        arguments = [
+            "record", "sample-case", "q-001",
+            "--status", "partial",
+            "--summary", "已形成页面入口和 API 调用链，真实返回仍需运行",
+            "--source", refs[0],
+            "--knowledge", "draft/knowledge/systems/metric-flow.md",
+            "--missing", "真实接口返回需要隔离运行验证",
+        ]
+        if len(refs) > 1:
+            arguments.extend(["--dismiss-unused", "当前包其余文件只重复入口线索"])
+        recorded = self.run_tool(*arguments)
+        self.assertEqual(0, recorded.returncode, recorded.stderr)
+
+        stopped = self.run_tool(
+            "stop-search", "sample-case", "q-001",
+            "--reason", "剩余候选不改变已形成的调用链，运行缺口必须由来源项目验证",
+        )
+        self.assertEqual(0, stopped.returncode, stopped.stderr)
+        payload = json.loads(stopped.stdout)
+        self.assertTrue(payload["stopped"])
+
+        status = json.loads(self.run_tool("status", "sample-case").stdout)
+        self.assertEqual(0, status["questions"][0]["remaining_candidates"])
+        checked = self.run_tool("check-unit", "sample-case", "q-001")
+        self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
+        review = (case / "review.md").read_text(encoding="utf-8")
+        self.assertIn("已登记不重复直接来源：1 项", review)
+        self.assertIn("仍需补充或人工决定", review)
+        self.assertIn("真实接口返回需要隔离运行验证", review)
+
+    def test_stop_search_rejects_an_unrecorded_active_packet(self) -> None:
+        self.start()
+        self.get_packet()
+        stopped = self.run_tool(
+            "stop-search", "sample-case", "q-001",
+            "--reason", "错误地提前结束",
+        )
+        self.assertEqual(2, stopped.returncode)
+        self.assertIn("先写入知识", stopped.stderr)
+
     def test_isolated_run_uses_a_temporary_worktree_and_preserves_source(self) -> None:
         case = self.start(require_git=True)
         self.plan(require_run=True)
