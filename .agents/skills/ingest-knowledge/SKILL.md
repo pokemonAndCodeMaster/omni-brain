@@ -107,6 +107,10 @@ python scripts/ingestion_workspace.py next <case-id> <question-id> \
 
 建立来源记录时读取 [source-record.md](assets/source-record.md)。每篇规范页使用标准 Markdown 相对链接回到来源记录，并区分当前实现、当前业务决定、目标设计、历史快照和开放问题。
 
+来源是 Git 时，来源记录必须使用 `start` 或 `status` 输出中的 `git.commit`、`git.scope` 和 `git.dirty`，不能只写“本轮机器盘点”或省略版本。工具已经公开这些身份，不要为此读取 `.state/`。
+
+**新证据必须先进入正文。** 每批直接来源读完后，先比较它与当前规范页：新增的字段转换、类型、默认值、正常/边界行为、输入输出和修改入口是否已经写入；后来的直接实现推翻或深化早期概述时，立即改正文。`record --summary` 只能概括正文里已经存在的内容，不能成为事实唯一落点。
+
 完成正文后登记本批结果：
 
 ```bash
@@ -167,6 +171,8 @@ python scripts/ingestion_workspace.py run <case-id> <question-id> \
 
 软件纵切通常依次取得 health、固定 API、同范围 SQL 和页面证据。比较值时所有环节必须使用同一筛选范围；页面默认日期与数据库全量范围不同，不能据此宣布数值错误或一致。
 
+用户要求“真实例子”、异常语义或边界行为时，运行计划至少覆盖一个代表性正常对象和一个会改变结论的边界对象；全库或上级汇总只能作为补充，不能替代对象级 SQL/API/page 对账。对象由已读业务或源码证据选择，不把固定任务名写进工作流。
+
 每次运行后先把结论写回对应规范知识：说明输入范围、实际输出、环境身份和不能外推的边界；随后用已有 `record` 登记该次 run 并刷新问题状态，不重新取一批来源：
 
 ```bash
@@ -201,6 +207,8 @@ python scripts/ingestion_workspace.py check-unit <case-id> <question-id>
 ## 7. 人工审查与发布
 
 所有当前问题形成可用结果后，先回看摄入案 `goal`：逐项确认都有问题和规范知识负责；发现定位、流程、数据、算法、实现或使用结果仍无人负责时，用 `question-add` 补上，不以已有问题全部通过代替整体目标完成。随后运行：
+
+收尾前重新读取每个问题的**当前正文**，而不是只看状态摘要：确认最后一批来源和 run 的新事实已经出现，代表性正常/边界例子没有被总体汇总代替，Git 来源记录带有提交与 scope。发现缺失就先补正文，再生成审查页；不新建完成度文件。
 
 ```bash
 python scripts/ingestion_workspace.py review <case-id>

@@ -555,6 +555,25 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertIn("next", payload["questions"][0])
         self.assertTrue(payload["review"].endswith("review.md"))
 
+    def test_status_exposes_git_identity_without_reading_internal_state(self) -> None:
+        self.start(require_git=True)
+        result = self.run_tool("status", "sample-case")
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        source = payload["sources"][0]
+        expected_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=self.source,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        self.assertEqual(str(self.source), source["root"])
+        self.assertEqual("local_git", source["kind"])
+        self.assertEqual(expected_commit, source["git"]["commit"])
+        self.assertEqual(".", source["git"]["scope"])
+        self.assertFalse(source["git"]["dirty"])
+
     def test_retired_commands_are_absent(self) -> None:
         result = self.run_tool("mark", "sample-case")
         self.assertEqual(2, result.returncode)

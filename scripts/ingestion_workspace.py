@@ -285,6 +285,24 @@ def source_map(case: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {item["id"]: item for item in case.get("sources", [])}
 
 
+def public_source_identity(item: dict[str, Any]) -> dict[str, Any]:
+    payload = {
+        "id": item["id"],
+        "root": item["root"],
+        "kind": item["kind"],
+        "file_count": item["file_count"],
+        "fingerprint": item["fingerprint"],
+    }
+    git = item.get("git")
+    if isinstance(git, dict):
+        payload["git"] = {
+            "commit": git["commit"],
+            "scope": git["scope"],
+            "dirty": git["dirty"],
+        }
+    return payload
+
+
 def source_ref(source_id: str, path: str) -> str:
     return f"{source_id}:{path}"
 
@@ -391,6 +409,7 @@ def start_case(args: argparse.Namespace) -> int:
                 "case_id": args.case_id,
                 "goal": case["goal"],
                 "questions": [{"id": item["id"], "text": item["text"]} for item in case["questions"]],
+                "sources": [public_source_identity(item) for item in case["sources"]],
                 "source_files": len(manifest),
                 "user_visible": ["draft/knowledge/", "review.md"],
                 "internal_state": [".state/case.json", ".state/source-manifest.jsonl"],
@@ -1408,10 +1427,7 @@ def status_case(args: argparse.Namespace) -> int:
         "case_id": case["id"],
         "goal": case["goal"],
         "target_reader": case["target_reader"],
-        "sources": [
-            {"id": item["id"], "file_count": item["file_count"], "fingerprint": item["fingerprint"]}
-            for item in case["sources"]
-        ],
+        "sources": [public_source_identity(item) for item in case["sources"]],
         "questions": [
             {
                 "id": item["id"],
