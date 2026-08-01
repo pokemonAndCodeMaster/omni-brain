@@ -1055,7 +1055,9 @@ def check_unit(args: argparse.Namespace) -> int:
     return 0 if report["ready"] else 1
 
 
-def safe_mount(run_root: Path, source_root: Path, value: str) -> None:
+def safe_mount(
+    run_root: Path, source_root: Path, value: str, *, copy_input: bool
+) -> dict[str, Any]:
     candidate = PurePosixPath(value)
     if candidate.is_absolute() or not candidate.parts or ".." in candidate.parts:
         raise IngestionError(f"--mount 必须是来源根内相对路径：{value}")
@@ -1073,7 +1075,21 @@ def safe_mount(run_root: Path, source_root: Path, value: str) -> None:
         else:
             target.unlink()
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.symlink_to(source, target_is_directory=source.is_dir())
+    if copy_input:
+        if source.is_dir():
+            shutil.copytree(source, target, symlinks=True)
+        else:
+            shutil.copy2(source, target, follow_symlinks=False)
+        mode = "private_copy"
+    else:
+        target.symlink_to(source, target_is_directory=source.is_dir())
+        mode = "live_reference"
+    return {
+        "path": candidate.as_posix(),
+        "mode": mode,
+        "source": str(source),
+        "run_path": str(target.resolve() if copy_input else target.absolute()),
+    }
 
 
 def run_project(args: argparse.Namespace) -> int:
@@ -1104,8 +1120,20 @@ def run_project(args: argparse.Namespace) -> int:
         run_root = worktree if scope == "." else worktree / scope
         if not run_root.is_dir():
             raise IngestionError(f"隔离 worktree 中不存在来源范围：{run_root}")
+        duplicates = sorted(set(args.mount) & set(args.copy_mount))
+        if duplicates:
+            raise IngestionError(
+                "同一路径不能同时使用 --mount 和 --copy-mount：" + ", ".join(duplicates)
+            )
+        runtime_inputs: list[dict[str, Any]] = []
         for mount in args.mount:
-            safe_mount(run_root, source_root, mount)
+            runtime_inputs.append(
+                safe_mount(run_root, source_root, mount, copy_input=False)
+            )
+        for mount in args.copy_mount:
+            runtime_inputs.append(
+                safe_mount(run_root, source_root, mount, copy_input=True)
+            )
         temp_runtime = temporary / "runtime"
         temp_runtime.mkdir()
         environment = os.environ.copy()
@@ -1117,6 +1145,15 @@ def run_project(args: argparse.Namespace) -> int:
                 "XDG_CACHE_HOME": str(temp_runtime / "cache"),
                 "PYTHONDONTWRITEBYTECODE": "1",
             }
+        )
+        mount_environment: dict[str, str] = {}
+        for index, runtime_input in enumerate(runtime_inputs, start=1):
+            variable = f"OMNI_MOUNT_{index}"
+            environment[variable] = runtime_input["run_path"]
+            runtime_input["environment_variable"] = variable
+            mount_environment[runtime_input["path"]] = runtime_input["run_path"]
+        environment["OMNI_MOUNTS_JSON"] = json.dumps(
+            mount_environment, ensure_ascii=False, sort_keys=True
         )
         command_file: str | None = None
         command_file_sha256: str | None = None
@@ -1156,6 +1193,14 @@ def run_project(args: argparse.Namespace) -> int:
             timeout=args.timeout,
             env=environment,
         )
+        runtime_scope = "git_only"
+        if runtime_inputs or args.runtime_note:
+            runtime_scope = (
+                "environment_bound"
+                if any(item["mode"] == "live_reference" for item in runtime_inputs)
+                or args.runtime_note
+                else "private_snapshot"
+            )
         atomic_write_text(evidence_dir / "stdout.log", result.stdout)
         atomic_write_text(evidence_dir / "stderr.log", result.stderr)
         artifacts: list[str] = []
@@ -1198,6 +1243,10 @@ def run_project(args: argparse.Namespace) -> int:
             "stderr": str((evidence_dir / "stderr.log").relative_to(root)),
             "isolation": "temporary_git_worktree",
             "mounts": args.mount,
+            "copy_mounts": args.copy_mount,
+            "runtime_scope": runtime_scope,
+            "runtime_notes": args.runtime_note,
+            "runtime_inputs": runtime_inputs,
         }
         atomic_write_json(evidence_dir / "run.json", run_record)
         case.setdefault("runs", []).append(run_record)
@@ -1301,8 +1350,14 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
                 else "失败"
             )
             target = root / "evidence" / "runs" / run["id"] / "run.json"
+            scope_label = {
+                "git_only": "仅 Git 输入",
+                "private_snapshot": "私有输入副本",
+                "environment_bound": "环境绑定，不能当作固定基线",
+            }.get(run.get("runtime_scope"), "旧版未声明")
             lines.append(
-                f"- [{run['kind']}：{run['purpose']}]({relative_link(root / 'review.md', target)})：{status}。"
+                f"- [{run['kind']}：{run['purpose']}]({relative_link(root / 'review.md', target)})："
+                f"{status}；运行范围：{scope_label}。"
             )
     else:
         lines.append("- 本轮尚无真实运行证据。")
@@ -1455,6 +1510,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--expect-exit", type=int, default=0)
     run.add_argument("--timeout", type=int, default=120)
     run.add_argument("--mount", action="append", default=[])
+    run.add_argument("--copy-mount", action="append", default=[])
+    run.add_argument("--runtime-note", action="append", default=[])
     run.add_argument("--artifact", action="append", default=[])
     run.set_defaults(func=run_project)
 

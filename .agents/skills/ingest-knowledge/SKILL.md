@@ -149,7 +149,9 @@ python scripts/ingestion_workspace.py run <case-id> <question-id> \
   --kind <health|api|sql|page|other> \
   --purpose '<这次运行准备证明什么>' \
   --command '<可直接执行的完整命令>' \
-  [--mount '.venv'] [--mount '<项目声明的本地运行目录>'] \
+  [--mount '<必须保持存活的外部输入>'] \
+  [--copy-mount '<需要私有可写副本的依赖>'] \
+  [--runtime-note '<时钟、服务或数据快照边界>'] \
   [--artifact '<需要保留的相对路径>']
 ```
 
@@ -158,6 +160,8 @@ python scripts/ingestion_workspace.py run <case-id> <question-id> \
 ```bash
 --command-file 'evidence/recipes/<name>.sh'
 ```
+
+运行前分清 Git 内事实与非 Git 输入。`--mount` 只引用必须保持存活的 socket/服务或运行目录；`--copy-mount` 为会写缓存的依赖创建私有副本。recipe 使用 `OMNI_MOUNT_1`、`OMNI_MOUNT_2` 等绝对路径，不在临时 worktree 中猜相对 socket；依赖工具能把缓存改到 `$TMPDIR` 时优先改缓存，避免复制大目录。时钟、远程服务、未入 Git 数据快照等不能私有复制的边界用 `--runtime-note` 明示。`run.json` 保存输入模式与运行范围；`runtime_scope=environment_bound` 时只能声称“本次环境成立”，不能声称已可重放固定基线。
 
 工具固定来源提交，在临时 worktree 运行，并把命令脚本、stdout、stderr 和声明的 artifact 一起保存在本次 run 下；原来源代码不被修改。只复用项目已经声明的环境，不安装依赖、不切换系统 Python、不连接未授权环境。
 

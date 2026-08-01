@@ -367,6 +367,75 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual("ok", (evidence / "artifacts" / "generated.txt").read_text(encoding="utf-8"))
         self.assertEqual("", subprocess.run(["git", "status", "--short"], cwd=self.source, capture_output=True, text=True).stdout)
 
+    def test_live_runtime_input_is_identified_and_exposed_by_absolute_path(self) -> None:
+        case = self.start(require_git=True)
+        self.plan(require_run=True)
+        command = (
+            f"{sys.executable} -c \"import os; from pathlib import Path; "
+            "p=Path(os.environ['OMNI_MOUNT_1']); "
+            "print(p.is_absolute(), (p/'db.bin').read_text())\""
+        )
+        result = self.run_tool(
+            "run", "sample-case", "q-001",
+            "--source-id", "app",
+            "--kind", "health",
+            "--purpose", "读取来源项目声明的外部运行数据",
+            "--command", command,
+            "--mount", ".runtime",
+            "--runtime-note", "运行结果依赖当前外部服务状态",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual("environment_bound", payload["runtime_scope"])
+        self.assertEqual(["运行结果依赖当前外部服务状态"], payload["runtime_notes"])
+        runtime_input = payload["runtime_inputs"][0]
+        self.assertEqual("live_reference", runtime_input["mode"])
+        self.assertEqual("OMNI_MOUNT_1", runtime_input["environment_variable"])
+        evidence = case / "evidence" / "runs" / payload["id"]
+        self.assertIn("True runtime-data", (evidence / "stdout.log").read_text(encoding="utf-8"))
+        self.assertIn(
+            "运行范围：环境绑定，不能当作固定基线",
+            (case / "review.md").read_text(encoding="utf-8"),
+        )
+
+    def test_copy_mount_is_private_writable_and_does_not_change_source(self) -> None:
+        self.start(require_git=True)
+        self.plan(require_run=True)
+        command = (
+            f"{sys.executable} -c \"import os; from pathlib import Path; "
+            "p=Path(os.environ['OMNI_MOUNT_1'])/'db.bin'; "
+            "p.write_text('private-change'); print(p.read_text())\""
+        )
+        result = self.run_tool(
+            "run", "sample-case", "q-001",
+            "--source-id", "app",
+            "--kind", "page",
+            "--purpose", "在私有可写依赖副本中运行工具",
+            "--command", command,
+            "--copy-mount", ".runtime",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual("private_snapshot", payload["runtime_scope"])
+        runtime_input = payload["runtime_inputs"][0]
+        self.assertEqual("private_copy", runtime_input["mode"])
+        self.assertEqual(b"runtime-data", (self.source / ".runtime" / "db.bin").read_bytes())
+
+    def test_same_runtime_path_cannot_be_live_and_copied(self) -> None:
+        self.start(require_git=True)
+        self.plan(require_run=True)
+        result = self.run_tool(
+            "run", "sample-case", "q-001",
+            "--source-id", "app",
+            "--kind", "other",
+            "--purpose", "拒绝含糊的运行输入模式",
+            "--command", "true",
+            "--mount", ".runtime",
+            "--copy-mount", ".runtime",
+        )
+        self.assertEqual(2, result.returncode)
+        self.assertIn("不能同时使用", result.stderr)
+
     def test_command_file_run_must_be_integrated_before_unit_can_close(self) -> None:
         case = self.start(require_git=True)
         self.plan(require_run=True)
