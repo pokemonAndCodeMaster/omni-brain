@@ -26,7 +26,7 @@ from typing import Any
 from knowledge_check import validate_bundle
 
 
-SCHEMA_VERSION = "1.2"
+SCHEMA_VERSION = "1.3"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 QUESTION_ID_RE = re.compile(r"^q-[0-9]{3}$")
 UNIT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -87,6 +87,8 @@ PLAN_LENSES = {
     "reality",
     "navigation",
 }
+PROVENANCE_START = "<!-- omni-brain:incremental-provenance:start -->"
+PROVENANCE_END = "<!-- omni-brain:incremental-provenance:end -->"
 
 
 class IngestionError(Exception):
@@ -135,6 +137,79 @@ def canonical_digest(value: Any) -> str:
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
     return digest_bytes(encoded)
+
+
+def knowledge_baseline() -> dict[str, Any]:
+    """Snapshot the formal knowledge that a new candidate must inherit."""
+    root = project_root()
+    paths = sorted(path for path in (root / "knowledge").rglob("*") if path.is_file())
+    domain_map = root / "config" / "knowledge-domains.yaml"
+    if domain_map.is_file():
+        paths.append(domain_map)
+    entries = [
+        {
+            "path": path.relative_to(root).as_posix(),
+            "sha256": digest_bytes(path.read_bytes()),
+            "bytes": path.stat().st_size,
+        }
+        for path in sorted(paths)
+    ]
+    substantive = [
+        item for item in entries
+        if item["path"].startswith("knowledge/")
+        and not item["path"].endswith("/index.md")
+        and item["path"] not in {"knowledge/index.md", "knowledge/log.md"}
+    ]
+    return {
+        "files": entries,
+        "file_count": len(entries),
+        "substantive_file_count": len(substantive),
+        "fingerprint": canonical_digest(entries),
+    }
+
+
+def baseline_paths(case: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {item["path"]: item for item in case.get("baseline", {}).get("files", [])}
+
+
+def candidate_manifest(root: Path) -> dict[str, dict[str, Any]]:
+    entries: dict[str, dict[str, Any]] = {}
+    paths = sorted(path for path in (root / "draft" / "knowledge").rglob("*") if path.is_file())
+    domain_map = root / "draft" / "config" / "knowledge-domains.yaml"
+    if domain_map.is_file():
+        paths.append(domain_map)
+    for path in sorted(paths):
+        relative = path.relative_to(root / "draft").as_posix()
+        entries[relative] = {
+            "path": relative,
+            "sha256": digest_bytes(path.read_bytes()),
+            "bytes": path.stat().st_size,
+        }
+    return entries
+
+
+def candidate_changes(root: Path, case: dict[str, Any]) -> dict[str, list[str]]:
+    before = baseline_paths(case)
+    after = candidate_manifest(root)
+    return {
+        "added": sorted(set(after) - set(before)),
+        "modified": sorted(
+            path for path in set(before) & set(after)
+            if before[path]["sha256"] != after[path]["sha256"]
+        ),
+        "deleted": sorted(set(before) - set(after)),
+    }
+
+
+def governed_candidate_path(path: str) -> bool:
+    """Return whether a changed path must be owned by a planned topic or view."""
+    if not path.startswith("knowledge/"):
+        return False
+    if path == "knowledge/log.md" or path.endswith("/index.md"):
+        return False
+    if path.startswith("knowledge/sources/"):
+        return False
+    return True
 
 
 def case_root(cases_root: Path, case_id: str, must_exist: bool = True) -> Path:
@@ -636,23 +711,18 @@ def resolve_source(case: dict[str, Any], value: str) -> Path:
     return resolved
 
 
-def scaffold_case(root: Path) -> None:
-    knowledge = root / "draft" / "knowledge"
-    for relative, title in (
-        ("index.md", "# 候选知识入口\n"),
-        ("domains/index.md", "# 领域知识\n"),
-        ("capabilities/index.md", "# 公共能力\n"),
-        ("systems/index.md", "# 系统知识\n"),
-        ("sources/index.md", "# 来源记录\n"),
-        ("views/index.md", "# 产品视图\n"),
-        ("views/by-domain/index.md", "# 领域视图\n"),
-        ("views/by-journey/index.md", "# 旅程与任务视图\n"),
-    ):
-        atomic_write_text(knowledge / relative, title + "\n")
+def scaffold_case(root: Path) -> dict[str, Any]:
+    """Create an isolated candidate as an exact child of current formal knowledge."""
+    baseline = knowledge_baseline()
+    source_knowledge = project_root() / "knowledge"
+    target_knowledge = root / "draft" / "knowledge"
+    target_knowledge.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_knowledge, target_knowledge)
     domain_map = project_root() / "config" / "knowledge-domains.yaml"
     target = root / "draft" / "config" / "knowledge-domains.yaml"
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(domain_map, target)
+    return baseline
 
 
 def new_question(number: int, text: str) -> dict[str, Any]:
@@ -688,7 +758,7 @@ def start_case(args: argparse.Namespace) -> int:
         raise IngestionError("至少需要一个 --question；问题主线不能由工具猜测")
     sources, manifest = scan_sources(args.source)
     root.mkdir(parents=True, exist_ok=True)
-    scaffold_case(root)
+    baseline = scaffold_case(root)
     now = utc_now()
     case = {
         "schema_version": SCHEMA_VERSION,
@@ -698,6 +768,7 @@ def start_case(args: argparse.Namespace) -> int:
         "target_reader": args.reader.strip(),
         "boundaries": [item.strip() for item in args.boundary if item.strip()],
         "sources": sources,
+        "baseline": baseline,
         "questions": [new_question(index, text) for index, text in enumerate(questions, 1)],
         "stage": "focused" if args.mode == "focused" else "mapping",
         "cursor": {"item_type": None, "item_id": None},
@@ -727,6 +798,11 @@ def start_case(args: argparse.Namespace) -> int:
                 "goal": case["goal"],
                 "questions": [{"id": item["id"], "text": item["text"]} for item in case["questions"]],
                 "sources": [public_source_identity(item) for item in case["sources"]],
+                "baseline": {
+                    "file_count": baseline["file_count"],
+                    "substantive_file_count": baseline["substantive_file_count"],
+                    "fingerprint": baseline["fingerprint"],
+                },
                 "source_files": len(manifest),
                 "material_groups": len(case["material_groups"]),
                 "user_visible": ["draft/knowledge/", "review.md"],
@@ -1282,6 +1358,16 @@ def add_topic(args: argparse.Namespace) -> int:
         raise IngestionError("只有材料发现完成后才能规划知识主题")
     validate_id(args.topic_id, "topic id", UNIT_ID_RE)
     path = normalize_knowledge_path(args.path)
+    canonical_path = path.removeprefix("draft/")
+    existed_in_baseline = canonical_path in baseline_paths(case)
+    if args.action == "create" and existed_in_baseline:
+        raise IngestionError(
+            f"create 只能用于父知识中不存在的落点；现有页面请使用 update 或 merge：{path}"
+        )
+    if args.action in {"update", "merge"} and not existed_in_baseline:
+        raise IngestionError(
+            f"{args.action} 只能用于父知识中已经存在的落点；新页面请使用 create：{path}"
+        )
     finding_ids = list(dict.fromkeys(args.finding))
     if not finding_ids:
         raise IngestionError("知识主题至少关联一个读后发现")
@@ -1423,6 +1509,18 @@ def record_topic(args: argparse.Namespace) -> int:
     path = root / topic["path"]
     if not path.is_file():
         raise IngestionError(f"计划的规范知识尚未形成：{topic['path']}")
+    canonical_path = topic["path"].removeprefix("draft/")
+    baseline = baseline_paths(case)
+    if topic["action"] == "create" and canonical_path in baseline:
+        raise IngestionError(f"create 落点已经存在于父知识：{topic['path']}")
+    if topic["action"] in {"update", "merge"}:
+        original = baseline.get(canonical_path)
+        if original is None:
+            raise IngestionError(f"{topic['action']} 落点不在父知识中：{topic['path']}")
+        if digest_bytes(path.read_bytes()) == original["sha256"]:
+            raise IngestionError(
+                f"{topic['action']} 已声明，但候选正文与父知识完全相同：{topic['path']}"
+            )
     finding_sections = parse_key_values(args.section, "--section")
     assigned_findings = set(topic["finding_ids"])
     unknown_findings = set(finding_sections) - assigned_findings
@@ -2054,6 +2152,7 @@ def document_title(path: Path) -> str:
 
 def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
     generate_complete_source_index(root, case)
+    changes = candidate_changes(root, case)
     views = sorted(
         path for path in (root / "draft" / "knowledge" / "views").rglob("*.md")
         if path.name != "index.md"
@@ -2104,6 +2203,25 @@ def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
         )
     if not case["topics"]:
         lines.append("| 尚未形成 | 尚未形成知识目录 | - | - | - |")
+
+    lines.extend(
+        [
+            "",
+            "## 父知识到候选知识的变化",
+            "",
+            f"- **父知识指纹：** `{case['baseline']['fingerprint']}`；"
+            f"**父版本文件：** {case['baseline']['file_count']} 个。",
+            f"- **实际变化：** 新增 {len(changes['added'])} 个，修改 {len(changes['modified'])} 个，"
+            f"删除 {len(changes['deleted'])} 个。",
+            "",
+        ]
+    )
+    for label, key in (("新增", "added"), ("修改", "modified"), ("删除", "deleted")):
+        values = changes[key]
+        if values:
+            lines.append(f"- **{label}：** " + "、".join(f"`{item}`" for item in values))
+    if not any(changes.values()):
+        lines.append("- 候选与父知识尚无内容变化。")
 
     counts = Counter(item["status"] for item in case["material_groups"])
     lines.extend(
@@ -2158,16 +2276,25 @@ def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
 def generate_complete_source_index(root: Path, case: dict[str, Any]) -> None:
     """Build the user-facing provenance view from already validated finding state."""
     target = root / "draft" / "knowledge" / "sources" / "index.md"
-    lines = [
-        "# 直接材料与结论定位",
-        "",
-        "本页由摄入工作台从已校验的来源、读后结论和正文落点重建。它只用于追溯，不能代替规范正文。",
-        "",
-        "## 固定材料范围",
+    incremental = bool(case.get("baseline", {}).get("substantive_file_count", 0))
+    if incremental and target.is_file():
+        previous = target.read_text(encoding="utf-8")
+        if PROVENANCE_START in previous:
+            previous = previous.split(PROVENANCE_START, 1)[0].rstrip()
+        lines = [*previous.splitlines(), "", PROVENANCE_START, ""]
+    else:
+        lines = [
+            "# 直接材料与结论定位",
+            "",
+            "本页由摄入工作台从已校验的来源、读后结论和正文落点重建。它只用于追溯，不能代替规范正文。",
+            "",
+        ]
+    lines.extend([
+        "## 本次摄入的材料范围" if incremental else "## 固定材料范围",
         "",
         "| 来源 ID | 固定位置 | 文件数 | 指纹 |",
         "|---|---|---:|---|",
-    ]
+    ])
     for source in case["sources"]:
         lines.append(
             f"| `{source['id']}` | `{source['root']}` | {source['file_count']} | `{source['fingerprint']}` |"
@@ -2175,7 +2302,7 @@ def generate_complete_source_index(root: Path, case: dict[str, Any]) -> None:
     if not case["sources"]:
         lines.append("| 无 | 无 | 0 | 无 |")
 
-    lines.extend(["", "## 规范知识与直接材料", ""])
+    lines.extend(["", "## 本次结论与规范知识落点" if incremental else "## 规范知识与直接材料", ""])
     for topic in case["topics"]:
         topic_path = root / topic["path"]
         topic_link = relative_link(target, topic_path) if topic_path.is_file() else topic["path"]
@@ -2216,6 +2343,8 @@ def generate_complete_source_index(root: Path, case: dict[str, Any]) -> None:
             "",
         ]
     )
+    if incremental:
+        lines.extend([PROVENANCE_END, ""])
     atomic_write_text(target, "\n".join(lines))
 
 
@@ -2339,6 +2468,26 @@ def review_case(args: argparse.Namespace) -> int:
         unfinished = [item["id"] for item in case["topics"] if item["status"] != "ready"]
         if unfinished:
             errors.append("以下知识主题尚未完成：" + ", ".join(unfinished))
+        changes = candidate_changes(root, case)
+        if changes["deleted"]:
+            errors.append(
+                "当前增量切片不允许删除父知识文件；请恢复或提交新的退役方案："
+                + ", ".join(changes["deleted"])
+            )
+        planned = {topic["path"].removeprefix("draft/") for topic in case["topics"]}
+        planned.update(
+            path.removeprefix("draft/")
+            for topic in case["topics"]
+            for path in topic["view_paths"]
+        )
+        unplanned = sorted(
+            path for path in changes["added"] + changes["modified"]
+            if governed_candidate_path(path) and path not in planned
+        )
+        if unplanned:
+            errors.append(
+                "以下正文或产品视图发生变化但没有知识主题负责：" + ", ".join(unplanned)
+            )
         report = validate_bundle(
             root / "draft" / "knowledge", root / "draft" / "config" / "knowledge-domains.yaml"
         )
@@ -2402,6 +2551,12 @@ def status_case(args: argparse.Namespace) -> int:
             "findings": len(case["findings"]),
             "knowledge_topics": dict(sorted(topic_counts.items())),
             "plan_review_passed": bool(case["plan_review"].get("passed")),
+            "baseline": {
+                "file_count": case["baseline"]["file_count"],
+                "substantive_file_count": case["baseline"]["substantive_file_count"],
+                "fingerprint": case["baseline"]["fingerprint"],
+            },
+            "candidate_changes": candidate_changes(root, case),
             "review": str(root / "review.md"),
             "next": case["next_action"],
         }

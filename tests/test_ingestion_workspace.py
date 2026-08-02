@@ -376,6 +376,51 @@ class IngestionWorkspaceTest(unittest.TestCase):
         )
         self.assertEqual([f"{source_ref}#file"], case["findings"][0]["anchors"])
 
+    def test_start_inherits_formal_knowledge_and_records_parent_identity(self) -> None:
+        case = self.start_complete()
+        state = json.loads((case / ".state" / "case.json").read_text(encoding="utf-8"))
+        baseline = state["baseline"]
+        self.assertGreater(baseline["file_count"], 0)
+        self.assertEqual(64, len(baseline["fingerprint"]))
+        self.assertEqual(
+            (ROOT / "knowledge" / "index.md").read_bytes(),
+            (case / "draft" / "knowledge" / "index.md").read_bytes(),
+        )
+        self.assertEqual(
+            (ROOT / "config" / "knowledge-domains.yaml").read_bytes(),
+            (case / "draft" / "config" / "knowledge-domains.yaml").read_bytes(),
+        )
+        self.assertEqual(
+            ["case.json", "source-manifest.jsonl"],
+            sorted(path.name for path in (case / ".state").iterdir()),
+        )
+
+    def test_incremental_topic_actions_must_match_parent_paths(self) -> None:
+        self.start_complete()
+        findings = self.finish_complete_discovery()
+        common = [
+            "--title", "系统知识入口",
+            "--purpose", "把新增发现有机融入父知识",
+            "--finding", findings[0],
+            "--view", "draft/knowledge/views/by-domain/metric-flow.md",
+        ]
+        create_over_existing = self.run_tool(
+            "topic-add", "complete-case", "existing-as-create",
+            *common,
+            "--action", "create",
+            "--path", "draft/knowledge/log.md",
+        )
+        self.assertEqual(2, create_over_existing.returncode)
+        self.assertIn("现有页面请使用 update 或 merge", create_over_existing.stderr)
+        update_missing = self.run_tool(
+            "topic-add", "complete-case", "missing-as-update",
+            *common,
+            "--action", "update",
+            "--path", "draft/knowledge/systems/new-page.md",
+        )
+        self.assertEqual(2, update_missing.returncode)
+        self.assertIn("新页面请使用 create", update_missing.stderr)
+
     def test_narrative_documents_remain_separate_but_keep_links(self) -> None:
         docs = self.source / "docs"
         docs.mkdir()
