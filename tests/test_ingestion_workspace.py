@@ -366,20 +366,13 @@ class IngestionWorkspaceTest(unittest.TestCase):
         )
         self.assertEqual(0, updated.returncode, updated.stderr)
         self.assertTrue(json.loads(updated.stdout)["updated"])
-        missing_outcome = self.run_tool(
-            "plan-review", "complete-case",
-            "--lens", "software=metric-flow",
-        )
-        self.assertEqual(2, missing_outcome.returncode)
-        self.assertIn("缺少读者结果", missing_outcome.stderr)
         incomplete = self.run_tool(
             "plan-review", "complete-case",
-            "--lens", "software=metric-flow :: 当前可说明入口到输出的软件链，完整部署与生产运行环境仍然未知",
+            "--lens", "software=metric-flow",
         )
         self.assertEqual(1, incomplete.returncode)
         report = json.loads(incomplete.stdout)["plan_review"]
         self.assertTrue(any("读者理解角度" in item for item in report["issues"]))
-        self.assertIn("完整部署", report["reader_outcomes"]["software"])
 
     def test_complete_flow_reaches_publish_review_with_one_cursor(self) -> None:
         case = self.start_complete()
@@ -406,20 +399,13 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(0, self.run_tool(*topic_args).returncode)
         lenses: list[str] = []
         for lens in ("position", "lifecycle", "data", "rules", "software", "shared", "reality", "navigation"):
-            lenses.extend(
-                [
-                    "--lens",
-                    f"{lens}=metric-flow :: 该主题可说明指标输入、转换与输出，范围外的生产运行和责任信息仍然未知",
-                ]
-            )
+            lenses.extend(["--lens", f"{lens}=metric-flow"])
         reviewed = self.run_tool("plan-review", "complete-case", *lenses)
         self.assertEqual(0, reviewed.returncode, reviewed.stderr)
         first = json.loads(self.run_tool("next", "complete-case").stdout)
         second = json.loads(self.run_tool("next", "complete-case").stdout)
         self.assertEqual("metric-flow", first["current"]["id"])
         self.assertEqual(first["current"]["id"], second["current"]["id"])
-        self.assertEqual(8, len(first["reader_outcomes"]))
-        self.assertTrue(all(item["outcome"] for item in first["reader_outcomes"]))
         journey = case / "draft" / "knowledge" / "views" / "by-journey" / "metric-flow.md"
         journey.write_text(
             "---\ntype: Navigation View\ntitle: 空旅程\ndescription: 暂未链接正文\n---\n\n# 空旅程\n",
@@ -438,8 +424,6 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual("publish_ready", status["stage"])
         review_text = (case / "review.md").read_text(encoding="utf-8")
         self.assertIn("知识目录与完成状态", review_text)
-        self.assertIn("读者结果复核", review_text)
-        self.assertIn("范围外的生产运行", review_text)
         self.assertIn("材料范围与读后发现", review_text)
 
     def test_next_returns_a_small_ranked_packet_and_import_neighbour(self) -> None:

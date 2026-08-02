@@ -684,13 +684,7 @@ def start_case(args: argparse.Namespace) -> int:
         "material_groups": [],
         "findings": [],
         "topics": [],
-        "plan_review": {
-            "passed": False,
-            "lenses": {},
-            "reader_outcomes": {},
-            "not_applicable": {},
-            "issues": [],
-        },
+        "plan_review": {"passed": False, "lenses": {}, "not_applicable": {}, "issues": []},
         "created_at": now,
         "updated_at": now,
         "next_action": (
@@ -1098,22 +1092,13 @@ def next_complete_item(root: Path, case: dict[str, Any]) -> int:
     elif cursor["item_type"] == "knowledge_topic":
         topic = topic_by_id(case, cursor["item_id"])
         findings = [finding_by_id(case, item) for item in topic["finding_ids"]]
-        reader_outcomes = [
-            {
-                "lens": lens,
-                "outcome": case["plan_review"].get("reader_outcomes", {}).get(lens, ""),
-            }
-            for lens, topic_ids in case["plan_review"].get("lenses", {}).items()
-            if topic["id"] in topic_ids
-        ]
         payload = {
             "stage": case["stage"],
             "current": topic,
             "findings": findings,
-            "reader_outcomes": reader_outcomes,
             "writing_rule": (
-                "把读后发现充分内化到计划落点，并兑现本主题承担的读者结果及未知边界；"
-                "同步形成计划中的产品视图，引用负责追溯，不能代替正文"
+                "把读后发现充分内化到计划落点，并同步形成计划中的产品视图；"
+                "引用负责追溯，不能代替正文"
             ),
             "next": case["next_action"],
         }
@@ -1233,13 +1218,7 @@ def reopen_material(args: argparse.Namespace) -> int:
     group["status"] = "partial"
     group["reopen_reason"] = args.reason.strip()
     group["updated_at"] = utc_now()
-    case["plan_review"] = {
-        "passed": False,
-        "lenses": {},
-        "reader_outcomes": {},
-        "not_applicable": {},
-        "issues": [],
-    }
+    case["plan_review"] = {"passed": False, "lenses": {}, "not_applicable": {}, "issues": []}
     refresh_complete_cursor(case)
     save_case(root, case)
     print(json.dumps({"group_id": group["id"], "already_reopened": False, "stage": case["stage"], "next": case["next_action"]}, ensure_ascii=False, indent=2))
@@ -1280,13 +1259,7 @@ def add_topic(args: argparse.Namespace) -> int:
             raise IngestionError(f"规范知识落点已由其他主题使用：{path}")
         existing.clear()
         existing.update(topic)
-        case["plan_review"] = {
-            "passed": False,
-            "lenses": {},
-            "reader_outcomes": {},
-            "not_applicable": {},
-            "issues": [],
-        }
+        case["plan_review"] = {"passed": False, "lenses": {}, "not_applicable": {}, "issues": []}
         save_case(root, case)
         print(json.dumps({"topic": existing, "already_recorded": False, "updated": True, "next": "继续补全目录；完成后运行 plan-review"}, ensure_ascii=False, indent=2))
         return 0
@@ -1311,39 +1284,23 @@ def parse_key_values(values: list[str], label: str) -> dict[str, str]:
     return result
 
 
-def parse_lens_reviews(values: list[str]) -> tuple[dict[str, list[str]], dict[str, str]]:
-    raw = parse_key_values(values, "--lens")
-    lens_topics: dict[str, list[str]] = {}
-    reader_outcomes: dict[str, str] = {}
-    for lens, value in raw.items():
-        topic_value, separator, outcome = value.partition("::")
-        if not separator:
-            raise IngestionError(
-                f"复核角度 {lens} 缺少读者结果；使用 "
-                "<lens>=<topic-id>[,<topic-id>] :: <最大安全答案与仍未知边界>"
-            )
-        topics = [item.strip() for item in topic_value.split(",") if item.strip()]
-        outcome = outcome.strip()
-        if not outcome:
-            raise IngestionError(f"复核角度 {lens} 的读者结果为空，需说明可回答内容和未知边界")
-        lens_topics[lens] = topics
-        reader_outcomes[lens] = outcome
-    return lens_topics, reader_outcomes
-
-
 def review_knowledge_plan(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
     ensure_complete(case)
     if case["stage"] != "planning":
         raise IngestionError("当前尚未进入知识目录复核阶段")
-    lens_topics, reader_outcomes = parse_lens_reviews(args.lens)
+    lens_values = parse_key_values(args.lens, "--lens")
     not_applicable = parse_key_values(args.not_applicable, "--not-applicable")
-    unknown_lenses = (set(lens_topics) | set(not_applicable)) - PLAN_LENSES
+    unknown_lenses = (set(lens_values) | set(not_applicable)) - PLAN_LENSES
     if unknown_lenses:
         raise IngestionError("未知复核角度：" + ", ".join(sorted(unknown_lenses)))
-    overlap = set(lens_topics) & set(not_applicable)
+    overlap = set(lens_values) & set(not_applicable)
     if overlap:
         raise IngestionError("同一复核角度不能同时映射和排除：" + ", ".join(sorted(overlap)))
+    lens_topics = {
+        lens: [item.strip() for item in value.split(",") if item.strip()]
+        for lens, value in lens_values.items()
+    }
     topic_ids = {item["id"] for item in case["topics"]}
     errors: list[str] = []
     if not case["topics"]:
@@ -1370,7 +1327,6 @@ def review_knowledge_plan(args: argparse.Namespace) -> int:
     report = {
         "passed": not errors,
         "lenses": lens_topics,
-        "reader_outcomes": reader_outcomes,
         "not_applicable": not_applicable,
         "issues": errors,
         "reviewed_at": utc_now(),
@@ -2049,25 +2005,6 @@ def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
         )
     if not case["topics"]:
         lines.append("| 尚未形成 | 尚未形成知识目录 | - | - | - |")
-
-    reader_outcomes = case.get("plan_review", {}).get("reader_outcomes", {})
-    if reader_outcomes:
-        lines.extend(
-            [
-                "",
-                "## 读者结果复核",
-                "",
-                "这些结果是写作前根据已读材料形成的最大安全答案与未知边界；人工审查时应核对正文和产品视图是否真正兑现。",
-                "",
-                "| 理解角度 | 承担主题 | 最大安全答案与未知边界 |",
-                "|---|---|---|",
-            ]
-        )
-        for lens, outcome in reader_outcomes.items():
-            topic_ids = ", ".join(case["plan_review"].get("lenses", {}).get(lens, []))
-            lines.append(
-                f"| {lens} | {topic_ids} | {outcome.replace('|', chr(92) + '|')} |"
-            )
 
     counts = Counter(item["status"] for item in case["material_groups"])
     lines.extend(
