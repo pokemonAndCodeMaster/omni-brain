@@ -2599,6 +2599,8 @@ def review_case(args: argparse.Namespace) -> int:
             case["stage"] = "publish_ready"
             case["next_action"] = "请用户审查候选知识、产品视图和 review.md，决定发布或退回"
         else:
+            case["stage"] = "reviewing"
+            case["cursor"] = {"item_type": None, "item_id": None}
             case["next_action"] = (
                 "先按 last_review_issues 修正候选；若问题来自漏规划页面或导航，"
                 "运行 plan-reopen 回到目录规划，不重读材料"

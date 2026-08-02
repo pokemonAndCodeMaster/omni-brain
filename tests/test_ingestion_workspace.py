@@ -689,6 +689,13 @@ class IngestionWorkspaceTest(unittest.TestCase):
         final_review = self.run_tool("review", "complete-case")
         self.assertEqual(0, final_review.returncode, final_review.stdout + final_review.stderr)
         self.assertTrue(json.loads(final_review.stdout)["ready"])
+        extra.write_text("# 损坏的视图\n", encoding="utf-8")
+        regressed = self.run_tool("review", "complete-case")
+        self.assertEqual(1, regressed.returncode)
+        self.assertEqual(
+            "reviewing",
+            json.loads(self.run_tool("status", "complete-case").stdout)["stage"],
+        )
 
     def test_next_returns_a_small_ranked_packet_and_import_neighbour(self) -> None:
         self.start()
