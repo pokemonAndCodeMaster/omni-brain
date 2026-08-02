@@ -59,6 +59,11 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不得绕过它递归搜索", contract)
         self.assertIn("临时 Git worktree", contract)
 
+    def test_existing_knowledge_queries_do_not_trigger_ingestion(self) -> None:
+        contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("浏览、学习、查询或回答已有正式/候选知识", contract)
+        self.assertIn("不加载 `ingest-knowledge`", contract)
+
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in ("task-knowledge-prep", "ingest-knowledge"):
             path = ROOT / f".agents/skills/{name}/SKILL.md"
