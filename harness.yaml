@@ -1,12 +1,12 @@
 schema_version: '0.4'
 name: omni-brain-harness
 release_channel: experiment
-release_date: '2026-08-01'
+release_date: '2026-08-02'
 roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: implemented_material_map_plan_review_candidate
+  status: foundational_content_accepted_candidate_not_published
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,21 +41,21 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: implemented_material_map_plan_review_candidate
+    adoption: verified_at_foundational_content_slice_not_released
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
       - scripts/knowledge_check.py
     limits:
-      - 宽范围完整整理只按路径、完全重复、文档链接和代码导入建立材料组，不在读前判断现实身份
-      - 材料组当前以最多 12 个文件且约 100 KB 为首版容量边界，只在首个真实基础文档材料包检查过
-      - 读后发现、知识主题和目录复核仍由 Agent 语义登记，工具只能校验顺序、引用和一致性，不能判断业务真伪
+      - 宽范围完整整理把不重复叙述文档作为独立审阅单元；完全重复仍合并，代码与配置按有界依赖组阅读
+      - 读后发现、必要细节、知识归属和正文表达仍由 Agent 语义完成；工具只能校验来源、顺序、唯一归属、真实标题和一致性
+      - 完整模式的来源追溯页从已校验发现和正文落点重建，不由模型维护第二份路径清单
       - 聚焦问题召回只使用关键词、标题、正文命中和有限 import，不包含向量或完整代码图
       - 隔离运行支持现场只读引用和私有可写副本；环境绑定结果不能冒充固定基线
       - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
       - 只读检查不判断业务真伪或内容充分性
-      - 聚焦代码摄入已达到当前用例接受线；新的完整整理路线只有确定性测试和真实材料地图证据
-      - 基础文档内容质量、跨模型稳定性、正式发布和增量演进仍未验证
+      - 聚焦代码和宽范围完整整理均有当前内容接受证据；完整整理证据仍限于一批固定真实材料和单次模型运行
+      - 人工发布、增量演进、跨模型稳定性和过程成本优化仍未验证
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:

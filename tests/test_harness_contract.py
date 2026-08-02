@@ -20,21 +20,21 @@ class HarnessContractTest(unittest.TestCase):
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_ingestion_is_implemented_without_claiming_verified(self) -> None:
+    def test_m1_ingestion_declares_only_scoped_verification(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "implemented_material_map_plan_review_candidate",
+            "foundational_content_accepted_candidate_not_published",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "implemented_material_map_plan_review_candidate",
+            "verified_at_foundational_content_slice_not_released",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
         self.assertIn("scripts/ingestion_workspace.py", ingestion["entrypoints"])
-        self.assertNotIn("verified", ingestion["adoption"])
+        self.assertIn("not_released", ingestion["adoption"])
 
     def test_startup_context_does_not_expose_eval_history(self) -> None:
         startup = "\n".join(
@@ -55,7 +55,7 @@ class HarnessContractTest(unittest.TestCase):
 
     def test_root_contract_keeps_ingestion_source_reads_in_current_packet(self) -> None:
         contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        self.assertIn("先用工作台 `next` 取得当前小批来源", contract)
+        self.assertIn("先用工作台 `next` 取得当前材料单元、主题或聚焦小批", contract)
         self.assertIn("不得绕过它递归搜索", contract)
         self.assertIn("临时 Git worktree", contract)
 
@@ -105,8 +105,8 @@ class HarnessContractTest(unittest.TestCase):
         )
 
         self.assertIn("## 知识内容优先", agents)
-        self.assertIn("以一个读者问题为最小交付单位", agents)
-        self.assertIn("一小批直接来源", agents)
+        self.assertIn("每项发现只表达一个可复用结论", agents)
+        self.assertIn("一个明确读者问题为最小交付单位", agents)
 
         expected_steps = (
             "## 1. 选择最低充分模式",
