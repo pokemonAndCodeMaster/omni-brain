@@ -165,7 +165,9 @@ class HarnessContractTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("不维护逐文件阅读打卡", skill)
-        self.assertIn("同一个当前组", skill)
+        self.assertIn("同一个当前审视单元", skill)
+        self.assertIn("每项发现保存决定理解或行动的关键细节", skill)
+        self.assertIn("正文中的真实章节标题", skill)
         self.assertIn("只读取 `next` 返回的 `absolute_path`", skill)
         self.assertIn("正文必须充分内化", skill)
         self.assertIn("只把候选知识、产品视图和根 `review.md` 交给用户", skill)

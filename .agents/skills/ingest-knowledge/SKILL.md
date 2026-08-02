@@ -46,28 +46,32 @@ python scripts/ingestion_workspace.py status <case-id>
 
 ### 2.2 审视材料地图并形成读后发现
 
-工作台只用路径、完全重复、文档链接和代码导入建立材料组。它不根据标题判断当前、历史或目标。先查看整体地图：
+工作台只用路径、完全重复、文档链接和代码导入建立材料地图。独立叙述文档各自形成审视单元；文档链接保留关联但不把多份长文合成一次阅读任务。代码、配置、迁移和测试继续按共同路径形成小型实现单元。工作台不根据标题判断当前、历史或目标。先查看整体地图：
 
 ```bash
 python scripts/ingestion_workspace.py survey <case-id>
 python scripts/ingestion_workspace.py next <case-id>
 ```
 
-`next` 始终返回同一个当前组，直到本组完成登记；重复调用不会丢状态或切换任务。按以下顺序处理：
+`next` 始终返回同一个当前审视单元，直到本单元完成登记；重复调用不会丢状态或切换任务。按以下顺序处理：
 
 1. 用成员路径、标题和章节概要判断本组与用户目标的关系；
 2. 相关时，完整读取会改变结论的成员；完全重复组只完整读取一个代表文件并确认重复位置；
-3. 一组同时包含不同现实形态或多个稳定结论时，登记多项读后发现；
-4. 只用精确来源说明结论、现实形态、适用范围和限制，不用文件名或模型常识补全。
+3. 一项发现只表达一个可独立复用的结论；同一来源包含多个业务机制、数据变化、算法步骤、类/函数、职责或异常时，拆成多项发现；
+4. 每项发现保存决定理解或行动的关键细节，并定位到来源中的章节、表、代码符号或配置键；
+5. 只用直接材料说明现实形态、适用范围和限制，不用文件名或模型常识补全。
 
 每项读后发现使用稳定 ID：
 
 ```bash
 python scripts/ingestion_workspace.py finding-add <case-id> <finding-id> \
   --group-id <group-id> \
-  --content '<这项材料实际说明了什么>' \
+  --content '<一个可独立复用的核心结论>' \
+  --detail '<不可在合并时丢失的机制、字段、步骤、类函数、责任或异常>' \
+  [--detail '<另一项关键细节>'] \
   --reality <current_implementation|current_decision|target_design|historical|conflict|unknown> \
   --source '<source-id>:<path>' \
+  --anchor '<source-id>:<path>#<章节、表、符号或配置键>' \
   --scope '<结论适用于什么范围>' \
   [--limit '<不能据此推出什么>'] \
   [--topic '<可能进入的长期知识主题>']
@@ -90,7 +94,7 @@ python scripts/ingestion_workspace.py record-material <case-id> <group-id> \
 
 ### 2.3 规划并复核知识目录
 
-根据全部读后发现规划规范落点，而不是把来源目录翻译成知识目录。按独立变化和读者用途拆分；同一核心定义只有一个规范落点，产品视图只组织路线：
+根据全部读后发现规划规范落点，而不是把来源目录翻译成知识目录。按独立变化和读者用途拆分；同一项发现只能由一个规范主题维护，其他页面和产品视图使用标准 Markdown 链接进入该落点：
 
 ```bash
 python scripts/ingestion_workspace.py topic-add <case-id> <topic-id> \
@@ -152,15 +156,17 @@ python scripts/ingestion_workspace.py material-reopen <case-id> <group-id> \
 - 来源记录：[source-record.md](assets/source-record.md)；
 - 公共能力抽取审查：[shared-capability-review.md](assets/shared-capability-review.md)。
 
-正文必须充分内化输入、转换、输出、条件、边界、失败方式和继续工作入口。引用只负责追溯，不能替代内容。章节先说明作用或核心判断；只加粗决定理解或行动的关键词、关系和限制。图表回答一个主要问题，并在邻近表格或段落补足图上没有的输入输出、约束和异常。
+先逐项比较 `next` 返回的核心结论、关键细节、定位和边界，再组织正文。正文必须充分内化输入、转换、输出、条件、边界、失败方式和继续工作入口；不能只保留发现的概括句而丢掉机制、字段变化、算法步骤、类函数或责任。引用只负责追溯，不能替代内容。章节先说明作用或核心判断；只加粗决定理解或行动的关键词、关系和限制。图表回答一个主要问题，并在邻近表格或段落补足图上没有的输入输出、约束和异常。
 
 规范页与计划中的领域/旅程视图都形成后登记当前主题：
 
 ```bash
-python scripts/ingestion_workspace.py record-topic <case-id> <topic-id>
+python scripts/ingestion_workspace.py record-topic <case-id> <topic-id> \
+  --section '<finding-id>=<正文中的真实章节标题>' \
+  [--section '<next-finding-id>=<正文中的真实章节标题>']
 ```
 
-工作台检查计划正文是否存在、内容是否过薄、计划视图是否存在并链接正文，然后推进到下一个主题。
+逐项检查发现的核心结论和关键细节确实进入所填章节后再登记。工作台检查所有发现都有真实章节定位、计划视图链接正文，然后推进到下一个主题；它不以关键词命中或字符数替代内容判断。
 
 ## 3. 聚焦代码或问题整理
 

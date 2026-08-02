@@ -107,10 +107,14 @@ class IngestionWorkspaceTest(unittest.TestCase):
                 current["id"],
                 "--content",
                 f"材料组 {current['id']} 提供可用于读者理解的直接信息",
+                "--detail",
+                "保留该单元中决定读者理解的输入、转换、输出和边界",
                 "--reality",
                 "unknown",
                 "--source",
                 source_ref,
+                "--anchor",
+                f"{source_ref}#file",
                 "--scope",
                 "仅限当前固定材料包",
                 "--topic",
@@ -283,6 +287,13 @@ class IngestionWorkspaceTest(unittest.TestCase):
                 group["total_bytes"] <= 100_000 or group["member_count"] == 1,
                 group,
             )
+        bulk_groups = [
+            group
+            for group in payload["groups"]
+            if any(member["ref"].startswith("materials:bulk/") for member in group["members"])
+        ]
+        self.assertEqual(3, len(bulk_groups))
+        self.assertTrue(all(group["kind"] == "narrative_document" for group in bulk_groups))
 
     def test_complete_next_and_material_record_are_idempotent(self) -> None:
         self.start_complete()
@@ -302,8 +313,10 @@ class IngestionWorkspaceTest(unittest.TestCase):
             "finding-add", "complete-case", "finding-001",
             "--group-id", group["id"],
             "--content", "本组说明页面和接口之间存在直接调用关系",
+            "--detail", "页面入口通过 api.ts 的 query 进入分析接口",
             "--reality", "current_implementation",
             "--source", source_ref,
+            "--anchor", f"{source_ref}#file",
             "--scope", "当前固定源码",
             "--topic", "指标链路",
         )
@@ -320,6 +333,54 @@ class IngestionWorkspaceTest(unittest.TestCase):
         repeated_record = self.run_tool(*record_args)
         self.assertEqual(0, recorded.returncode, recorded.stderr)
         self.assertTrue(json.loads(repeated_record.stdout)["already_recorded"])
+
+    def test_complete_finding_requires_key_detail_and_precise_anchor(self) -> None:
+        self.start_complete()
+        group = json.loads(self.run_tool("next", "complete-case").stdout)["current"]
+        source_ref = group["members"][0]["ref"]
+        missing_detail = self.run_tool(
+            "finding-add", "complete-case", "finding-001",
+            "--group-id", group["id"],
+            "--content", "材料给出一个可复用结论",
+            "--reality", "current_implementation",
+            "--source", source_ref,
+            "--anchor", f"{source_ref}#file",
+            "--scope", "当前固定材料包",
+        )
+        self.assertEqual(2, missing_detail.returncode)
+        self.assertIn("--detail", missing_detail.stderr)
+        missing_anchor = self.run_tool(
+            "finding-add", "complete-case", "finding-001",
+            "--group-id", group["id"],
+            "--content", "材料给出一个可复用结论",
+            "--detail", "这项细节决定后续理解或行动",
+            "--reality", "current_implementation",
+            "--source", source_ref,
+            "--scope", "当前固定材料包",
+        )
+        self.assertEqual(2, missing_anchor.returncode)
+        self.assertIn("--anchor", missing_anchor.stderr)
+
+    def test_narrative_documents_remain_separate_but_keep_links(self) -> None:
+        docs = self.source / "docs"
+        docs.mkdir()
+        (docs / "a.md").write_text("# A\n\n[继续阅读](b.md)\n", encoding="utf-8")
+        (docs / "b.md").write_text("# B\n\n独立结论。\n", encoding="utf-8")
+        self.start_complete()
+        groups = json.loads(
+            self.run_tool("survey", "complete-case", "--members").stdout
+        )["groups"]
+        group_a = next(
+            group for group in groups
+            if any(member["ref"] == "materials:docs/a.md" for member in group["members"])
+        )
+        group_b = next(
+            group for group in groups
+            if any(member["ref"] == "materials:docs/b.md" for member in group["members"])
+        )
+        self.assertNotEqual(group_a["id"], group_b["id"])
+        self.assertEqual("narrative_document", group_a["kind"])
+        self.assertIn(group_b["id"], {item["group_id"] for item in group_a["related_groups"]})
 
     def test_plan_review_blocks_unreviewed_materials_and_missing_lenses(self) -> None:
         self.start_complete()
@@ -374,6 +435,43 @@ class IngestionWorkspaceTest(unittest.TestCase):
         report = json.loads(incomplete.stdout)["plan_review"]
         self.assertTrue(any("读者理解角度" in item for item in report["issues"]))
 
+    def test_plan_review_rejects_duplicate_normative_ownership(self) -> None:
+        self.start_complete()
+        findings = self.finish_complete_discovery()
+        common = [
+            "--title", "指标链路",
+            "--purpose", "说明指标变化",
+            "--action", "create",
+        ]
+        first = self.run_tool(
+            "topic-add", "complete-case", "topic-a", *common,
+            "--path", "draft/knowledge/systems/topic-a.md",
+            *sum((["--finding", item] for item in findings), []),
+            "--view", "draft/knowledge/views/by-domain/metric-flow.md",
+        )
+        self.assertEqual(0, first.returncode, first.stderr)
+        second = self.run_tool(
+            "topic-add", "complete-case", "topic-b", *common,
+            "--path", "draft/knowledge/systems/topic-b.md",
+            "--finding", findings[0],
+            "--view", "draft/knowledge/views/by-journey/metric-flow.md",
+        )
+        self.assertEqual(0, second.returncode, second.stderr)
+        lenses = sum(
+            (["--lens", f"{lens}=topic-a"] for lens in (
+                "position", "lifecycle", "data", "rules", "software", "shared", "reality", "navigation"
+            )),
+            [],
+        )
+        reviewed = self.run_tool("plan-review", "complete-case", *lenses)
+        self.assertEqual(1, reviewed.returncode)
+        self.assertTrue(
+            any(
+                "多个规范主题重复维护" in item
+                for item in json.loads(reviewed.stdout)["plan_review"]["issues"]
+            )
+        )
+
     def test_complete_flow_reaches_publish_review_with_one_cursor(self) -> None:
         case = self.start_complete()
         findings = self.finish_complete_discovery()
@@ -411,11 +509,22 @@ class IngestionWorkspaceTest(unittest.TestCase):
             "---\ntype: Navigation View\ntitle: 空旅程\ndescription: 暂未链接正文\n---\n\n# 空旅程\n",
             encoding="utf-8",
         )
-        rejected = self.run_tool("record-topic", "complete-case", "metric-flow")
+        missing_locations = self.run_tool("record-topic", "complete-case", "metric-flow")
+        self.assertEqual(2, missing_locations.returncode)
+        self.assertIn("尚未定位到正文真实章节", missing_locations.stderr)
+        section_args = sum(
+            (["--section", f"{finding_id}=页面入口与请求"] for finding_id in findings),
+            [],
+        )
+        rejected = self.run_tool(
+            "record-topic", "complete-case", "metric-flow", *section_args
+        )
         self.assertEqual(2, rejected.returncode)
         self.assertIn("尚未链接规范知识", rejected.stderr)
         self.write_candidate(case)
-        recorded = self.run_tool("record-topic", "complete-case", "metric-flow")
+        recorded = self.run_tool(
+            "record-topic", "complete-case", "metric-flow", *section_args
+        )
         self.assertEqual(0, recorded.returncode, recorded.stderr)
         final_review = self.run_tool("review", "complete-case")
         self.assertEqual(0, final_review.returncode, final_review.stdout + final_review.stderr)

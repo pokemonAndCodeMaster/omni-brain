@@ -26,7 +26,7 @@ from typing import Any
 from knowledge_check import validate_bundle
 
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "1.2"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 QUESTION_ID_RE = re.compile(r"^q-[0-9]{3}$")
 UNIT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -66,6 +66,7 @@ RUN_KINDS = {"health", "api", "sql", "page", "other"}
 MAX_CANDIDATE_POOL = 24
 MAX_MATERIAL_GROUP_MEMBERS = 12
 MAX_MATERIAL_GROUP_BYTES = 100_000
+NARRATIVE_SUFFIXES = {".md", ".rst", ".txt"}
 INGESTION_MODES = {"focused", "complete"}
 MATERIAL_GROUP_STATES = {"unreviewed", "partial", "reviewed", "irrelevant", "external"}
 REALITY_STATES = {
@@ -394,9 +395,28 @@ def build_material_groups(
         if manifest_ref(item) not in duplicate_refs:
             by_source[item["source_id"]].append(item)
     for source_id in sorted(by_source):
-        path_clusters = split_path_cluster(
-            source_id,
-            sorted(by_source[source_id], key=lambda item: item["path"]),
+        source_records = sorted(by_source[source_id], key=lambda item: item["path"])
+        narrative_records = [
+            item for item in source_records if item["suffix"] in NARRATIVE_SUFFIXES
+        ]
+        implementation_records = [
+            item for item in source_records if item["suffix"] not in NARRATIVE_SUFFIXES
+        ]
+        for item in narrative_records:
+            clusters.append(
+                {
+                    "kind": "narrative_document",
+                    "label": f"{source_id}:{item['path']}",
+                    "basis": (
+                        "独立叙述文档；文档链接只形成地图关系，不把多份长文合并为一次阅读任务"
+                    ),
+                    "records": [item],
+                }
+            )
+        path_clusters = (
+            split_path_cluster(source_id, implementation_records)
+            if implementation_records
+            else []
         )
         label_counts = Counter(tuple(item["prefix"]) for item in path_clusters)
         label_seen: Counter[tuple[str, ...]] = Counter()
@@ -1084,8 +1104,9 @@ def next_complete_item(root: Path, case: dict[str, Any]) -> int:
             "stage": case["stage"],
             "current": public_material_group(case, manifest, group, members=True),
             "reading_rule": (
-                "先用路径、标题和章节建立本组概要；若与用户目标相关，完整读取会改变结论的成员，"
-                "形成一个或多个带精确来源的读后发现后再登记本组。不要由文件名推断现实身份"
+                "先用路径、标题和章节建立本单元概要；若与用户目标相关，完整读取会改变结论的成员。"
+                "每项发现只表达一个可独立复用的结论，并保留关键细节与章节、表、符号或配置键定位；"
+                "一个来源有多个独立结论时分别登记。不要由文件名推断现实身份"
             ),
             "next": case["next_action"],
         }
@@ -1097,8 +1118,9 @@ def next_complete_item(root: Path, case: dict[str, Any]) -> int:
             "current": topic,
             "findings": findings,
             "writing_rule": (
-                "把读后发现充分内化到计划落点，并同步形成计划中的产品视图；"
-                "引用负责追溯，不能代替正文"
+                "逐项比较每条直接材料结论、关键细节和边界，把它们充分内化到唯一规范落点，"
+                "并同步形成计划中的产品视图；引用负责追溯，不能代替正文。"
+                "结束主题时用 record-topic 的 --section 把每项发现定位到正文真实章节"
             ),
             "next": case["next_action"],
         }
@@ -1144,9 +1166,24 @@ def add_finding(args: argparse.Namespace) -> int:
     sources = list(dict.fromkeys(args.source))
     if not sources:
         raise IngestionError("读后发现至少需要一项精确 --source")
+    details = list(dict.fromkeys(item.strip() for item in args.detail if item.strip()))
+    if not details:
+        raise IngestionError("读后发现至少需要一项决定理解或行动的 --detail")
+    anchors = list(dict.fromkeys(item.strip() for item in args.anchor if item.strip()))
+    if not anchors:
+        raise IngestionError("读后发现至少需要一项 <source-ref>#<章节或符号> 形式的 --anchor")
     unknown_sources = [item for item in sources if item not in group["members"]]
     if unknown_sources:
         raise IngestionError("读后发现来源不属于该材料组：" + ", ".join(unknown_sources))
+    anchor_sources: list[str] = []
+    for anchor in anchors:
+        ref, separator, locator = anchor.partition("#")
+        if not separator or not ref.strip() or not locator.strip():
+            raise IngestionError("--anchor 必须使用 <source-ref>#<章节、表、符号或配置键>")
+        anchor_sources.append(ref.strip())
+    unknown_anchor_sources = [item for item in anchor_sources if item not in sources]
+    if unknown_anchor_sources:
+        raise IngestionError("定位引用必须先登记为本发现来源：" + ", ".join(unknown_anchor_sources))
     for ref in sources:
         path = resolve_source(case, ref)
         manifest_item = next(item for item in read_manifest(root) if manifest_ref(item) == ref)
@@ -1156,8 +1193,10 @@ def add_finding(args: argparse.Namespace) -> int:
         "id": args.finding_id,
         "group_id": args.group_id,
         "content": args.content.strip(),
+        "details": details,
         "reality": args.reality,
         "sources": sources,
+        "anchors": anchors,
         "scope": args.scope.strip(),
         "limits": [item.strip() for item in args.limit if item.strip()],
         "candidate_topics": [item.strip() for item in args.topic if item.strip()],
@@ -1315,6 +1354,25 @@ def review_knowledge_plan(args: argparse.Namespace) -> int:
     missing_findings = [item["id"] for item in case["findings"] if item["id"] not in mapped_findings]
     if missing_findings:
         errors.append("以下读后发现尚未进入任何知识主题：" + ", ".join(missing_findings))
+    finding_owners: dict[str, list[str]] = defaultdict(list)
+    for topic in case["topics"]:
+        if topic["action"] == "view":
+            continue
+        for finding_id in topic["finding_ids"]:
+            finding_owners[finding_id].append(topic["id"])
+    duplicate_findings = {
+        finding_id: owners
+        for finding_id, owners in finding_owners.items()
+        if len(owners) > 1
+    }
+    if duplicate_findings:
+        errors.append(
+            "以下读后发现被多个规范主题重复维护："
+            + "；".join(
+                f"{finding_id} -> {', '.join(owners)}"
+                for finding_id, owners in sorted(duplicate_findings.items())
+            )
+        )
     missing_lenses = PLAN_LENSES - set(lens_topics) - set(not_applicable)
     if missing_lenses:
         errors.append("以下读者理解角度尚未映射或说明不适用：" + ", ".join(sorted(missing_lenses)))
@@ -1354,8 +1412,31 @@ def record_topic(args: argparse.Namespace) -> int:
     path = root / topic["path"]
     if not path.is_file():
         raise IngestionError(f"计划的规范知识尚未形成：{topic['path']}")
-    if len(path.read_text(encoding="utf-8").strip()) < 400:
-        raise IngestionError(f"规范知识内容过薄：{topic['path']}")
+    finding_sections = parse_key_values(args.section, "--section")
+    assigned_findings = set(topic["finding_ids"])
+    unknown_findings = set(finding_sections) - assigned_findings
+    if unknown_findings:
+        raise IngestionError(
+            "章节定位包含不属于当前主题的读后发现：" + ", ".join(sorted(unknown_findings))
+        )
+    missing_findings = assigned_findings - set(finding_sections)
+    if missing_findings:
+        raise IngestionError(
+            "以下读后发现尚未定位到正文真实章节：" + ", ".join(sorted(missing_findings))
+        )
+    document_headings = {
+        re.sub(r"[`*_~]", "", heading).strip().casefold()
+        for heading in HEADING_RE.findall(path.read_text(encoding="utf-8"))
+    }
+    missing_headings = sorted(
+        {
+            heading
+            for heading in finding_sections.values()
+            if re.sub(r"[`*_~]", "", heading).strip().casefold() not in document_headings
+        }
+    )
+    if missing_headings:
+        raise IngestionError("以下章节定位在正文中不存在：" + "；".join(missing_headings))
     for view_path in topic["view_paths"]:
         view = root / view_path
         if not view.is_file():
@@ -1363,6 +1444,7 @@ def record_topic(args: argparse.Namespace) -> int:
         if path.resolve() not in markdown_link_targets(view):
             raise IngestionError(f"计划产品视图 {view_path} 尚未链接规范知识：{topic['path']}")
     topic["status"] = "ready"
+    topic["finding_sections"] = finding_sections
     topic["recorded_at"] = utc_now()
     refresh_complete_cursor(case)
     save_case(root, case)
@@ -1999,9 +2081,14 @@ def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
             if target.is_file()
             else topic["path"]
         )
+        located = len(topic.get("finding_sections", {}))
+        expected = len(topic["finding_ids"])
+        status = topic["status"]
+        if status == "ready":
+            status = f"{status}（直接材料结论 {located}/{expected} 已定位）"
         lines.append(
             f"| {topic['id']} {topic['title']} | {purpose} | "
-            f"{topic['action']} | {link} | {topic['status']} |"
+            f"{topic['action']} | {link} | {status} |"
         )
     if not case["topics"]:
         lines.append("| 尚未形成 | 尚未形成知识目录 | - | - | - |")
@@ -2022,10 +2109,13 @@ def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
     )
     for finding in case["findings"]:
         sources = "、".join(f"`{item}`" for item in finding["sources"])
+        anchors = "、".join(f"`{item}`" for item in finding.get("anchors", []))
+        details = "；".join(finding.get("details", [])) or "未登记"
         limits = "；".join(finding["limits"]) or "无额外限制"
         lines.append(
             f"- **{finding['id']} · {finding['reality']}：** {finding['content']} "
-            f"适用范围：{finding['scope']}。限制：{limits}。来源：{sources}。"
+            f"关键细节：{details}。适用范围：{finding['scope']}。限制：{limits}。"
+            f"来源：{sources}。定位：{anchors}。"
         )
 
     lines.extend(["", "## 仍需补充或人工决定", ""])
@@ -2314,8 +2404,10 @@ def build_parser() -> argparse.ArgumentParser:
     finding.add_argument("finding_id")
     finding.add_argument("--group-id", required=True)
     finding.add_argument("--content", required=True)
+    finding.add_argument("--detail", action="append", default=[])
     finding.add_argument("--reality", choices=sorted(REALITY_STATES), required=True)
     finding.add_argument("--source", action="append", default=[])
+    finding.add_argument("--anchor", action="append", default=[])
     finding.add_argument("--scope", required=True)
     finding.add_argument("--limit", action="append", default=[])
     finding.add_argument("--topic", action="append", default=[])
@@ -2354,6 +2446,12 @@ def build_parser() -> argparse.ArgumentParser:
     topic_record = subparsers.add_parser("record-topic", help="登记当前知识主题正文和产品视图已经形成")
     topic_record.add_argument("case_id")
     topic_record.add_argument("topic_id")
+    topic_record.add_argument(
+        "--section",
+        action="append",
+        default=[],
+        help="使用 <finding-id>=<正文标题> 定位每项直接材料结论",
+    )
     topic_record.set_defaults(func=record_topic)
 
     record = subparsers.add_parser("record", help="登记当前小批来源形成的知识和缺口")
