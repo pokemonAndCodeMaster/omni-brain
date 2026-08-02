@@ -617,6 +617,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(first["current"]["id"], second["current"]["id"])
         self.assertIn("保守局部编辑", first["writing_rule"])
         self.assertIn("不得整页摘要重写", first["writing_rule"])
+        self.assertIn("复核父版本的当前覆盖、缺口和未来补齐表述", first["writing_rule"])
         self.assertIn("不得在正文或产品视图追加按材料批次", first["writing_rule"])
         journey = case / "draft" / "knowledge" / "views" / "by-journey" / "metric-flow.md"
         journey.write_text(

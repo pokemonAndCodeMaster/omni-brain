@@ -129,6 +129,8 @@ class HarnessContractTest(unittest.TestCase):
             skill.index("审视材料地图并形成读后发现"),
             skill.index("规划并复核知识目录"),
         )
+        self.assertIn("保留父知识不等于逐字冻结", skill)
+        self.assertIn("没有当前态表述与新发现互相矛盾", skill)
 
     def test_ingestion_assets_drive_questions_sources_and_reading_routes(self) -> None:
         assets = ROOT / ".agents/skills/ingest-knowledge/assets"
