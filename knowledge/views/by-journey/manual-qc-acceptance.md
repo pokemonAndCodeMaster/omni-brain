@@ -1,17 +1,23 @@
 ---
 type: Navigation View
 title: 人工质检验收学习与任务旅程
-description: 按先业务、再数据与规则、最后软件和代码的顺序学习 K0。
+description: 按先业务、再数据与规则、最后软件和代码的顺序学习当前候选知识。
 tags: [view, journey, learning, manual-qc, acceptance]
 ---
 
 # 人工质检验收学习与任务旅程
 
+## 业务全貌与继续工作的入口
+
+[质检领域](../../domains/quality/overview.md) → [人工质检总览](../../domains/quality/manual/overview.md) → [交付与行动项](../../domains/quality/manual/delivery-management.md) → [人员与权限](../../domains/quality/manual/personnel-and-permissions.md) → [统一数据工作台](../../capabilities/quality-data-workbench.md)
+
+[平台与模块地图](../../domains/quality/manual/platform-and-module-map.md) · [业务到组件、代码与证据地图](../../domains/quality/manual/acceptance/implementation-map.md) · [前端状态与验收工作台](../../domains/quality/manual/acceptance/python-architecture-and-implementation.md)
+
 ## 学完这条路线应当获得什么
 
 这条路线把同一套知识组织成完整学习、业务动作追踪和问题直达三种用法。完成学习后，读者应能说明验收是什么、历史流程怎样运行、目标平台怎样分层、当前代码走到了哪里，以及哪些生产问题仍不能可靠回答。
 
-K0 不能充当当前生产操作手册或完整交付管理手册；遇到真实操作和开发任务时，仍需进入相应规范页与直接事实源核验。
+当前候选不能充当当前生产操作手册或完整交付管理手册；它已提供交付、人员权限和共享工作台的目标边界，但真实操作和开发任务仍需进入相应规范页与直接事实源核验。
 
 ## 学习层次
 
@@ -59,7 +65,7 @@ flowchart LR
 → 回查最终状态
 ```
 
-固定提交当前只覆盖这条链中的“查询范围 → Ratio 数量预览 → 保存/读取预览”，其他步骤要么只有历史记录，要么只有目标方案。
+固定提交当前仍只覆盖这条链中的“查询范围 → Ratio 数量预览 → 保存/读取预览”；候选新增的交付、人员权限和工作台内容是业务/目标设计知识，不改变这一固定代码事实，其他验收步骤要么只有历史记录，要么只有目标方案。
 
 ## 问题捷径
 
@@ -72,6 +78,6 @@ flowchart LR
 | 代码怎样完成一次分配预览 | [Python 软件结构](../../domains/quality/manual/acceptance/python-architecture-and-implementation.md) |
 | 哪些内容仍不可信 | [未知与冲突](../../domains/quality/manual/acceptance/open-questions.md) |
 
-## K0 旅程缺口
+## 旅程边界与继续核验
 
-Batch 1 没有充分描述负责人如何在产品里持续监控完成度、分析问题、管理多轮返工并回到交付目标。这里不补造页面，等待 Batch 2 到达后判断是否应新增或更新产品知识。
+交付任务、行动项、人员权限和统一数据工作台已作为长期主题接入这条路线；它们描述业务边界与目标设计，不证明对应页面、API、SSO 或端到端执行已经部署。需要继续工作时，应从交付任务、人员模型、数据契约和直接源码/Schema 证据分别核验，不能把产品视图或材料中的完成声明当作实现事实。
