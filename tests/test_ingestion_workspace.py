@@ -7,9 +7,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "ingestion_workspace.py"
+sys.path.insert(0, str(ROOT / "scripts"))
+from ingestion_workspace import parent_content_regressions
 
 
 class IngestionWorkspaceTest(unittest.TestCase):
@@ -421,6 +422,19 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(2, update_missing.returncode)
         self.assertIn("新页面请使用 create", update_missing.stderr)
 
+    def test_incremental_parent_content_cannot_be_silently_compressed(self) -> None:
+        parent = (
+            "---\ntype: Software System\ntitle: 完整设计\ndescription: 保留父知识细节\n---\n\n"
+            "# 完整设计\n\n## 数据链路\n\n" + "输入、转换、输出和异常边界。\n" * 20
+        ).encode("utf-8")
+        compressed = (
+            "---\ntype: Software System\ntitle: 完整设计\n---\n\n"
+            "# 完整设计\n\n## 数据链路\n\n简要说明。\n"
+        ).encode("utf-8")
+        errors = parent_content_regressions("knowledge/systems/design.md", parent, compressed)
+        self.assertTrue(any("缩小超过 10%" in item for item in errors))
+        self.assertTrue(any("description" in item for item in errors))
+
     def test_narrative_documents_remain_separate_but_keep_links(self) -> None:
         docs = self.source / "docs"
         docs.mkdir()
@@ -564,7 +578,8 @@ class IngestionWorkspaceTest(unittest.TestCase):
         second = json.loads(self.run_tool("next", "complete-case").stdout)
         self.assertEqual("metric-flow", first["current"]["id"])
         self.assertEqual(first["current"]["id"], second["current"]["id"])
-        self.assertIn("稳定语义标题", first["writing_rule"])
+        self.assertIn("保守局部编辑", first["writing_rule"])
+        self.assertIn("不得整页摘要重写", first["writing_rule"])
         self.assertIn("不得在正文或产品视图追加按材料批次", first["writing_rule"])
         journey = case / "draft" / "knowledge" / "views" / "by-journey" / "metric-flow.md"
         journey.write_text(

@@ -32,6 +32,8 @@ QUESTION_ID_RE = re.compile(r"^q-[0-9]{3}$")
 UNIT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 LINK_RE = re.compile(r"(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)")
 HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.MULTILINE)
+FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---(?:\s*\n|\Z)", re.DOTALL)
+FRONTMATTER_KEY_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):", re.MULTILINE)
 TS_IMPORT_RE = re.compile(
     r"(?:from\s+|import\s*\()\s*['\"](?P<module>(?:\.{1,2}/|@/)[^'\"]+)['\"]"
 )
@@ -210,6 +212,53 @@ def governed_candidate_path(path: str) -> bool:
     if path.startswith("knowledge/sources/"):
         return False
     return True
+
+
+def frontmatter_keys(text: str) -> set[str]:
+    match = FRONTMATTER_RE.match(text)
+    if not match:
+        return set()
+    return set(FRONTMATTER_KEY_RE.findall(match.group(1)))
+
+
+def parent_content_regressions(path: str, parent: bytes, candidate: bytes) -> list[str]:
+    """Detect silent loss that the first incremental slice does not authorize."""
+    errors: list[str] = []
+    if len(parent) >= 200 and len(candidate) < len(parent) * 0.9:
+        errors.append(
+            f"{path} 比父版本缩小超过 10%；当前增量切片不允许用整页重写或摘要静默删除父知识"
+        )
+    if path.endswith(".md"):
+        parent_keys = frontmatter_keys(parent.decode("utf-8"))
+        candidate_keys = frontmatter_keys(candidate.decode("utf-8"))
+        missing = sorted(parent_keys - candidate_keys)
+        if missing:
+            errors.append(
+                f"{path} 删除了父版本 frontmatter 字段：{', '.join(missing)}"
+            )
+    return errors
+
+
+def incremental_parent_preservation_errors(
+    root: Path, case: dict[str, Any], changes: dict[str, list[str]]
+) -> list[str]:
+    errors: list[str] = []
+    baseline = baseline_paths(case)
+    repository = project_root()
+    for path in changes["modified"]:
+        if not governed_candidate_path(path):
+            continue
+        original = baseline.get(path)
+        parent_path = repository / path
+        candidate_path = root / "draft" / path
+        if original is None or not parent_path.is_file():
+            continue
+        parent = parent_path.read_bytes()
+        if digest_bytes(parent) != original["sha256"]:
+            errors.append(f"{path} 的正式父版本在摄入开始后发生变化；请先重建或变基候选")
+            continue
+        errors.extend(parent_content_regressions(path, parent, candidate_path.read_bytes()))
+    return errors
 
 
 def case_root(cases_root: Path, case_id: str, must_exist: bool = True) -> Path:
@@ -1196,7 +1245,8 @@ def next_complete_item(root: Path, case: dict[str, Any]) -> int:
             "writing_rule": (
                 "逐项比较每条直接材料结论、关键细节和边界，把它们充分内化到唯一规范落点，"
                 "并同步形成计划中的产品视图；引用负责追溯，不能代替正文。"
-                "update/merge 必须通读并重组最终整页，把内容融入稳定语义标题；"
+                "update/merge 必须通读最终整页并采用保守局部编辑：保留父页面已有 frontmatter、"
+                "段落、图表、链接和技术细节，只插入新内容或修订被直接证据改变的表述；不得整页摘要重写。"
                 "不得在正文或产品视图追加按材料批次、本次增量或日期命名的分区。"
                 "结束主题时用 record-topic 的 --section 把每项发现定位到正文真实章节"
             ),
@@ -2518,6 +2568,7 @@ def review_case(args: argparse.Namespace) -> int:
                 "当前增量切片不允许删除父知识文件；请恢复或提交新的退役方案："
                 + ", ".join(changes["deleted"])
             )
+        errors.extend(incremental_parent_preservation_errors(root, case, changes))
         planned = {topic["path"].removeprefix("draft/") for topic in case["topics"]}
         planned.update(
             path.removeprefix("draft/")
