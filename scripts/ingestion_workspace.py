@@ -1351,6 +1351,45 @@ def reopen_material(args: argparse.Namespace) -> int:
     return 0
 
 
+def reopen_plan(args: argparse.Namespace) -> int:
+    """Return a completed writing pass to planning without rereading materials."""
+    root, case = load_case(args.cases_root, args.case_id)
+    ensure_complete(case)
+    if case["stage"] != "reviewing":
+        raise IngestionError("只在最终审查发现漏规划页面或视图时重新打开知识目录")
+    if not case.get("last_review_issues"):
+        raise IngestionError("当前没有已登记的最终审查问题，不需要重新打开知识目录")
+    previous = case.get("plan_review", {})
+    reason = args.reason.strip()
+    case["plan_review"] = {
+        "passed": False,
+        "lenses": previous.get("lenses", {}),
+        "not_applicable": previous.get("not_applicable", {}),
+        "issues": [reason],
+        "reviewed_at": previous.get("reviewed_at"),
+    }
+    case["stage"] = "planning"
+    case["cursor"] = {"item_type": None, "item_id": None}
+    case["next_action"] = (
+        "只补充最终审查暴露的知识主题或导航落点，再运行 plan-review；"
+        "不重新读取已经审视完成的材料"
+    )
+    save_case(root, case)
+    print(
+        json.dumps(
+            {
+                "stage": case["stage"],
+                "reason": reason,
+                "last_review_issues": case["last_review_issues"],
+                "next": case["next_action"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
 def add_topic(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
     ensure_complete(case)
@@ -1369,7 +1408,7 @@ def add_topic(args: argparse.Namespace) -> int:
             f"{args.action} 只能用于父知识中已经存在的落点；新页面请使用 create：{path}"
         )
     finding_ids = list(dict.fromkeys(args.finding))
-    if not finding_ids:
+    if not finding_ids and args.action != "view":
         raise IngestionError("知识主题至少关联一个读后发现")
     for finding_id in finding_ids:
         finding_by_id(case, finding_id)
@@ -2175,6 +2214,9 @@ def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
         )
     else:
         lines.append("- 产品视图尚未形成。")
+    if case.get("last_review_issues"):
+        lines.extend(["", "## 当前审查未通过的原因", ""])
+        lines.extend(f"- {item}" for item in case["last_review_issues"])
     lines.extend(
         [
             "",
@@ -2499,10 +2541,16 @@ def review_case(args: argparse.Namespace) -> int:
             ]
             if not view_files:
                 errors.append(f"尚未形成{label}")
+        case["last_review_issues"] = errors
         if not errors:
             case["stage"] = "publish_ready"
             case["next_action"] = "请用户审查候选知识、产品视图和 review.md，决定发布或退回"
-            save_case(root, case)
+        else:
+            case["next_action"] = (
+                "先按 last_review_issues 修正候选；若问题来自漏规划页面或导航，"
+                "运行 plan-reopen 回到目录规划，不重读材料"
+            )
+        save_case(root, case)
         generate_review(root, case)
         print(json.dumps({"review": str(root / "review.md"), "ready": not errors, "errors": errors, "next": case["next_action"]}, ensure_ascii=False, indent=2))
         return 0 if not errors else 1
@@ -2551,6 +2599,7 @@ def status_case(args: argparse.Namespace) -> int:
             "findings": len(case["findings"]),
             "knowledge_topics": dict(sorted(topic_counts.items())),
             "plan_review_passed": bool(case["plan_review"].get("passed")),
+            "last_review_issues": case.get("last_review_issues", []),
             "baseline": {
                 "file_count": case["baseline"]["file_count"],
                 "substantive_file_count": case["baseline"]["substantive_file_count"],
@@ -2657,6 +2706,11 @@ def build_parser() -> argparse.ArgumentParser:
     reopen.add_argument("--reason", required=True)
     reopen.set_defaults(func=reopen_material)
 
+    plan_reopen = subparsers.add_parser("plan-reopen", help="最终审查发现漏规划页面或视图时返回目录规划")
+    plan_reopen.add_argument("case_id")
+    plan_reopen.add_argument("--reason", required=True)
+    plan_reopen.set_defaults(func=reopen_plan)
+
     topic = subparsers.add_parser("topic-add", help="根据读后发现规划一个规范知识主题")
     topic.add_argument("case_id")
     topic.add_argument("topic_id")
@@ -2745,7 +2799,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action in {
-            "question-add", "plan-unit", "next", "finding-add", "record-material", "material-reopen",
+            "question-add", "plan-unit", "next", "finding-add", "record-material", "material-reopen", "plan-reopen",
             "topic-add", "plan-review", "record-topic", "record", "stop-search",
             "check-unit", "run", "review",
         }:

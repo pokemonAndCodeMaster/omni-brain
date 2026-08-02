@@ -118,6 +118,9 @@ python scripts/ingestion_workspace.py topic-add <case-id> <topic-id> \
 - `merge`：新发现应融入一个现有规范落点，而不是另建近义页；
 - `view`：只调整产品视图的选择、排序和导航，不复制规范事实。
 
+`view` 可以不关联读后发现，因为它只负责导航，不维护新的规范事实。新增领域目录需要
+`overview.md` 时，把这个入口与正文主题一起规划为 `view`，并让领域视图链接它；不要等写完后再补一个未登记页面。
+
 工作台会校验 `create` 不能覆盖父页面，`update/merge` 必须指向父页面且最终确有内容变化。本切片不支持直接删除父知识页；发现过时内容时先在原页中区分新旧状态和适用范围，页面退役需要另行审查。
 
 写正文前做第二遍目录复核。八个名称是**理解角度**，不是八篇固定页面：
@@ -155,6 +158,15 @@ python scripts/ingestion_workspace.py material-reopen <case-id> <group-id> \
 ```
 
 随后按 `next → finding-add → record-material` 补齐，再重新复核目录。不要手改后台状态，也不要为了修一个主题重跑全部材料。
+
+如果全部主题写完后，`review` 才发现漏规划的领域入口或产品视图，不要重读材料，也不要手改状态。运行：
+
+```bash
+python scripts/ingestion_workspace.py plan-reopen <case-id> \
+  --reason '<最终审查暴露的具体漏规划问题>'
+```
+
+只新增遗漏的 `view` 主题，重新运行 `plan-review`，完成新增主题后再次 `review`。其他内容或链接错误直接在原候选中修正，不需要重新打开目录。
 
 ### 2.4 按目录形成规范知识和产品视图
 

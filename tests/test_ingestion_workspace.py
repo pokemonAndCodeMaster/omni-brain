@@ -602,6 +602,77 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertIn("#file", source_index)
         self.assertIn("页面入口与请求", source_index)
 
+    def test_final_review_can_reopen_only_the_plan_for_an_unplanned_view(self) -> None:
+        case = self.start_complete()
+        findings = self.finish_complete_discovery()
+        self.write_candidate(case)
+        topic_args = [
+            "topic-add", "complete-case", "metric-flow",
+            "--title", "指标数据链路",
+            "--purpose", "让读者理解指标链路",
+            "--action", "create",
+            "--path", "draft/knowledge/systems/metric-flow.md",
+        ]
+        for finding_id in findings:
+            topic_args.extend(["--finding", finding_id])
+        topic_args.extend([
+            "--view", "draft/knowledge/views/by-domain/metric-flow.md",
+            "--view", "draft/knowledge/views/by-journey/metric-flow.md",
+        ])
+        self.assertEqual(0, self.run_tool(*topic_args).returncode)
+        lenses = sum(
+            (["--lens", f"{lens}=metric-flow"] for lens in (
+                "position", "lifecycle", "data", "rules", "software", "shared", "reality", "navigation"
+            )),
+            [],
+        )
+        self.assertEqual(0, self.run_tool("plan-review", "complete-case", *lenses).returncode)
+        sections = sum(
+            (["--section", f"{finding_id}=页面入口与请求"] for finding_id in findings),
+            [],
+        )
+        self.assertEqual(0, self.run_tool("record-topic", "complete-case", "metric-flow", *sections).returncode)
+
+        extra = case / "draft" / "knowledge" / "views" / "by-domain" / "extra.md"
+        extra.write_text(
+            "---\ntype: Navigation View\ntitle: 补充入口\n"
+            "description: 从补充入口进入指标链路\n---\n\n"
+            "# 补充入口\n\n- [指标数据链路](../../systems/metric-flow.md)\n",
+            encoding="utf-8",
+        )
+        views_index = case / "draft" / "knowledge" / "views" / "index.md"
+        views_index.write_text(
+            views_index.read_text(encoding="utf-8") + "- [补充入口](by-domain/extra.md)\n",
+            encoding="utf-8",
+        )
+        failed = self.run_tool("review", "complete-case")
+        self.assertEqual(1, failed.returncode)
+        self.assertIn("没有知识主题负责", failed.stdout)
+        status = json.loads(self.run_tool("status", "complete-case").stdout)
+        self.assertTrue(status["last_review_issues"])
+        self.assertIn("当前审查未通过的原因", (case / "review.md").read_text(encoding="utf-8"))
+
+        reopened = self.run_tool(
+            "plan-reopen", "complete-case",
+            "--reason", "补充领域导航入口漏规划",
+        )
+        self.assertEqual(0, reopened.returncode, reopened.stderr)
+        self.assertEqual("planning", json.loads(reopened.stdout)["stage"])
+        view_topic = self.run_tool(
+            "topic-add", "complete-case", "extra-view",
+            "--title", "补充入口",
+            "--purpose", "让读者从领域导航进入既有规范知识",
+            "--action", "view",
+            "--path", "draft/knowledge/views/by-domain/extra.md",
+        )
+        self.assertEqual(0, view_topic.returncode, view_topic.stderr)
+        lenses[-1] = "navigation=metric-flow,extra-view"
+        self.assertEqual(0, self.run_tool("plan-review", "complete-case", *lenses).returncode)
+        self.assertEqual(0, self.run_tool("record-topic", "complete-case", "extra-view").returncode)
+        final_review = self.run_tool("review", "complete-case")
+        self.assertEqual(0, final_review.returncode, final_review.stdout + final_review.stderr)
+        self.assertTrue(json.loads(final_review.stdout)["ready"])
+
     def test_next_returns_a_small_ranked_packet_and_import_neighbour(self) -> None:
         self.start()
         payload = self.get_packet()
