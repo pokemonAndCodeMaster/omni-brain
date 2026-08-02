@@ -1433,10 +1433,8 @@ def reopen_plan(args: argparse.Namespace) -> int:
     """Return a completed writing pass to planning without rereading materials."""
     root, case = load_case(args.cases_root, args.case_id)
     ensure_complete(case)
-    if case["stage"] != "reviewing":
-        raise IngestionError("只在最终审查发现漏规划页面或视图时重新打开知识目录")
-    if not case.get("last_review_issues"):
-        raise IngestionError("当前没有已登记的最终审查问题，不需要重新打开知识目录")
+    if case["stage"] not in {"reviewing", "publish_ready"}:
+        raise IngestionError("只在全部知识主题完成后的语义复核或最终审查阶段重新打开知识目录")
     previous = case.get("plan_review", {})
     reason = args.reason.strip()
     case["plan_review"] = {
@@ -1458,7 +1456,7 @@ def reopen_plan(args: argparse.Namespace) -> int:
             {
                 "stage": case["stage"],
                 "reason": reason,
-                "last_review_issues": case["last_review_issues"],
+                "last_review_issues": case.get("last_review_issues", []),
                 "next": case["next_action"],
             },
             ensure_ascii=False,

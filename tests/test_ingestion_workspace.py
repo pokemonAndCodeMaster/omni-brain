@@ -657,6 +657,15 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertIn("#file", source_index)
         self.assertIn("页面入口与请求", source_index)
 
+        reopened = self.run_tool(
+            "plan-reopen", "complete-case",
+            "--reason", "发布前语义复核发现父级入口还需登记更新",
+        )
+        self.assertEqual(0, reopened.returncode, reopened.stderr)
+        reopened_payload = json.loads(reopened.stdout)
+        self.assertEqual("planning", reopened_payload["stage"])
+        self.assertEqual([], reopened_payload["last_review_issues"])
+
     def test_final_review_can_reopen_only_the_plan_for_an_unplanned_view(self) -> None:
         case = self.start_complete()
         findings = self.finish_complete_discovery()

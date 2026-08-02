@@ -161,14 +161,14 @@ python scripts/ingestion_workspace.py material-reopen <case-id> <group-id> \
 
 随后按 `next → finding-add → record-material` 补齐，再重新复核目录。不要手改后台状态，也不要为了修一个主题重跑全部材料。
 
-如果全部主题写完后，`review` 才发现漏规划的领域入口或产品视图，不要重读材料，也不要手改状态。运行：
+如果全部主题写完后的语义复核或 `review` 发现漏规划的规范页、领域入口或产品视图，不要先制造未登记修改，不要重读材料，也不要手改状态。即使当前已是 `publish_ready`，也可以运行：
 
 ```bash
 python scripts/ingestion_workspace.py plan-reopen <case-id> \
   --reason '<最终审查暴露的具体漏规划问题>'
 ```
 
-只新增遗漏的 `view` 主题，重新运行 `plan-review`，完成新增主题后再次 `review`。其他内容或链接错误直接在原候选中修正，不需要重新打开目录。
+只补充这次暴露的 `create` / `update` / `merge` / `view` 主题，重新运行 `plan-review`，完成新增主题后再次 `review`。已登记主题内部的内容或链接错误直接在原候选中修正，不需要重新打开目录。
 
 ### 2.4 按目录形成规范知识和产品视图
 
