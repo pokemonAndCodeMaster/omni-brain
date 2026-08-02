@@ -29,7 +29,7 @@ class HarnessContractTest(unittest.TestCase):
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "verified_at_foundational_content_slice_not_released",
+            "verified_at_foundational_and_single_model_incremental_candidate_slices_not_released",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
