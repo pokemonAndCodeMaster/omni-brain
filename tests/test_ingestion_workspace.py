@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,28 @@ class IngestionWorkspaceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
+        self.harness = self.root / "harness"
+        shutil.copytree(ROOT / "scripts", self.harness / "scripts")
+        self.script = self.harness / "scripts" / "ingestion_workspace.py"
+        scaffold = {
+            "knowledge/index.md": "# 知识入口\n\n- [产品视图](views/index.md)\n",
+            "knowledge/log.md": "# 知识变更日志\n",
+            "knowledge/domains/index.md": "# 领域知识\n",
+            "knowledge/capabilities/index.md": "# 公共能力\n",
+            "knowledge/systems/index.md": "# 系统与实现\n",
+            "knowledge/sources/index.md": "# 来源记录\n",
+            "knowledge/views/index.md": (
+                "# 产品视图\n\n- [按领域浏览](by-domain/index.md)\n"
+                "- [按旅程浏览](by-journey/index.md)\n"
+            ),
+            "knowledge/views/by-domain/index.md": "# 按领域浏览\n",
+            "knowledge/views/by-journey/index.md": "# 按旅程浏览\n",
+            "config/knowledge-domains.yaml": "schema_version: '0.1'\ndomains: []\n",
+        }
+        for relative, content in scaffold.items():
+            path = self.harness / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
         self.cases = self.root / "cases"
         self.source = self.root / "source"
         self.source.mkdir()
@@ -43,8 +66,8 @@ class IngestionWorkspaceTest(unittest.TestCase):
 
     def run_tool(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, str(SCRIPT), "--cases-root", str(self.cases), *args],
-            cwd=ROOT,
+            [sys.executable, str(self.script), "--cases-root", str(self.cases), *args],
+            cwd=self.harness,
             check=False,
             capture_output=True,
             text=True,
@@ -384,11 +407,11 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertGreater(baseline["file_count"], 0)
         self.assertEqual(64, len(baseline["fingerprint"]))
         self.assertEqual(
-            (ROOT / "knowledge" / "index.md").read_bytes(),
+            (self.harness / "knowledge" / "index.md").read_bytes(),
             (case / "draft" / "knowledge" / "index.md").read_bytes(),
         )
         self.assertEqual(
-            (ROOT / "config" / "knowledge-domains.yaml").read_bytes(),
+            (self.harness / "config" / "knowledge-domains.yaml").read_bytes(),
             (case / "draft" / "config" / "knowledge-domains.yaml").read_bytes(),
         )
         self.assertEqual(
