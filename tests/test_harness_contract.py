@@ -77,18 +77,24 @@ class HarnessContractTest(unittest.TestCase):
             for entrypoint in capability["entrypoints"]:
                 self.assertTrue((ROOT / entrypoint).exists(), entrypoint)
 
-    def test_knowledge_scaffold_is_empty_and_okf_native(self) -> None:
+    def test_knowledge_bundle_matches_declared_adoption(self) -> None:
+        manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         domains = yaml.safe_load(
             (ROOT / "config/knowledge-domains.yaml").read_text(encoding="utf-8")
         )
-        self.assertEqual([], domains["domains"])
-        for area in ("domains", "capabilities", "systems", "sources"):
-            files = [
-                path
-                for path in (ROOT / "knowledge" / area).rglob("*.md")
-                if path.name not in {"index.md", "log.md"}
-            ]
-            self.assertEqual([], files, area)
+        substantive = [
+            path
+            for area in ("domains", "capabilities", "systems", "sources")
+            for path in (ROOT / "knowledge" / area).rglob("*.md")
+            if path.name not in {"index.md", "log.md"}
+        ]
+        adoption = manifest["capabilities"]["knowledge_base"]["adoption"]
+        if adoption == "implemented_empty_okf_scaffold":
+            self.assertEqual([], domains["domains"])
+            self.assertEqual([], substantive)
+        else:
+            self.assertTrue(domains["domains"])
+            self.assertTrue(substantive)
         self.assertFalse((ROOT / "knowledge/index.md").read_text(encoding="utf-8").startswith("---"))
 
     def test_release_surface_contains_only_runtime_assets(self) -> None:
