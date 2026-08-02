@@ -1196,6 +1196,8 @@ def next_complete_item(root: Path, case: dict[str, Any]) -> int:
             "writing_rule": (
                 "逐项比较每条直接材料结论、关键细节和边界，把它们充分内化到唯一规范落点，"
                 "并同步形成计划中的产品视图；引用负责追溯，不能代替正文。"
+                "update/merge 必须通读并重组最终整页，把内容融入稳定语义标题；"
+                "不得在正文或产品视图追加按材料批次、本次增量或日期命名的分区。"
                 "结束主题时用 record-topic 的 --section 把每项发现定位到正文真实章节"
             ),
             "next": case["next_action"],

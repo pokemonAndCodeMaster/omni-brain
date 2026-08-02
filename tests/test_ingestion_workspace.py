@@ -564,6 +564,8 @@ class IngestionWorkspaceTest(unittest.TestCase):
         second = json.loads(self.run_tool("next", "complete-case").stdout)
         self.assertEqual("metric-flow", first["current"]["id"])
         self.assertEqual(first["current"]["id"], second["current"]["id"])
+        self.assertIn("稳定语义标题", first["writing_rule"])
+        self.assertIn("不得在正文或产品视图追加按材料批次", first["writing_rule"])
         journey = case / "draft" / "knowledge" / "views" / "by-journey" / "metric-flow.md"
         journey.write_text(
             "---\ntype: Navigation View\ntitle: 空旅程\ndescription: 暂未链接正文\n---\n\n# 空旅程\n",
