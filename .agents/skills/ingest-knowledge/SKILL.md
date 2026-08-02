@@ -106,9 +106,9 @@ python scripts/ingestion_workspace.py topic-add <case-id> <topic-id> \
   --purpose '<这页让目标读者理解或完成什么>' \
   --action <create|update|merge|view> \
   --path 'draft/knowledge/<area>/<page>.md' \
-  --finding <finding-id> [--finding <finding-id>] \
-  --view 'draft/knowledge/views/by-domain/<slug>.md' \
-  --view 'draft/knowledge/views/by-journey/<slug>.md'
+  [--finding <finding-id>] [--finding <finding-id>] \
+  [--view 'draft/knowledge/views/by-domain/<slug>.md'] \
+  [--view 'draft/knowledge/views/by-journey/<slug>.md']
 ```
 
 处理已有知识时，先从候选中的领域入口、产品视图和受影响正文理解当前落点，再选择动作：
@@ -120,6 +120,7 @@ python scripts/ingestion_workspace.py topic-add <case-id> <topic-id> \
 
 `view` 可以不关联读后发现，因为它只负责导航，不维护新的规范事实。新增领域目录需要
 `overview.md` 时，把这个入口与正文主题一起规划为 `view`，并让领域视图链接它；不要等写完后再补一个未登记页面。
+普通正文主题只在对应产品视图应新增或继续维护其直接入口时声明 `--view`；不要为了照抄命令示例给每个主题机械绑定两种视图。
 
 工作台会校验 `create` 不能覆盖父页面，`update/merge` 必须指向父页面且最终确有内容变化。本切片不支持直接删除父知识页；发现过时内容时先在原页中区分新旧状态和适用范围，页面退役需要另行审查。
 
