@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "ingestion_workspace.py"
 sys.path.insert(0, str(ROOT / "scripts"))
-from ingestion_workspace import parent_content_regressions
+from ingestion_workspace import incremental_entrypoint_errors, parent_content_regressions
 
 
 class IngestionWorkspaceTest(unittest.TestCase):
@@ -434,6 +434,43 @@ class IngestionWorkspaceTest(unittest.TestCase):
         errors = parent_content_regressions("knowledge/systems/design.md", parent, compressed)
         self.assertTrue(any("缩小超过 10%" in item for item in errors))
         self.assertTrue(any("description" in item for item in errors))
+
+    def test_incremental_must_reconcile_root_entry_and_append_log(self) -> None:
+        case = {
+            "baseline": {
+                "substantive_file_count": 2,
+                "files": [
+                    {"path": "knowledge/index.md"},
+                    {"path": "knowledge/log.md"},
+                    {"path": "knowledge/domains/example.md"},
+                ],
+            }
+        }
+        errors = incremental_entrypoint_errors(
+            case,
+            {
+                "added": [],
+                "modified": ["knowledge/domains/example.md"],
+                "deleted": [],
+            },
+        )
+        self.assertTrue(any("根知识入口" in item for item in errors))
+        self.assertTrue(any("知识操作日志" in item for item in errors))
+        self.assertEqual(
+            [],
+            incremental_entrypoint_errors(
+                case,
+                {
+                    "added": [],
+                    "modified": [
+                        "knowledge/index.md",
+                        "knowledge/log.md",
+                        "knowledge/domains/example.md",
+                    ],
+                    "deleted": [],
+                },
+            ),
+        )
 
     def test_narrative_documents_remain_separate_but_keep_links(self) -> None:
         docs = self.source / "docs"

@@ -261,6 +261,31 @@ def incremental_parent_preservation_errors(
     return errors
 
 
+def incremental_entrypoint_errors(
+    case: dict[str, Any], changes: dict[str, list[str]]
+) -> list[str]:
+    """Require an increment to reconcile the public entry and append the change log."""
+    if not case.get("baseline", {}).get("substantive_file_count", 0):
+        return []
+    changed = set(changes["added"] + changes["modified"] + changes["deleted"])
+    baseline = baseline_paths(case)
+    errors: list[str] = []
+    requirements = {
+        "knowledge/index.md": (
+            "根知识入口未随增量更新；请修正当前范围、导航和仍缺内容，"
+            "不要保留与已摄入内容冲突的父版本排除声明"
+        ),
+        "knowledge/log.md": (
+            "知识操作日志未记录本次增量；请追加一条面向维护者的变更记录，"
+            "保留既有历史记录"
+        ),
+    }
+    for path, message in requirements.items():
+        if path in baseline and path not in changed:
+            errors.append(message)
+    return errors
+
+
 def case_root(cases_root: Path, case_id: str, must_exist: bool = True) -> Path:
     validate_id(case_id, "case id")
     root = cases_root.resolve() / case_id
@@ -2569,6 +2594,7 @@ def review_case(args: argparse.Namespace) -> int:
                 + ", ".join(changes["deleted"])
             )
         errors.extend(incremental_parent_preservation_errors(root, case, changes))
+        errors.extend(incremental_entrypoint_errors(case, changes))
         planned = {topic["path"].removeprefix("draft/") for topic in case["topics"]}
         planned.update(
             path.removeprefix("draft/")
