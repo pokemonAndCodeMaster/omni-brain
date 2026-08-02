@@ -665,6 +665,14 @@ class IngestionWorkspaceTest(unittest.TestCase):
         reopened_payload = json.loads(reopened.stdout)
         self.assertEqual("planning", reopened_payload["stage"])
         self.assertEqual([], reopened_payload["last_review_issues"])
+        parent_reconciliation = self.run_tool(
+            "topic-add", "complete-case", "parent-summary-reconciliation",
+            "--title", "父级摘要语义同步",
+            "--purpose", "消除父级摘要仍声称新增知识尚未进入的前后矛盾",
+            "--action", "update",
+            "--path", "draft/knowledge/log.md",
+        )
+        self.assertEqual(0, parent_reconciliation.returncode, parent_reconciliation.stderr)
 
     def test_final_review_can_reopen_only_the_plan_for_an_unplanned_view(self) -> None:
         case = self.start_complete()

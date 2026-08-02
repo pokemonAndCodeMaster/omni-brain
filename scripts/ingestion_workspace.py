@@ -1445,6 +1445,7 @@ def reopen_plan(args: argparse.Namespace) -> int:
         "reviewed_at": previous.get("reviewed_at"),
     }
     case["stage"] = "planning"
+    case["plan_reopen_reason"] = reason
     case["cursor"] = {"item_type": None, "item_id": None}
     case["next_action"] = (
         "只补充最终审查暴露的知识主题或导航落点，再运行 plan-review；"
@@ -1484,8 +1485,12 @@ def add_topic(args: argparse.Namespace) -> int:
             f"{args.action} 只能用于父知识中已经存在的落点；新页面请使用 create：{path}"
         )
     finding_ids = list(dict.fromkeys(args.finding))
-    if not finding_ids and args.action != "view":
-        raise IngestionError("知识主题至少关联一个读后发现")
+    parent_reconciliation = (
+        args.action == "update"
+        and bool(case.get("plan_reopen_reason"))
+    )
+    if not finding_ids and args.action != "view" and not parent_reconciliation:
+        raise IngestionError("知识主题至少关联一个读后发现；发布前父级语义同步需先运行 plan-reopen")
     for finding_id in finding_ids:
         finding_by_id(case, finding_id)
     view_paths = [normalize_knowledge_path(item) for item in args.view]

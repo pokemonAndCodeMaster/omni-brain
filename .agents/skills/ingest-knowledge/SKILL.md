@@ -168,7 +168,7 @@ python scripts/ingestion_workspace.py plan-reopen <case-id> \
   --reason '<最终审查暴露的具体漏规划问题>'
 ```
 
-只补充这次暴露的 `create` / `update` / `merge` / `view` 主题，重新运行 `plan-review`，完成新增主题后再次 `review`。已登记主题内部的内容或链接错误直接在原候选中修正，不需要重新打开目录。
+只补充这次暴露的 `create` / `update` / `merge` / `view` 主题，重新运行 `plan-review`，完成新增主题后再次 `review`。如果只是同步父级页面中已被新增知识淘汰的“当前覆盖、当前缺口或以后再补”表述，登记一个无新发现的 `update` 主题，并在 `--purpose` 中写清需要消除的前后矛盾；不要伪造新的读后发现。已登记主题内部的内容或链接错误直接在原候选中修正，不需要重新打开目录。
 
 ### 2.4 按目录形成规范知识和产品视图
 
