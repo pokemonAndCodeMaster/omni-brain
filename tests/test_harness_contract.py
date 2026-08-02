@@ -24,17 +24,17 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "foundational_content_accepted_incremental_candidate_ready",
+            "first_domain_published_cross_model_replay_pending",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "verified_at_foundational_and_single_model_incremental_candidate_slices_not_released",
+            "verified_at_single_model_incremental_published_slice",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
         self.assertIn("scripts/ingestion_workspace.py", ingestion["entrypoints"])
-        self.assertIn("not_released", ingestion["adoption"])
+        self.assertIn("published", ingestion["adoption"])
 
     def test_startup_context_does_not_expose_eval_history(self) -> None:
         startup = "\n".join(

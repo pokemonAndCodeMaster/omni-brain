@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: foundational_content_accepted_incremental_candidate_ready
+  status: first_domain_published_cross_model_replay_pending
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -33,15 +33,16 @@ capabilities:
       - 只记录显式本地 Git 范围、版本和覆盖
       - 不理解或摄入知识语义
   knowledge_base:
-    adoption: implemented_empty_okf_scaffold
+    adoption: verified_at_published_quality_knowledge_slice
     entrypoints:
       - knowledge/index.md
       - config/knowledge-domains.yaml
     limits:
-      - 当前没有正式领域知识或已验证产品视图
+      - 已发布人工质检与验收规范知识、领域视图和工作旅程
+      - 已发布内容只在固定材料、代码版本和明确人工决定范围内可信，不代表生产系统现状
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: verified_at_foundational_and_single_model_incremental_candidate_slices_not_released
+    adoption: verified_at_single_model_incremental_published_slice
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
@@ -55,9 +56,8 @@ capabilities:
       - 隔离运行支持现场只读引用和私有可写副本；环境绑定结果不能冒充固定基线
       - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
       - 只读检查不判断业务真伪或内容充分性
-      - 聚焦代码和宽范围完整整理均有当前内容接受证据；证据仍限于固定真实材料和少量模型运行
-      - 增量候选已在认证父知识与后来材料上完成单模型验证：保留父知识、原位融合、入口语义同步和候选差异均有内容证据
-      - 增量候选仍待人工批准与跨模型重放；正式发布、泛化范围和过程成本优化尚未验证
+      - 聚焦代码、宽范围完整整理和单模型增量融合均有当前内容证据
+      - 人工批准、正式发布和正式知识检查已完成；跨模型稳定性和过程成本优化仍未验证
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:
