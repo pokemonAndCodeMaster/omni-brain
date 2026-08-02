@@ -6,7 +6,7 @@ roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: foundational_content_accepted_candidate_not_published
+  status: foundational_content_accepted_incremental_candidate_ready
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -50,12 +50,13 @@ capabilities:
       - 宽范围完整整理把不重复叙述文档作为独立审阅单元；完全重复仍合并，代码与配置按有界依赖组阅读
       - 读后发现、必要细节、知识归属和正文表达仍由 Agent 语义完成；工具只能校验来源、顺序、唯一归属、真实标题和一致性
       - 完整模式的来源追溯页从已校验发现和正文落点重建，不由模型维护第二份路径清单
+      - 新摄入案继承正式知识和领域配置的父版本快照；create/update/merge 与父路径关系及候选差异可检查
       - 聚焦问题召回只使用关键词、标题、正文命中和有限 import，不包含向量或完整代码图
       - 隔离运行支持现场只读引用和私有可写副本；环境绑定结果不能冒充固定基线
       - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
       - 只读检查不判断业务真伪或内容充分性
       - 聚焦代码和宽范围完整整理均有当前内容接受证据；完整整理证据仍限于一批固定真实材料和单次模型运行
-      - 人工发布、增量演进、跨模型稳定性和过程成本优化仍未验证
+      - 增量父版本与差异已通过真实材料命令级冒烟，但增量内容、人工发布、跨模型稳定性和过程成本优化仍未验证
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:
