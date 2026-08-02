@@ -1169,18 +1169,29 @@ def add_finding(args: argparse.Namespace) -> int:
     details = list(dict.fromkeys(item.strip() for item in args.detail if item.strip()))
     if not details:
         raise IngestionError("读后发现至少需要一项决定理解或行动的 --detail")
-    anchors = list(dict.fromkeys(item.strip() for item in args.anchor if item.strip()))
-    if not anchors:
-        raise IngestionError("读后发现至少需要一项 <source-ref>#<章节或符号> 形式的 --anchor")
+    raw_anchors = list(dict.fromkeys(item.strip() for item in args.anchor if item.strip()))
+    if not raw_anchors:
+        raise IngestionError("读后发现至少需要一项章节、表、符号或配置键 --anchor")
     unknown_sources = [item for item in sources if item not in group["members"]]
     if unknown_sources:
         raise IngestionError("读后发现来源不属于该材料组：" + ", ".join(unknown_sources))
+    anchors: list[str] = []
     anchor_sources: list[str] = []
-    for anchor in anchors:
+    for anchor in raw_anchors:
         ref, separator, locator = anchor.partition("#")
-        if not separator or not ref.strip() or not locator.strip():
-            raise IngestionError("--anchor 必须使用 <source-ref>#<章节、表、符号或配置键>")
-        anchor_sources.append(ref.strip())
+        if separator:
+            if not ref.strip() or not locator.strip():
+                raise IngestionError("--anchor 必须包含非空来源和定位")
+            normalized = f"{ref.strip()}#{locator.strip()}"
+            anchor_sources.append(ref.strip())
+        else:
+            if len(sources) != 1:
+                raise IngestionError(
+                    "发现有多个来源时，--anchor 必须使用 <source-ref>#<章节、表、符号或配置键>"
+                )
+            normalized = f"{sources[0]}#{anchor}"
+            anchor_sources.append(sources[0])
+        anchors.append(normalized)
     unknown_anchor_sources = [item for item in anchor_sources if item not in sources]
     if unknown_anchor_sources:
         raise IngestionError("定位引用必须先登记为本发现来源：" + ", ".join(unknown_anchor_sources))
@@ -2042,6 +2053,7 @@ def document_title(path: Path) -> str:
 
 
 def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
+    generate_complete_source_index(root, case)
     views = sorted(
         path for path in (root / "draft" / "knowledge" / "views").rglob("*.md")
         if path.name != "index.md"
@@ -2141,6 +2153,70 @@ def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
         ]
     )
     atomic_write_text(root / "review.md", "\n".join(lines))
+
+
+def generate_complete_source_index(root: Path, case: dict[str, Any]) -> None:
+    """Build the user-facing provenance view from already validated finding state."""
+    target = root / "draft" / "knowledge" / "sources" / "index.md"
+    lines = [
+        "# 直接材料与结论定位",
+        "",
+        "本页由摄入工作台从已校验的来源、读后结论和正文落点重建。它只用于追溯，不能代替规范正文。",
+        "",
+        "## 固定材料范围",
+        "",
+        "| 来源 ID | 固定位置 | 文件数 | 指纹 |",
+        "|---|---|---:|---|",
+    ]
+    for source in case["sources"]:
+        lines.append(
+            f"| `{source['id']}` | `{source['root']}` | {source['file_count']} | `{source['fingerprint']}` |"
+        )
+    if not case["sources"]:
+        lines.append("| 无 | 无 | 0 | 无 |")
+
+    lines.extend(["", "## 规范知识与直接材料", ""])
+    for topic in case["topics"]:
+        topic_path = root / topic["path"]
+        topic_link = relative_link(target, topic_path) if topic_path.is_file() else topic["path"]
+        lines.extend(
+            [
+                f"### [{topic['title']}]({topic_link})",
+                "",
+                "| 直接材料结论 | 现实形态 | 精确定位 | 正文章节 |",
+                "|---|---|---|---|",
+            ]
+        )
+        sections = topic.get("finding_sections", {})
+        for finding_id in topic["finding_ids"]:
+            finding = finding_by_id(case, finding_id)
+            content = finding["content"].replace("|", "\\|")
+            anchors = "<br>".join(
+                f"`{item.replace('|', chr(92) + '|')}`"
+                for item in finding.get("anchors", [])
+            ) or "未登记精确定位"
+            section = sections.get(finding_id, "写作中").replace("|", "\\|")
+            lines.append(
+                f"| {finding_id}：{content} | `{finding['reality']}` | {anchors} | {section} |"
+            )
+        if not topic["finding_ids"]:
+            lines.append("| 无 | 无 | 无 | 无 |")
+        lines.append("")
+    if not case["topics"]:
+        lines.append("知识目录尚未形成；当前只能在 `review.md` 查看已登记的直接材料结论。")
+        lines.append("")
+
+    lines.extend(
+        [
+            "## 使用边界",
+            "",
+            "- 路径和定位来自摄入开始时冻结并在登记时重新校验的来源；来源变化后必须重新摄入。",
+            "- 当前实现、当前决定、目标设计、历史、冲突和未知不能互相替代。",
+            "- 表中的正文落点只证明写作者完成了逐项对照，不自动证明业务结论正确；发布仍需人工审查。",
+            "",
+        ]
+    )
+    atomic_write_text(target, "\n".join(lines))
 
 
 def generate_review(root: Path, case: dict[str, Any]) -> None:

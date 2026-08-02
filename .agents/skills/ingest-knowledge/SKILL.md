@@ -71,13 +71,15 @@ python scripts/ingestion_workspace.py finding-add <case-id> <finding-id> \
   [--detail '<另一项关键细节>'] \
   --reality <current_implementation|current_decision|target_design|historical|conflict|unknown> \
   --source '<source-id>:<path>' \
-  --anchor '<source-id>:<path>#<章节、表、符号或配置键>' \
+  --anchor '<章节、表、符号或配置键>' \
   --scope '<结论适用于什么范围>' \
   [--limit '<不能据此推出什么>'] \
   [--topic '<可能进入的长期知识主题>']
 ```
 
 同一组可以重复执行 `finding-add`；同一 ID、同一内容的重试是幂等的。随后登记整组：
+
+单一来源时 `--anchor` 只写章节或符号，工作台会和已经校验的 `--source` 组合；一项发现有多个来源时，分别使用 `--anchor '<source-id>:<path>#<定位>'`，避免定位归错文件。
 
 ```bash
 python scripts/ingestion_workspace.py record-material <case-id> <group-id> \
@@ -166,7 +168,7 @@ python scripts/ingestion_workspace.py record-topic <case-id> <topic-id> \
   [--section '<next-finding-id>=<正文中的真实章节标题>']
 ```
 
-逐项检查发现的核心结论和关键细节确实进入所填章节后再登记。工作台检查所有发现都有真实章节定位、计划视图链接正文，然后推进到下一个主题；它不以关键词命中或字符数替代内容判断。
+逐项检查发现的核心结论和关键细节确实进入所填章节后再登记。工作台检查所有发现都有真实章节定位、计划视图链接正文，然后推进到下一个主题；它不以关键词命中或字符数替代内容判断。完整整理的 `sources/index.md` 由工作台根据已校验来源、发现和章节落点自动重建，不手抄或另写一套来源清单。
 
 ## 3. 聚焦代码或问题整理
 

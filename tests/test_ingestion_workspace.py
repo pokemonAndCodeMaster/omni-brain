@@ -114,7 +114,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
                 "--source",
                 source_ref,
                 "--anchor",
-                f"{source_ref}#file",
+                "file",
                 "--scope",
                 "仅限当前固定材料包",
                 "--topic",
@@ -360,6 +360,21 @@ class IngestionWorkspaceTest(unittest.TestCase):
         )
         self.assertEqual(2, missing_anchor.returncode)
         self.assertIn("--anchor", missing_anchor.stderr)
+        added = self.run_tool(
+            "finding-add", "complete-case", "finding-001",
+            "--group-id", group["id"],
+            "--content", "材料给出一个可复用结论",
+            "--detail", "这项细节决定后续理解或行动",
+            "--reality", "current_implementation",
+            "--source", source_ref,
+            "--anchor", "file",
+            "--scope", "当前固定材料包",
+        )
+        self.assertEqual(0, added.returncode, added.stderr)
+        case = json.loads(
+            (self.cases / "complete-case" / ".state" / "case.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual([f"{source_ref}#file"], case["findings"][0]["anchors"])
 
     def test_narrative_documents_remain_separate_but_keep_links(self) -> None:
         docs = self.source / "docs"
@@ -534,6 +549,13 @@ class IngestionWorkspaceTest(unittest.TestCase):
         review_text = (case / "review.md").read_text(encoding="utf-8")
         self.assertIn("知识目录与完成状态", review_text)
         self.assertIn("材料范围与读后发现", review_text)
+        source_index = (
+            case / "draft" / "knowledge" / "sources" / "index.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("直接材料与结论定位", source_index)
+        self.assertIn("materials:", source_index)
+        self.assertIn("#file", source_index)
+        self.assertIn("页面入口与请求", source_index)
 
     def test_next_returns_a_small_ranked_packet_and_import_neighbour(self) -> None:
         self.start()
