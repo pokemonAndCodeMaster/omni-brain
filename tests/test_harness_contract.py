@@ -22,19 +22,19 @@ class HarnessContractTest(unittest.TestCase):
 
     def test_m1_ingestion_declares_only_scoped_verification(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
-        self.assertEqual("M1", manifest["current_stage"]["id"])
+        self.assertEqual("M2", manifest["current_stage"]["id"])
         self.assertEqual(
-            "first_domain_published_cross_model_replay_pending",
+            "designing_query_and_context_from_published_knowledge",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "verified_at_single_model_incremental_published_slice",
+            "verified_at_cross_model_incremental_published_slice",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
         self.assertIn("scripts/ingestion_workspace.py", ingestion["entrypoints"])
-        self.assertIn("published", ingestion["adoption"])
+        self.assertIn("cross_model", ingestion["adoption"])
 
     def test_startup_context_does_not_expose_eval_history(self) -> None:
         startup = "\n".join(
