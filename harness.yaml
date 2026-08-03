@@ -1,12 +1,13 @@
 schema_version: '0.4'
 name: omni-brain-harness
-release_channel: experiment
-release_date: '2026-08-02'
+release_channel: release
+release_id: m1-ingestion-harness-v1
+release_date: '2026-08-03'
 roadmap: docs/roadmap.md
 
 current_stage:
   id: M1
-  status: foundational_content_accepted_incremental_candidate_ready
+  status: released_verified_at_quality_check_incremental_slice
   outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
 
 runtime:
@@ -41,7 +42,7 @@ capabilities:
       - 当前没有正式领域知识或已验证产品视图
       - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
   knowledge_ingestion:
-    adoption: verified_at_foundational_and_single_model_incremental_candidate_slices_not_released
+    adoption: verified_at_cross_model_incremental_slice
     entrypoints:
       - .agents/skills/ingest-knowledge/SKILL.md
       - scripts/ingestion_workspace.py
@@ -55,9 +56,10 @@ capabilities:
       - 隔离运行支持现场只读引用和私有可写副本；环境绑定结果不能冒充固定基线
       - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
       - 只读检查不判断业务真伪或内容充分性
-      - 聚焦代码和宽范围完整整理均有当前内容接受证据；证据仍限于固定真实材料和少量模型运行
-      - 增量候选已在认证父知识与后来材料上完成单模型验证：保留父知识、原位融合、入口语义同步和候选差异均有内容证据
-      - 增量候选仍待人工批准与跨模型重放；正式发布、泛化范围和过程成本优化尚未验证
+      - 聚焦代码、宽范围完整整理和增量融合均有当前内容证据；证据仍限于固定真实材料和少量模型运行
+      - 增量融合已经在认证父知识与后来材料上通过两个独立模型重放：父知识保留、原位融合、入口语义同步和候选差异均有内容证据
+      - 人工批准、正式知识发布与干净消费已经完成；本 Release 不预装领域知识
+      - 跨领域、OpenCode 实际宿主、部分批准、发布回滚和过程成本优化仍未验证
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:

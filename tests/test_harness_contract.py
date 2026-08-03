@@ -14,6 +14,8 @@ class HarnessContractTest(unittest.TestCase):
     def test_opencode_uses_native_project_conventions(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         runtime = manifest["runtime"]
+        self.assertEqual("release", manifest["release_channel"])
+        self.assertEqual("m1-ingestion-harness-v1", manifest["release_id"])
         self.assertEqual("opencode", runtime["primary"])
         self.assertEqual("native_file_conventions", runtime["adapter"])
         self.assertFalse(runtime["opencode_specific_config_required"])
@@ -24,17 +26,17 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         self.assertEqual("M1", manifest["current_stage"]["id"])
         self.assertEqual(
-            "foundational_content_accepted_incremental_candidate_ready",
+            "released_verified_at_quality_check_incremental_slice",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
         self.assertEqual(
-            "verified_at_foundational_and_single_model_incremental_candidate_slices_not_released",
+            "verified_at_cross_model_incremental_slice",
             ingestion["adoption"],
         )
         self.assertIn(".agents/skills/ingest-knowledge/SKILL.md", ingestion["entrypoints"])
         self.assertIn("scripts/ingestion_workspace.py", ingestion["entrypoints"])
-        self.assertIn("not_released", ingestion["adoption"])
+        self.assertIn("cross_model", ingestion["adoption"])
 
     def test_startup_context_does_not_expose_eval_history(self) -> None:
         startup = "\n".join(
