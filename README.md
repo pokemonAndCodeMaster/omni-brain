@@ -18,7 +18,9 @@
 ## 安装与自检
 
 ```bash
-cd /home/yyh/project/omni-brain-harness
+git clone --branch release/m1-ingestion-harness-v1 --single-branch \\
+  https://github.com/pokemonAndCodeMaster/omni-brain.git omni-brain-harness
+cd omni-brain-harness
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests
 python scripts/knowledge_check.py
