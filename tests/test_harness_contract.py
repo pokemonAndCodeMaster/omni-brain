@@ -93,6 +93,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("加载 `develop-with-knowledge`", contract)
         self.assertIn("最低充分上下文", skill)
         self.assertIn("组合审计", skill)
+        self.assertIn("最大合法状态的完整构成", skill)
+        self.assertIn("最大合法状态通过、再多一项失败", skill)
         self.assertIn("真实路径验证", skill)
         self.assertIn("知识变化候选", skill)
         self.assertIn("来源身份", skill)
