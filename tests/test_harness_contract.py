@@ -92,6 +92,8 @@ class HarnessContractTest(unittest.TestCase):
         skill = (ROOT / capability["entrypoints"][0]).read_text(encoding="utf-8")
         self.assertIn("加载 `develop-with-knowledge`", contract)
         self.assertIn("最低充分上下文", skill)
+        self.assertIn("## 实现前快照", skill)
+        self.assertIn("固定项 + 用户可追加项 + 隐式项 - 去重 = 最大合法总量", skill)
         self.assertIn("组合审计", skill)
         self.assertIn("最大合法状态的完整构成", skill)
         self.assertIn("最大合法状态通过、再多一项失败", skill)
