@@ -67,6 +67,14 @@ capabilities:
     limits:
       - 当前只有文件导航和定向事实源读取
       - 没有 FTS、向量、图查询或自动上下文组装
+  knowledge_guided_development:
+    adoption: implemented_trial_pending
+    entrypoints:
+      - .agents/skills/develop-with-knowledge/SKILL.md
+    limits:
+      - 只依据首个真实质检开发基线暴露的问题形成，尚无修订后模型重放证据
+      - 不包含自动上下文组装、环境管理或正式知识自动发布
+      - 低风险局部修改不应被机械升级为完整流程
 
 promotion_policy:
   allowed:

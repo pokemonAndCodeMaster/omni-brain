@@ -67,7 +67,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不加载 `ingest-knowledge`", contract)
 
     def test_skill_frontmatter_is_discoverable(self) -> None:
-        for name in ("task-knowledge-prep", "ingest-knowledge"):
+        for name in ("task-knowledge-prep", "ingest-knowledge", "develop-with-knowledge"):
             path = ROOT / f".agents/skills/{name}/SKILL.md"
             match = re.match(r"\A---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.DOTALL)
             self.assertIsNotNone(match, name)
@@ -78,6 +78,24 @@ class HarnessContractTest(unittest.TestCase):
         for capability in manifest["capabilities"].values():
             for entrypoint in capability["entrypoints"]:
                 self.assertTrue((ROOT / entrypoint).exists(), entrypoint)
+
+    def test_development_workflow_is_scoped_and_trial_pending(self) -> None:
+        manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
+        capability = manifest["capabilities"]["knowledge_guided_development"]
+        self.assertEqual("implemented_trial_pending", capability["adoption"])
+        self.assertEqual(
+            [".agents/skills/develop-with-knowledge/SKILL.md"],
+            capability["entrypoints"],
+        )
+
+        contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        skill = (ROOT / capability["entrypoints"][0]).read_text(encoding="utf-8")
+        self.assertIn("加载 `develop-with-knowledge`", contract)
+        self.assertIn("最低充分上下文", skill)
+        self.assertIn("组合审计", skill)
+        self.assertIn("真实路径验证", skill)
+        self.assertIn("知识变化候选", skill)
+        self.assertIn("来源身份", skill)
 
     def test_knowledge_bundle_matches_declared_adoption(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
