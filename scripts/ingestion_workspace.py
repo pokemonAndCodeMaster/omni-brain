@@ -1159,15 +1159,14 @@ def plan_unit(args: argparse.Namespace) -> int:
     if case.get("mode") == "writeback" and not (case.get("writeback") or {}).get("relationship"):
         raise IngestionError("代码变化回写必须先运行 identity-set 判断系统身份")
     validate_id(args.unit_id, "unit id", UNIT_ID_RE)
-    if any(item["id"] == args.unit_id for item in question["expected_units"]):
-        raise IngestionError(f"知识单元已存在：{args.unit_id}")
-    if len(question["expected_units"]) >= MAX_KNOWLEDGE_UNITS_PER_QUESTION:
+    existing = next((item for item in question["expected_units"] if item["id"] == args.unit_id), None)
+    if existing is None and len(question["expected_units"]) >= MAX_KNOWLEDGE_UNITS_PER_QUESTION:
         raise IngestionError(
             f"一个读者问题最多规划 {MAX_KNOWLEDGE_UNITS_PER_QUESTION} 个规范知识落点；"
             "导航、日志和来源清单应留到最终同步，超过上限时拆分读者问题"
         )
     path = normalize_knowledge_path(args.path)
-    if any(item["path"] == path for item in question["expected_units"]):
+    if any(item["path"] == path and item["id"] != args.unit_id for item in question["expected_units"]):
         raise IngestionError(f"知识路径已规划：{path}")
     unit = {
         "id": args.unit_id,
@@ -1176,7 +1175,16 @@ def plan_unit(args: argparse.Namespace) -> int:
         "path": path,
         "status": "planned",
     }
-    question["expected_units"].append(unit)
+    if existing:
+        if question.get("evidence") or question.get("knowledge_paths"):
+            raise IngestionError(f"知识单元 {args.unit_id} 已进入取源/写作，不能修改计划")
+        existing.clear()
+        existing.update(unit)
+        unit = existing
+        updated = True
+    else:
+        question["expected_units"].append(unit)
+        updated = False
     if case.get("mode") == "writeback":
         case["writeback_impact_review"] = {
             "passed": False,
@@ -1191,6 +1199,7 @@ def plan_unit(args: argparse.Namespace) -> int:
     save_case(root, case)
     payload: dict[str, Any] = {
         "unit": unit,
+        "updated": updated,
         "requires_run": question["requires_run"],
         "next": case["next_action"],
     }
@@ -2253,7 +2262,9 @@ def next_sources(args: argparse.Namespace) -> int:
                 "packet": output_packet,
                 "remaining_relevant_candidates": len(question["candidate_queue"]),
                 "reading_rule": (
-                    "只读取本 packet；读完立即更新规范知识并 record，不维护逐文件覆盖表。"
+                    "优先只读取本 packet；读完立即更新规范知识并 record，不维护逐文件覆盖表。"
+                    "代码回写中，固定 diff 或报告明确指向的其他冻结文件可以直接登记，"
+                    "但不得借此无界通读来源。"
                     "run_evidence 先核对版本、环境和覆盖，足够时不要机械重跑。"
                     "当问题需要完整数据契约且 packet 给出 contract_candidates 时，"
                     "先运行 contract-inspect，再把返回字段完整写入规范知识。"
@@ -2340,6 +2351,8 @@ def record_result(args: argparse.Namespace) -> int:
     active = {item["ref"]: item for item in question["active_packet"]}
     recorded = {item["ref"]: item for item in question["evidence"]}
     used = list(dict.fromkeys(args.source))
+    if len(used) > 12:
+        raise IngestionError("一次 record 最多登记 12 项直接来源；请按读者问题收束证据")
     used_runs = list(dict.fromkeys(args.run_id))
     runs_by_id = {item["id"]: item for item in case.get("runs", [])}
     unknown_runs = [item for item in used_runs if item not in runs_by_id]
@@ -2351,7 +2364,15 @@ def record_result(args: argparse.Namespace) -> int:
     ]
     if wrong_question_runs:
         raise IngestionError("以下运行证据不属于当前问题：" + ", ".join(wrong_question_runs))
-    unknown = [item for item in used if item not in active and item not in recorded]
+    manifest_by_ref = {
+        source_ref(item["source_id"], item["path"]): item for item in read_manifest(root)
+    }
+    unknown = [
+        item for item in used
+        if item not in active
+        and item not in recorded
+        and not (case.get("mode") == "writeback" and item in manifest_by_ref)
+    ]
     if unknown:
         available_refs = list(dict.fromkeys([*active, *recorded]))
         available = ", ".join(available_refs) or "（当前没有活动小批，请先 next）"
@@ -2379,13 +2400,9 @@ def record_result(args: argparse.Namespace) -> int:
     for ref in used:
         if ref in recorded:
             continue
-        item = active[ref]
         path = resolve_source(case, ref)
         actual = digest_bytes(path.read_bytes())
-        manifest_item = next(
-            entry for entry in read_manifest(root)
-            if source_ref(entry["source_id"], entry["path"]) == ref
-        )
+        manifest_item = manifest_by_ref[ref]
         if actual != manifest_item["sha256"]:
             raise IngestionError(f"来源自摄入案开始后发生变化：{ref}")
         question["evidence"].append(
