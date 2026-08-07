@@ -75,8 +75,6 @@ flowchart LR
 
 这是目标设计，不是当前生产表事实。
 
-Batch 2 的增量材料还记录了人员模型的迁移边界：目标人力主表为 `t_data_check_screeners` 的 SCD Type 2，同一 `employee_id` 可有多行，复合主键为 `(employee_id, id)`，`end_time IS NULL` 表示当前有效行；历史 `t_personnel`、`join_date`、`annotator_id` 和旧快照字段只能作为迁移背景。当前设计要求关闭旧有效行、插入新行并记录 `t_personnel_op_log`，但事务实现和真实 Schema 尚未由本案直接核验。
-
 ## 目标快照字段组
 
 | 字段组 | 主要语义 | 关键说明 |
@@ -104,8 +102,6 @@ Batch 2 的增量材料还记录了人员模型的迁移边界：目标人力主
 | 质量通过率 | 通过 / 已完成验收，或通过 / 已分配验收 | 已判断样本质量，还是把未完成也计入 | Batch 1 两份目标材料冲突，暂不选定 |
 
 三阶段语义与快照材料要求按 completed 计算质量；规则设计的输入指标段却写成按 allocated 计算。K0 只指出：页面必须显式展示公式，业务负责人确认前不能只写一个“通过率”。
-
-同一批材料还出现 26 个扁平字段与 18 个字段加 `good_metrics`/`bad_metrics`/`option_metrics` JSONB 两套快照结构，以及 `conclusion`/`is_executed` 与 `exec_status` 两套执行字段。这些是版本冲突；在当前源码、Schema、迁移和运行结果确认前，不能选择其中一套写成现行模型，也不能把文档中的物理实现或 QA 数字当作直接证据。
 
 ## 状态与新鲜度
 

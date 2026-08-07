@@ -13,8 +13,6 @@ tags: [manual-qc, acceptance, decision, execution, algorithm]
 
 PASS/REJECT 表示有条件进入执行；目标方案中的 PENDING 表示证据不足，不能执行。固定代码没有结论规则或执行能力，下面保留的阈值来自历史脚本，不是当前生产规则。
 
-执行预览应同时保留摘要、冻结选择、警告、来源版本和生成时间；正式执行仍须重取当前状态并重算结论。目标状态候选为 `NULL → PENDING → PASS/REJECT_EXECUTING → DONE`，但旧标量 `conclusion/is_executed` 与新 JSONB `exec_status` 的关系尚未裁决。Delta 客户端的目标职责仅是查询任务、提交分配/通过/打回并回查状态，不拥有业务规则或本地数据库访问；接口、认证、超时、批量上限和状态映射仍未知。
-
 ## 指标、结论与执行对象
 
 ```mermaid
