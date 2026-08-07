@@ -1,6 +1,5 @@
 # 产品视图
 
-- [质检领域位置与人工质检全貌](by-domain/quality.md)：按领域层级浏览。
-- [人工质检验收学习与任务旅程](by-journey/manual-qc-acceptance.md)：按学习顺序和实际任务浏览。
+- [按领域浏览](by-domain/index.md)
+- [按旅程与学习路线浏览](by-journey/index.md)
 
-产品视图只维护位置、顺序、问题入口和下一跳；业务规则、算法和代码事实仍在规范知识页唯一维护。

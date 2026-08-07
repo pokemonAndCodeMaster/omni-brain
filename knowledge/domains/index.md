@@ -1,7 +1,4 @@
 # 领域知识
 
-- [质检](quality/overview.md)
-  - [人工质检](quality/manual/overview.md)
-    - [人工质检验收](quality/manual/acceptance/overview.md)
+当前没有已批准的领域节点。领域结构由 `config/knowledge-domains.yaml` 管理，新增节点必须同时说明唯一上级、范围和排除项。
 
-领域目录表达稳定归属；跨领域公共能力位于[公共能力](../capabilities/index.md)，学习和任务路线位于[产品视图](../views/index.md)。
