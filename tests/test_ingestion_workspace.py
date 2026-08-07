@@ -1086,6 +1086,11 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
         status = json.loads(self.run_tool("status", "sample-case").stdout)
         self.assertEqual([], status["questions"][0]["run_ids"])
+        review = (case / "review.md").read_text(encoding="utf-8")
+        self.assertIn("已核对固定来源中的验证记录", review)
+        self.assertIn("app:docs/verification-report.md", review)
+        self.assertIn("没有新增现场隔离运行", review)
+        self.assertNotIn("尚无真实运行证据", review)
 
     def test_contract_inspect_blocks_field_loss_until_all_fields_are_internalized(self) -> None:
         (self.source / "schema.py").write_text(

@@ -3052,13 +3052,22 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
                 next_action=next_action.replace("|", "\\|"),
             )
         )
-    lines.extend(["", "## 直接依据与真实运行", ""])
+    lines.extend(["", "## 直接依据与验证证据", ""])
     evidence_refs = {
         evidence["ref"]
         for question in case["questions"]
         for evidence in question["evidence"]
     }
     lines.append(f"- 已登记不重复直接来源：{len(evidence_refs)} 项。")
+    fixed_reports = sorted(
+        ref for ref in evidence_refs if candidate_role(ref) == "run_evidence"
+    )
+    if fixed_reports:
+        lines.append(
+            "- 已核对固定来源中的验证记录："
+            + "、".join(f"`{ref}`" for ref in fixed_reports)
+            + "。其版本、环境、覆盖范围和具体结果仍应在对应规范知识中说明。"
+        )
     if case.get("runs"):
         for run in case["runs"]:
             status = (
@@ -3077,7 +3086,12 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
                 f"{status}；运行范围：{scope_label}。"
             )
     else:
-        lines.append("- 本轮尚无真实运行证据。")
+        if fixed_reports:
+            lines.append(
+                "- 本案没有新增现场隔离运行；已有固定验证记录足以覆盖的问题无需机械重跑。"
+            )
+        else:
+            lines.append("- 本案没有登记固定验证记录，也没有新增现场隔离运行。")
     pending_runs = [
         run_id
         for question in case["questions"]
@@ -3097,7 +3111,10 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
         for question in decisions:
             lines.append(f"- **{question['id']}：** {'；'.join(question['missing'])}。")
     else:
-        lines.append("- 当前没有登记缺口、冲突或必须由外部责任方补充的事项。")
+        lines.append(
+            "- 当前问题状态没有登记会阻止本案继续的外部补知项；"
+            "候选知识正文保留的长期未知、来源冲突和生产边界仍须随对应规范页审查。"
+        )
     lines.extend(
         [
             "",
