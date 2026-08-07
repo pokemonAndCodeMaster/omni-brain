@@ -413,7 +413,13 @@ def git_identity(root: Path) -> dict[str, Any] | None:
 def writeback_change_hints(source: dict[str, Any], parent_commit: str | None) -> dict[str, Any]:
     """Return deterministic changed-path hints; never decide knowledge semantics."""
     if not parent_commit or not source.get("git"):
-        return {"parent_commit": parent_commit, "changed_paths": [], "shared_dependencies": [], "compatibility_signals": []}
+        return {
+            "parent_commit": parent_commit,
+            "changed_paths": [],
+            "shared_dependencies": [],
+            "compatibility_signals": [],
+            "fact_transitions": [],
+        }
     git_root = Path(source["git"]["root"])
     head = source["git"]["commit"]
     parent = run_git(git_root, "rev-parse", parent_commit)
@@ -446,6 +452,7 @@ def writeback_change_hints(source: dict[str, Any], parent_commit: str | None) ->
                 shared_dependencies.append({"path": relative, "module": module})
 
     compatibility_signals: list[dict[str, str]] = []
+    fact_transitions: list[dict[str, str]] = []
     diff = run_git(git_root, "diff", "--unified=0", parent_sha, head, "--")
     compatibility_re = re.compile(
         r"兼容|旧(?:版|配置|数据|列)|列顺序|保存.{0,8}配置|backward|compatib|legacy|saved.{0,12}(?:config|view|column)",
@@ -453,21 +460,106 @@ def writeback_change_hints(source: dict[str, Any], parent_commit: str | None) ->
     )
     current_path = ""
     if diff.returncode == 0:
+        removed_assignments: dict[tuple[str, str], str] = {}
         for line in diff.stdout.splitlines():
             if line.startswith("+++ b/"):
                 current_path = line[6:]
                 continue
+            if line.startswith("-") and not line.startswith("---"):
+                assignment = re.search(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\d+)\b", line[1:])
+                if assignment:
+                    removed_assignments[(current_path, assignment.group(1))] = assignment.group(2)
+                continue
             if line.startswith("+") and not line.startswith("+++") and compatibility_re.search(line):
                 compatibility_signals.append({"path": current_path, "line": line[1:].strip()[:240]})
                 if len(compatibility_signals) >= 12:
-                    break
+                    compatibility_signals = compatibility_signals[:12]
+            if line.startswith("+") and not line.startswith("+++"):
+                added = line[1:].strip()
+                assignment = re.search(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\d+)\b", added)
+                if assignment:
+                    old = removed_assignments.get((current_path, assignment.group(1)))
+                    new = assignment.group(2)
+                    if old and old != new:
+                        fact_transitions.append(
+                            {
+                                "path": current_path,
+                                "old": old,
+                                "new": new,
+                                "context": f"{assignment.group(1)}: {old} -> {new}",
+                            }
+                        )
+                for transition in re.finditer(
+                    r"(?:由|从)\s*(\d+)\s*(?:个|项)?[^。；\n]{0,36}?(?:增至|增加到|变为|提高到|到)\s*(\d+)",
+                    added,
+                ):
+                    old, new = transition.groups()
+                    if old != new:
+                        fact_transitions.append(
+                            {
+                                "path": current_path,
+                                "old": old,
+                                "new": new,
+                                "context": added[:240],
+                            }
+                        )
+    unique_transitions: list[dict[str, str]] = []
+    seen_transitions: set[tuple[str, str, str]] = set()
+    for item in fact_transitions:
+        key = (item["path"], item["old"], item["new"])
+        if key in seen_transitions:
+            continue
+        seen_transitions.add(key)
+        unique_transitions.append(item)
     return {
         "parent_commit": parent_sha,
         "current_commit": head,
         "changed_paths": changed_paths,
         "shared_dependencies": shared_dependencies[:20],
         "compatibility_signals": compatibility_signals,
+        "fact_transitions": unique_transitions[:20],
     }
+
+
+def stale_current_fact_candidates(root: Path, case: dict[str, Any]) -> list[dict[str, str | int]]:
+    """Find high-confidence old numeric facts still presented as current in the draft."""
+    hints = (case.get("writeback") or {}).get("change_hints") or {}
+    transitions = hints.get("fact_transitions") or []
+    if not transitions:
+        return []
+    current_markers = re.compile(
+        r"当前|现在|现为|最多|上限|限制|允许|基础指标|返回|通过|拒绝|HTTP\s*(?:200|4\d\d)",
+        re.IGNORECASE,
+    )
+    history_markers = re.compile(r"历史|此前|先前|父版本|旧版|原版本|曾经|当时")
+    transition_markers = re.compile(r"(?:由|从).{0,20}(?:增至|增加到|变为|提高到|到)")
+    candidates: list[dict[str, str | int]] = []
+    knowledge_root = root / "draft" / "knowledge"
+    if not knowledge_root.is_dir():
+        return []
+    for path in sorted(knowledge_root.rglob("*.md")):
+        relative = path.relative_to(root / "draft").as_posix()
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if not current_markers.search(line) or history_markers.search(line) or transition_markers.search(line):
+                continue
+            semantic_line = re.sub(r"^\s*\d+[.)]\s+", "", line)
+            for transition in transitions:
+                old = str(transition["old"])
+                new = str(transition["new"])
+                if not re.search(rf"(?<!\d){re.escape(old)}(?!\d)", semantic_line):
+                    continue
+                candidates.append(
+                    {
+                        "path": relative,
+                        "line_number": line_number,
+                        "line": line.strip()[:280],
+                        "old": old,
+                        "new": new,
+                        "source_path": str(transition["path"]),
+                    }
+                )
+                break
+    return candidates[:30]
 
 
 def source_files(root: Path) -> list[Path]:
@@ -1036,6 +1128,7 @@ def set_writeback_identity(args: argparse.Namespace) -> int:
         "changed_paths": [],
         "shared_dependencies": [],
         "compatibility_signals": [],
+        "fact_transitions": [],
     }
     source_path = normalize_knowledge_path(args.source_path) if args.source_path else None
     system_path = normalize_knowledge_path(args.system_path) if args.system_path else None
@@ -1113,6 +1206,12 @@ def set_writeback_identity(args: argparse.Namespace) -> int:
                 "writeback": decided,
                 "existing_run_evidence_candidates": fixed_run_evidence_candidates(root, case),
                 "change_hints": change_hints,
+                "compatibility_followup": (
+                    "兼容信号只给出结果。把它单独变成读者问题，继续定位旧输入或旧状态、"
+                    "恢复/合并机制、可观察结果和长期 owner；若由共享能力承担，更新共享 owner。"
+                    if change_hints.get("compatibility_signals")
+                    else None
+                ),
                 "evidence_rule": (
                     "候选报告属于冻结来源，不自动证明正文声明；先读取并核对 commit、环境和覆盖。"
                     "覆盖当前问题时作为直接来源登记，不机械重跑；不足时再运行来源项目。"
@@ -2750,6 +2849,16 @@ def writeback_review_errors(root: Path, case: dict[str, Any]) -> list[str]:
         )
     errors.extend(incremental_parent_preservation_errors(root, case, changes))
     errors.extend(incremental_entrypoint_errors(case, changes))
+    stale_candidates = stale_current_fact_candidates(root, case)
+    if stale_candidates:
+        errors.append(
+            "固定提交已经替代以下数值，但候选仍把旧值写成当前事实；请原位更新，"
+            "若确属历史则明确版本/时间范围："
+            + "；".join(
+                f"{item['path']}:{item['line_number']} ({item['old']} -> {item['new']}) {item['line']}"
+                for item in stale_candidates[:12]
+            )
+        )
 
     changed = set(changes["added"] + changes["modified"] + changes["deleted"])
     errors.extend(navigation_semantic_errors(root, changed))

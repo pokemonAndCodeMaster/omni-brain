@@ -17,6 +17,7 @@ from ingestion_workspace import (
     incremental_entrypoint_errors,
     navigation_semantic_errors,
     parent_content_regressions,
+    stale_current_fact_candidates,
 )
 
 
@@ -27,6 +28,32 @@ class IngestionWorkspaceTest(unittest.TestCase):
             contains_template_placeholder("```text\n<任务ID>-date-<日期>\n```\n这是合法格式示例。")
         )
         self.assertTrue(contains_template_placeholder("# <标题>\n\n<这里填写正文>"))
+
+    def test_stale_current_fact_scan_flags_current_old_values_but_not_history(self) -> None:
+        root = self.root / "fact-scan"
+        knowledge = root / "draft" / "knowledge"
+        knowledge.mkdir(parents=True)
+        (knowledge / "current.md").write_text(
+            "当前一次请求最多 15 个指标，第 16 个拒绝。\n"
+            "父版本最多 15 个指标。\n"
+            "基础指标由 10 个增至 11 个。\n"
+            "10. [当前系统](systems/current.md)\n",
+            encoding="utf-8",
+        )
+        case = {
+            "writeback": {
+                "change_hints": {
+                    "fact_transitions": [
+                        {"path": "models.py", "old": "15", "new": "16"},
+                        {"path": "report.md", "old": "10", "new": "11"},
+                    ]
+                }
+            }
+        }
+        candidates = stale_current_fact_candidates(root, case)
+        self.assertEqual(1, len(candidates))
+        self.assertEqual("15", candidates[0]["old"])
+        self.assertIn("current.md", str(candidates[0]["path"]))
 
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -783,6 +810,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertTrue(json.loads(complete.stdout)["impact_review"]["passed"])
 
     def test_writeback_parent_diff_exposes_shared_and_compatibility_hints(self) -> None:
+        (self.source / "limits.py").write_text("MAX_ITEMS = 15\n", encoding="utf-8")
         subprocess.run(["git", "init", "-q"], cwd=self.source, check=True)
         subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=self.source, check=True)
         subprocess.run(["git", "config", "user.name", "Test"], cwd=self.source, check=True)
@@ -796,8 +824,10 @@ class IngestionWorkspaceTest(unittest.TestCase):
             encoding="utf-8",
         )
         (self.source / "verification.md").write_text(
-            "# 验证\n\n兼容性：旧配置缺少新增列时仍可恢复。\n", encoding="utf-8"
+            "# 验证\n\n基础指标由 10 个增至 11 个。兼容性：旧配置缺少新增列时仍可恢复。\n",
+            encoding="utf-8",
         )
+        (self.source / "limits.py").write_text("MAX_ITEMS = 16\n", encoding="utf-8")
         subprocess.run(["git", "add", "."], cwd=self.source, check=True)
         subprocess.run(["git", "commit", "-qm", "current"], cwd=self.source, check=True)
 
@@ -815,6 +845,9 @@ class IngestionWorkspaceTest(unittest.TestCase):
         hints = json.loads(decided.stdout)["change_hints"]
         self.assertTrue(any(item["module"] == "@/shared/data-workbench/Table.vue" for item in hints["shared_dependencies"]))
         self.assertTrue(any("旧配置" in item["line"] for item in hints["compatibility_signals"]))
+        self.assertTrue(any(item["old"] == "10" and item["new"] == "11" for item in hints["fact_transitions"]))
+        self.assertTrue(any(item["old"] == "15" and item["new"] == "16" for item in hints["fact_transitions"]))
+        self.assertIn("旧输入", json.loads(decided.stdout)["compatibility_followup"])
 
         for question, unit_id, kind, path in (
             ("q-001", "source", "identity", "draft/knowledge/sources/new-system.md"),
