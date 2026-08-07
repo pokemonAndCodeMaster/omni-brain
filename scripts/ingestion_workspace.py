@@ -850,7 +850,7 @@ def start_case(args: argparse.Namespace) -> int:
         "sources": sources,
         "baseline": baseline,
         "questions": [new_question(index, text) for index, text in enumerate(questions, 1)],
-        "stage": "focused" if args.mode == "focused" else "mapping",
+        "stage": args.mode if args.mode in {"focused", "writeback"} else "mapping",
         "cursor": {"item_type": None, "item_id": None},
         "material_groups": [],
         "findings": [],
@@ -1048,6 +1048,18 @@ def default_query_terms(text: str) -> list[str]:
         if 2 <= len(chunk) <= 12:
             terms.append(chunk)
     return list(dict.fromkeys(terms))[:12]
+
+
+def normalize_query_terms(values: list[str]) -> list[str]:
+    """Accept both repeated terms and a human-friendly whitespace-separated query."""
+    terms: list[str] = []
+    for value in values:
+        value = value.strip()
+        if not value:
+            continue
+        expanded = default_query_terms(value)
+        terms.extend(expanded or [value])
+    return list(dict.fromkeys(terms))[:24]
 
 
 def read_source_text(case: dict[str, Any], item: dict[str, Any]) -> str:
@@ -1794,7 +1806,7 @@ def next_sources(args: argparse.Namespace) -> int:
     question = question_by_id(case, args.question_id)
     if question["active_packet"]:
         raise IngestionError("当前小批来源尚未 record；先写知识并登记结果")
-    terms = [item.strip() for item in args.query if item.strip()]
+    terms = normalize_query_terms(args.query)
     if terms:
         manifest = read_manifest(root)
         ranked = import_neighbours(case, manifest, initial_rank(case, manifest, terms))

@@ -1033,6 +1033,19 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertNotIn("app:unrelated.txt", refs)
         self.assertNotIn("source-manifest", payload)
 
+    def test_next_splits_a_human_friendly_multi_term_query(self) -> None:
+        self.start()
+        result = self.run_tool(
+            "next", "sample-case", "q-001",
+            "--query", "README annotation_submitted API", "--limit", "4",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["packet"])
+        self.assertIn("README", payload["query_terms"])
+        self.assertIn("annotation_submitted", payload["query_terms"])
+        self.assertIn("API", payload["query_terms"])
+
     def test_next_resolves_common_vite_at_alias_without_project_specific_config(self) -> None:
         features = self.source / "frontend" / "src" / "features"
         shared = self.source / "frontend" / "src" / "shared"
