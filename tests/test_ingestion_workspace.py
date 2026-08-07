@@ -624,7 +624,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
         (knowledge / "sources" / "new-system.md").write_text(
             concept.format(
                 title="新系统来源", description="固定代码来源和证据边界",
-                body="固定代码目录和版本只证明当前本地实现。" + sufficient_detail * 2,
+                body=f"固定代码目录 `{self.source}` 和版本只证明当前本地实现。" + sufficient_detail * 2,
                 source_link="new-system.md",
             ),
             encoding="utf-8",
@@ -781,6 +781,70 @@ class IngestionWorkspaceTest(unittest.TestCase):
         )
         self.assertEqual(0, complete.returncode, complete.stdout + complete.stderr)
         self.assertTrue(json.loads(complete.stdout)["impact_review"]["passed"])
+
+    def test_writeback_parent_diff_exposes_shared_and_compatibility_hints(self) -> None:
+        subprocess.run(["git", "init", "-q"], cwd=self.source, check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=self.source, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=self.source, check=True)
+        subprocess.run(["git", "add", "."], cwd=self.source, check=True)
+        subprocess.run(["git", "commit", "-qm", "parent"], cwd=self.source, check=True)
+        parent = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=self.source, check=True, capture_output=True, text=True
+        ).stdout.strip()
+        (self.source / "page.vue").write_text(
+            "<script setup>\nimport Table from '@/shared/data-workbench/Table.vue'\n</script>\n",
+            encoding="utf-8",
+        )
+        (self.source / "verification.md").write_text(
+            "# 验证\n\n兼容性：旧配置缺少新增列时仍可恢复。\n", encoding="utf-8"
+        )
+        subprocess.run(["git", "add", "."], cwd=self.source, check=True)
+        subprocess.run(["git", "commit", "-qm", "current"], cwd=self.source, check=True)
+
+        self.start_writeback()
+        decided = self.run_tool(
+            "identity-set", "writeback-case",
+            "--relationship", "new_system",
+            "--reason", "独立代码来源和运行入口",
+            "--source-id", "app",
+            "--parent-commit", parent,
+            "--source-path", "draft/knowledge/sources/new-system.md",
+            "--system-path", "draft/knowledge/systems/new-system.md",
+        )
+        self.assertEqual(0, decided.returncode, decided.stdout + decided.stderr)
+        hints = json.loads(decided.stdout)["change_hints"]
+        self.assertTrue(any(item["module"] == "@/shared/data-workbench/Table.vue" for item in hints["shared_dependencies"]))
+        self.assertTrue(any("旧配置" in item["line"] for item in hints["compatibility_signals"]))
+
+        for question, unit_id, kind, path in (
+            ("q-001", "source", "identity", "draft/knowledge/sources/new-system.md"),
+            ("q-001", "system", "identity", "draft/knowledge/systems/new-system.md"),
+            ("q-002", "rule", "data", "draft/knowledge/domains/quality/metric-rule.md"),
+            ("q-003", "software", "software", "draft/knowledge/systems/new-system-architecture.md"),
+            ("q-003", "journey", "navigation", "draft/knowledge/views/by-journey/quality.md"),
+        ):
+            self.assertEqual(
+                0,
+                self.run_tool(
+                    "plan-unit", "writeback-case", question, unit_id,
+                    "--title", unit_id, "--kind", kind, "--path", path,
+                ).returncode,
+            )
+        blocked = self.run_tool(
+            "impact-review", "writeback-case",
+            "--impact", "outcome=q-001:system",
+            "--impact", "current_state=q-001:source,q-001:system",
+            "--impact", "semantics=q-002:rule",
+            "--impact", "software=q-003:software",
+            "--impact", "evidence=q-001:source",
+            "--impact", "navigation=q-003:journey",
+            "--not-applicable", "compatibility=没有发现需要继续维护的旧接口、数据或保存配置",
+            "--not-applicable", "shared=没有发现公共组件、公共基础设施或跨模块共享契约",
+        )
+        self.assertEqual(1, blocked.returncode)
+        issues = json.loads(blocked.stdout)["impact_review"]["issues"]
+        self.assertTrue(any("shared 不能标为不适用" in item for item in issues))
+        self.assertTrue(any("compatibility 不能标为不适用" in item for item in issues))
 
     def test_question_allows_four_substantive_units_but_rejects_a_fifth(self) -> None:
         self.start_writeback()

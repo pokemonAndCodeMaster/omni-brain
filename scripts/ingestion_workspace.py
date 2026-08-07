@@ -336,12 +336,17 @@ def load_case(cases_root: Path, case_id: str) -> tuple[Path, dict[str, Any]]:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise IngestionError(f"无法读取摄入案状态 {path}：{exc}") from exc
-    if not isinstance(value, dict) or value.get("schema_version") not in {"1.3", SCHEMA_VERSION}:
+    if not isinstance(value, dict) or value.get("schema_version") not in {"1.3", "1.4", SCHEMA_VERSION}:
         raise IngestionError(f"不支持的摄入案状态：{path}")
-    if value.get("schema_version") == "1.3":
+    if value.get("schema_version") in {"1.3", "1.4"}:
         value["schema_version"] = SCHEMA_VERSION
         for question in value.get("questions", []):
             question.setdefault("contracts", [])
+        if value.get("mode") == "writeback":
+            value.setdefault(
+                "writeback_impact_review",
+                {"passed": False, "impacts": {}, "not_applicable": {}, "issues": ["升级后需要运行 impact-review"]},
+            )
     return root, value
 
 
@@ -402,6 +407,66 @@ def git_identity(root: Path) -> dict[str, Any] | None:
         "commit": head.stdout.strip(),
         "scope": str(root.relative_to(git_root)) if root != git_root else ".",
         "dirty": bool(status.stdout.strip()),
+    }
+
+
+def writeback_change_hints(source: dict[str, Any], parent_commit: str | None) -> dict[str, Any]:
+    """Return deterministic changed-path hints; never decide knowledge semantics."""
+    if not parent_commit or not source.get("git"):
+        return {"parent_commit": parent_commit, "changed_paths": [], "shared_dependencies": [], "compatibility_signals": []}
+    git_root = Path(source["git"]["root"])
+    head = source["git"]["commit"]
+    parent = run_git(git_root, "rev-parse", parent_commit)
+    if parent.returncode != 0:
+        raise IngestionError(f"父提交不存在于来源仓库：{parent_commit}")
+    parent_sha = parent.stdout.strip()
+    ancestor = run_git(git_root, "merge-base", "--is-ancestor", parent_sha, head)
+    if ancestor.returncode != 0:
+        raise IngestionError(f"父提交不是固定来源 HEAD 的祖先：{parent_sha} -> {head}")
+    names = run_git(git_root, "diff", "--name-only", parent_sha, head, "--")
+    if names.returncode != 0:
+        raise IngestionError("无法读取固定提交之间的变化路径")
+    changed_paths = [item for item in names.stdout.splitlines() if item][:200]
+
+    shared_dependencies: list[dict[str, str]] = []
+    shared_markers = re.compile(r"(?:^|[/_.-])(shared|common|core|infra(?:structure)?|platform)(?:[/_.-]|$)", re.IGNORECASE)
+    for relative in changed_paths:
+        path = git_root / relative
+        if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+        modules = [match.group("module") for match in TS_IMPORT_RE.finditer(text)]
+        modules.extend(match.group("module") for match in PYTHON_FROM_RE.finditer(text))
+        modules.extend(match.group("module") for match in PYTHON_IMPORT_RE.finditer(text))
+        for module in modules:
+            if shared_markers.search(module):
+                shared_dependencies.append({"path": relative, "module": module})
+
+    compatibility_signals: list[dict[str, str]] = []
+    diff = run_git(git_root, "diff", "--unified=0", parent_sha, head, "--")
+    compatibility_re = re.compile(
+        r"兼容|旧(?:版|配置|数据|列)|列顺序|保存.{0,8}配置|backward|compatib|legacy|saved.{0,12}(?:config|view|column)",
+        re.IGNORECASE,
+    )
+    current_path = ""
+    if diff.returncode == 0:
+        for line in diff.stdout.splitlines():
+            if line.startswith("+++ b/"):
+                current_path = line[6:]
+                continue
+            if line.startswith("+") and not line.startswith("+++") and compatibility_re.search(line):
+                compatibility_signals.append({"path": current_path, "line": line[1:].strip()[:240]})
+                if len(compatibility_signals) >= 12:
+                    break
+    return {
+        "parent_commit": parent_sha,
+        "current_commit": head,
+        "changed_paths": changed_paths,
+        "shared_dependencies": shared_dependencies[:20],
+        "compatibility_signals": compatibility_signals,
     }
 
 
@@ -955,6 +1020,23 @@ def set_writeback_identity(args: argparse.Namespace) -> int:
         raise IngestionError("identity-set 只用于代码变化回写案")
     validate_id(args.case_id, "case id")
     relationship = args.relationship
+    sources = {item["id"]: item for item in case.get("sources", [])}
+    if args.source_id:
+        if args.source_id not in sources:
+            raise IngestionError(f"来源不存在：{args.source_id}")
+        source = sources[args.source_id]
+    elif len(sources) == 1:
+        source = next(iter(sources.values()))
+    else:
+        source = None
+        if args.parent_commit:
+            raise IngestionError("存在多个来源时，--parent-commit 必须同时指定 --source-id")
+    change_hints = writeback_change_hints(source, args.parent_commit) if source else {
+        "parent_commit": args.parent_commit,
+        "changed_paths": [],
+        "shared_dependencies": [],
+        "compatibility_signals": [],
+    }
     source_path = normalize_knowledge_path(args.source_path) if args.source_path else None
     system_path = normalize_knowledge_path(args.system_path) if args.system_path else None
     if relationship in {"same_system", "new_system"} and (not source_path or not system_path):
@@ -994,6 +1076,9 @@ def set_writeback_identity(args: argparse.Namespace) -> int:
         "reason": args.reason.strip(),
         "source_path": source_path,
         "system_path": system_path,
+        "source_id": source.get("id") if source else None,
+        "parent_commit": change_hints.get("parent_commit"),
+        "change_hints": change_hints,
     }
     if all(current.get(key) == value for key, value in decision_fields.items()):
         print(
@@ -1027,6 +1112,7 @@ def set_writeback_identity(args: argparse.Namespace) -> int:
             {
                 "writeback": decided,
                 "existing_run_evidence_candidates": fixed_run_evidence_candidates(root, case),
+                "change_hints": change_hints,
                 "evidence_rule": (
                     "候选报告属于冻结来源，不自动证明正文声明；先读取并核对 commit、环境和覆盖。"
                     "覆盖当前问题时作为直接来源登记，不机械重跑；不足时再运行来源项目。"
@@ -1149,6 +1235,23 @@ def review_writeback_impacts(args: argparse.Namespace) -> int:
     for impact, reason in not_applicable.items():
         if len(reason) < 12:
             errors.append(f"影响角度 {impact} 的不适用依据过短，需说明代码事实和保持边界")
+    hints = (case.get("writeback") or {}).get("change_hints") or {}
+    if "shared" in not_applicable and hints.get("shared_dependencies"):
+        errors.append(
+            "固定代码变化涉及共享/公共依赖，shared 不能标为不适用："
+            + "；".join(
+                f"{item['path']} -> {item['module']}"
+                for item in hints["shared_dependencies"][:6]
+            )
+        )
+    if "compatibility" in not_applicable and hints.get("compatibility_signals"):
+        errors.append(
+            "固定 diff 或验证报告含兼容信号，compatibility 不能标为不适用："
+            + "；".join(
+                f"{item['path']} -> {item['line']}"
+                for item in hints["compatibility_signals"][:6]
+            )
+        )
 
     unit_lookup: dict[str, dict[str, Any]] = {}
     for question in case["questions"]:
@@ -2650,6 +2753,21 @@ def writeback_review_errors(root: Path, case: dict[str, Any]) -> list[str]:
 
     source_path = (identity.get("source_path") or "").removeprefix("draft/")
     system_path = (identity.get("system_path") or "").removeprefix("draft/")
+    source_id = identity.get("source_id")
+    source = next((item for item in case.get("sources", []) if item.get("id") == source_id), None)
+    if source and source_path:
+        source_document = root / "draft" / source_path
+        if source_document.is_file():
+            text = source_document.read_text(encoding="utf-8")
+            required_identity_values = [source.get("root")]
+            if source.get("git"):
+                required_identity_values.append(source["git"].get("commit"))
+            missing_identity_values = [value for value in required_identity_values if value and value not in text]
+            if missing_identity_values:
+                errors.append(
+                    "来源规范页没有写入冻结来源的当前路径/commit："
+                    + ", ".join(missing_identity_values)
+                )
     if relationship == "new_system":
         for path, label in ((source_path, "独立来源页"), (system_path, "独立系统页")):
             if path and path not in changes["added"]:
@@ -3141,9 +3259,9 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
     lines = [
         "# 知识摄入审查",
         "",
-        f"> **目标：** {case['goal']}  ",
-        f"> **目标读者：** {case['target_reader']}  ",
-        f"> **当前阶段：** {case['stage']}  ",
+        f"> **目标：** {case['goal']}",
+        f"> **目标读者：** {case['target_reader']}",
+        f"> **当前阶段：** {case['stage']}",
         "> 正式知识尚未修改；本页只汇总候选知识、事实边界和需要人工决定的事项。",
         "",
     ]
@@ -3485,6 +3603,8 @@ def build_parser() -> argparse.ArgumentParser:
     identity.add_argument("--reason", required=True)
     identity.add_argument("--source-path")
     identity.add_argument("--system-path")
+    identity.add_argument("--source-id")
+    identity.add_argument("--parent-commit")
     identity.set_defaults(func=set_writeback_identity)
 
     survey = subparsers.add_parser("survey", help="查看完整整理的客观材料地图")

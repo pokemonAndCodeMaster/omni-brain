@@ -236,6 +236,8 @@ python scripts/ingestion_workspace.py start <case-id> \
 python scripts/ingestion_workspace.py identity-set <case-id> \
   --relationship <same_system|new_system|uncertain> \
   --reason '<仓库、commit、运行入口和版本沿革如何支持该判断>' \
+  [--source-id '<本次代码变化所属来源 id>'] \
+  [--parent-commit '<本次变化开始前的固定 commit>'] \
   [--source-path 'draft/knowledge/sources/<source>.md'] \
   [--system-path 'draft/knowledge/systems/<system>.md']
 ```
@@ -245,6 +247,8 @@ python scripts/ingestion_workspace.py identity-set <case-id> \
 - `uncertain` 只用于先取证，最终审查前必须解决。
 
 来源身份和系统身份不是文件分类。前者说明代码/材料来自哪里、固定到哪个版本、能证明什么；后者说明用户面对哪套可独立运行和演进的能力。不同仓库、commit 和运行链可以共享业务规则，但不能因此伪装成同一系统版本。
+
+用户或交接已经给出父 commit 时必须传入 `--parent-commit`。工作台验证祖先关系并返回固定 diff 的变化路径、共享依赖和兼容信号；这些只是定向规划提示，不替代源码阅读或业务判断。来源页最终必须写入工作台冻结的实际来源路径和 HEAD commit，不能一边引用新报告，一边继续把旧工作树或旧分支写成当前来源。
 
 `identity-set` 会同时返回冻结来源中的验证报告候选。先核对报告对应的 commit、环境、夹具和覆盖范围；报告足以回答当前问题时，把它放进后续 `next`/`record` 的直接来源，不重复运行。报告过时、范围不足或用户要求复验时，才进入隔离运行。
 
@@ -276,7 +280,7 @@ python scripts/ingestion_workspace.py impact-review <case-id> \
   --impact navigation=<question-id>:<unit-id>
 ```
 
-真正不涉及语义、兼容或公共能力时，使用 `--not-applicable <impact>=<代码事实和保持边界>`；用户结果、当前态、软件、证据和导航不能排除。这里的角度不是固定页面数：一个单元可以承担多个相邻影响，但 `current_state` 必须同时覆盖来源和系统，`shared` 必须由公共能力单元承担，`navigation` 必须落到受维护产品视图。
+真正不涉及语义、兼容或公共能力时，使用 `--not-applicable <impact>=<代码事实和保持边界>`；用户结果、当前态、软件、证据和导航不能排除。这里的角度不是固定页面数：一个单元可以承担多个相邻影响，但 `current_state` 必须同时覆盖来源和系统，`shared` 必须由公共能力单元承担，`navigation` 必须落到受维护产品视图。只要变更的消费者依赖公共组件、或兼容行为由公共组件承担，就属于 `shared` 影响；“只是复用、没有修改公共组件源码”不是不适用理由。
 
 影响复核前先从固定 diff、验证报告和父知识回答：
 
@@ -329,6 +333,8 @@ python scripts/ingestion_workspace.py contract-inspect <case-id> <question-id> \
 这些是知识责任，不是四个固定标题。已有页面能承担责任时把新证据原位融入其逻辑链；不能承担时建立独立规范对象。禁止用“本次更新”“当前 QPL”“某日增量”等尾部附录代替结构重构，也禁止用引用或来源索引代替机制、算法和实现细节。
 
 数据契约是本轮核心时，不能只写“包含若干字段”：正文至少明确**最小粒度/主键、顶层字段组、嵌套结构、状态与不变量、迁移或兼容边界**；开发者需要逐字段对齐时保留完整字段名。算法是核心时，写出输入、步骤/公式、聚合顺序、零分母与异常边界，并解释相邻概念为什么不能互相替代。
+
+同一公式、状态或数量限制选择一个规范 owner 完整维护；其他系统页、实现地图和产品视图说明它回答的问题并链接 owner，不再次写一份可能缩写或改变顺序的公式。确需在软件页重复以解释实现时，必须与规范 owner 使用同一聚合层级和边界，不能一页写“先聚合后截断”、另一页写成“逐行截断后聚合”。
 
 一个系统涉及软件理解或后续开发时，至少用匹配问题的视图讲清：用户场景与系统边界、组件职责、一次运行/调用时序、数据结构与转换、源码组织和一次修改路径。是否使用流程图、时序图、组件图、数据表或代码地图由内容决定；图后补充图中无法表达的输入输出、约束、异常和 owner，而不是把图再复述一遍。
 
