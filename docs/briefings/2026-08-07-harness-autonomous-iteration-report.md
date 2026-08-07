@@ -1,106 +1,165 @@
-# Agent Harness 自主迭代阶段报告
+# Agent Harness 实体、能力与验证报告
 
-> **结论日期：** 2026-08-07
-> **实验真值：** 具体输入、参考、Trial 和分数以[实验与评测总账](../../eval/STATUS.md)为准。
-> **当前 Harness：** `/home/yyh/project/omni-brain-harness` 的 `experiment/development-harness-v1@a2f790e`，已推送远端。
+> **审计对象：** `/home/yyh/project/omni-brain-harness@a2f790e`
+> **详细使用入口：** [Harness README](../../../omni-brain-harness/README.md)
+> **实验真值：** [实验与评测总账](../../eval/STATUS.md)
 
-## 一句话结论
+## 当前 Harness 到底是什么
 
-Omni-Brain 已经不是只有路线图的空架构：当前 Harness 能在限定质检工况下完成**混乱知识摄入、存量知识增量融合、可信问答、带知识开发、真实运行验证和代码变化知识回写候选**。七项可调用能力中，四项已取得真实内容或工作结果的切片级验证；代码回写首次达到 `24/24`，但精确外部契约与数据库状态密集型 holdout 仍未通过，所以人工审查和正式发布边界继续保留。
+它不是一个后台服务，也不是 Python 把 AI 圈进固定流程。实际运行结构是：
 
-## 用户现在拿到了什么
+```text
+Codex / OpenCode 原生会话
+        ↓ 自动读取
+AGENTS.md：判断任务类型并选择最低充分 Skill
+        ↓
+4 个 Skill：指导模型怎样理解、阅读、开发、写知识和交付
+        ↓ 按需调用
+5 个确定性脚本：负责路由、状态、来源、隔离运行和结构检查
+        ↓
+真实产物：答案 / 代码与运行结果 / 候选知识与产品视图 / 可恢复任务案
+```
 
-| 日常需要 | 从项目根怎样触发 | 最终可见结果 | 当前可信范围 |
-|---|---|---|---|
-| 整理一批混乱文档或代码 | 直接说明材料路径、读者和希望建立的知识 | 隔离候选中的规范知识、领域/旅程视图和一份审查页 | 已在真实质检文档、代码和增量材料验证 |
-| 把新增材料融入存量知识 | 说明新增材料与现有知识，不要求另建知识库 | 原位新增/修改/合并，保留冲突、未知和父知识 | 两个独立模型在同一质检增量达到 `24/24` |
-| 从知识库问问题 | 直接提问，不需要理解工作台或 YAML | 最低充分答案，区分当前、历史、目标、冲突、未知和补证动作 | 10 条路由与两条新问答通过；限中文质检 Markdown |
-| 带着业务知识开发 | 直接给自然语言需求和验收结果 | 聚焦代码修改、真实数据库/API/页面证据、知识变化交接 | 页面、只读 SQL、跨层算法及一个查询→开发复合切片验证 |
-| 诊断“看起来不一致” | 描述页面/API/数据差异 | 可复现的原因；没有 Bug 时保持零修改 | 页面/API Scope 差异真实用例通过 |
-| 安全处理本地数据写入 | 给固定输入、目标库和副作用边界 | 预览/写入/回滚证据与异常结果 | 主要路径可用；严格输入校验仍有已知缺口 |
-| 代码变化后更新知识 | 指定固定代码版本及已有知识 | 原位知识与产品视图候选，正式知识不自动修改 | 同系统相邻增量 `24/24`；精确契约型变化仍须强化和人工复核 |
+AI 会话负责语义工作；文件和脚本把模型不应临场发挥的部分固定下来。把这套目录复制进另一个项目后，宿主从根 `AGENTS.md` 和 `.agents/skills/` 发现能力，不需要 Omni-Brain 自己调用模型 API。
 
-## 已建立的 Harness 能力
+## 组件实体清单
 
-| 能力 | 当前实现 | 成熟度 | 证据和限制 |
-|---|---|---|---|
-| 任务案恢复 | 根规则、任务准备 Skill、文件账本与原子命令 | 有限切片已验证 | 能跨会话恢复；当前不是开发主线 |
-| 本地 Git 来源固定 | 版本、范围和运行输入记录工具 | 已实现 | 不理解知识语义 |
-| 规范知识底座 | 空 OKF 兼容 Markdown 骨架、Git、链接和产品视图 | 已实现；质检集成版可用 | 第二领域和规模化结构尚未验证 |
-| 知识摄入与增量融合 | `ingest-knowledge`、候选工作台、检查与人工发布 | 质检增量跨模型切片已验证 | 不自动判断业务真伪或自动发布 |
-| 可信查询与任务上下文 | `answer-from-knowledge` 与确定性入口路由 | 质检问答切片已验证 | 无全文、向量、图查询；未验证大知识库 |
-| 带知识开发 | `develop-with-knowledge`、真实路径验证和知识变化交接 | 同领域三类开发 + 一个复合切片已验证 | 非通用软件开发认证；高风险写入仍需逐题验证 |
-| 代码变化知识回写 | `ingest-knowledge` 的 writeback 路线、身份/影响/父知识检查 | 同系统相邻增量切片已验证 | 必须人工审查；外部契约/状态密集型 holdout 未通过 |
+| 实体 | 类型 | 实际职责 | 用户最终拿到什么 | 当前成熟度 |
+|---|---|---|---|---|
+| [`AGENTS.md`](../../../omni-brain-harness/AGENTS.md) | 根项目规则 | 把自然语言请求路由到直接执行、知识问答、知识摄入、带知识开发或任务准备；约束来源只读、候选隔离和真实验证 | 正确工作流被自动触发；用户无需记脚本命令 | 已实现，109 项回归覆盖关键路由 |
+| [`harness.yaml`](../../../omni-brain-harness/harness.yaml) | 能力 manifest | 声明每项能力的入口文件、依赖、采用级别和限制 | 人和 Agent 能知道“哪些真的能用、只能用到哪里” | 已实现；它不是运行引擎 |
+| [`answer-from-knowledge/SKILL.md`](../../../omni-brain-harness/.agents/skills/answer-from-knowledge/SKILL.md) | Skill | 从正式/候选知识回答学习、事实、缺口和任务上下文问题；最多三篇规范页 | 直接答案、现实状态、依据和最小补证动作 | `verified@quality-check-trusted-query-slices` |
+| [`knowledge_route.py`](../../../omni-brain-harness/.agents/skills/answer-from-knowledge/scripts/knowledge_route.py) | Python 只读工具 | 遍历知识入口可达 Markdown，用标题、链接上下文、正文词项和问题意图返回 `PRIMARY/FALLBACK` | 少量确定性候选路径；不生成答案、不写状态 | 10 条质检路由通过；不是全文/向量/图检索 |
+| [`develop-with-knowledge/SKILL.md`](../../../omni-brain-harness/.agents/skills/develop-with-knowledge/SKILL.md) | Skill | 让原生开发会话先取最低充分知识，再沿真实纵切改代码，验证最大组合、真实 API/数据库/页面和副作用 | 用户要求的代码/SQL/配置、真实运行证据、知识变化候选 | 三类质检开发和一个查询→开发复合切片 verified |
+| [`ingest-knowledge/SKILL.md`](../../../omni-brain-harness/.agents/skills/ingest-knowledge/SKILL.md) | Skill | 指导模型执行完整材料整理、聚焦代码整理或代码变化回写；规定内容保真、知识组织、产品视图和人工发布 | 规范知识、领域/旅程视图、来源记录、审查说明 | 增量摄入跨模型 verified；代码回写在相邻同系统切片 verified |
+| [`ingestion_workspace.py`](../../../omni-brain-harness/scripts/ingestion_workspace.py) | Python 状态/隔离工具 | 建摄入案，扫描来源，限制每轮来源，登记发现和知识 owner，检查影响，冻结 Python 字段契约，隔离运行，重建审查页 | `draft/knowledge/`、候选领域地图、`review.md`、运行证据和可恢复状态 | 核心工作台已实现；不判断业务真伪、不自动写正文 |
+| [`knowledge_check.py`](../../../omni-brain-harness/scripts/knowledge_check.py) | Python 检查器 | 检查 OKF frontmatter、领域地图、Markdown 链接/锚点、规范页可达性、视图、引用和来源记录 | 可读 PASS/ERROR 报告或 JSON | 已实现并进入摄入发布前检查 |
+| [`task-knowledge-prep/SKILL.md`](../../../omni-brain-harness/.agents/skills/task-knowledge-prep/SKILL.md) | Skill | 为目标模糊、知识冲突或高风险任务建立问题—证据—决策准备循环 | 可跨会话续接的任务框架、关键答案、决策上下文和长期知识候选 | 恢复与原子回答有限切片 verified；不是当前开发主线 |
+| [`task_case.py`](../../../omni-brain-harness/scripts/task_case.py) | Python 账本工具 | 创建/恢复任务案，追加事件和证据，原子回答关键问题，重算两类准备度，重建 Markdown 视图 | `case.yaml`、JSONL 证据/事件、准备度报告、决策上下文 | 已实现；机械准备度不等于语义质量 |
+| [`source_run.py`](../../../omni-brain-harness/scripts/source_run.py) | Python 来源工具 | 固定用户授权的本地 Git 范围、HEAD、文件状态、SHA-256 和范围指纹，并比较变化 | 原子 `run.yaml`、manifest、必要快照和变更判断 | 本地 Git 范围切片 implemented；不解释业务语义 |
+| [`knowledge/`](../../../omni-brain-harness/knowledge/index.md) + [`knowledge-domains.yaml`](../../../omni-brain-harness/config/knowledge-domains.yaml) | 空知识 Bundle | 提供规范知识、系统、公共能力、来源和两种产品视图的正式落点 | 可由普通 Markdown 工具浏览和跳转的知识库 | 空 OKF 兼容骨架 implemented；不预装质检答案 |
+| [`assets/`](../../../omni-brain-harness/.agents/skills/ingest-knowledge/assets/) | 写作骨架 | 提供知识页、领域总览、软件架构、来源、产品视图和公共能力审查的可复用结构 | 风格一致但不强制同一章节的候选知识 | 已进入摄入 Skill；正文仍由模型与人审查 |
+| [`tests/`](../../../omni-brain-harness/tests/) | 回归集 | 固定路由、Skill 契约、工作台状态、查询排序、来源信封和知识结构行为 | 修改 Harness 后能发现能力回退 | 当前 108/108 通过 |
 
-## 用例资产
+## 四条用户工作流如何落到实体
 
-当前总账有 **12 个活跃真实用例**，另保留 1 个暂停的任务案恢复历史用例。它们不是十二道相似题，而是覆盖不同失效方式：
+### 1. 用户问现有知识
 
-1. 基础混乱文档摄入；
-2. 存量知识增量融合；
-3. 业务—数据库—后端—API—Vue 代码全链路摄入；
-4. 验收配额页面开发；
-5. 页面/API 范围差异排障；
-6. CSV 数据安全写入；
-7. SQL 结果等价性能优化；
-8. 跨层验收分配缺口；
-9. 首个代码变化知识回写；
-10. 验收未完成量相邻代码回写；
-11. 快照导入精确契约 holdout；
-12. 可信知识问答与入口路由。
+```text
+用户自然语言问题
+→ AGENTS.md 选择 answer-from-knowledge
+→ knowledge_route.py 返回 PRIMARY 和候补
+→ Skill 要求先读 PRIMARY、按未答项最多再读两篇
+→ 模型输出答案、已知/未知/冲突、知识路径和下一补证动作
+```
 
-每个主要用例至少固定自然语言需求、真实输入、参考成果或冻结问题、候选隔离方式、实际运行证据和独立审计。弱模型的最终声明不决定通过；内容与真实运行结果决定通过。
+**不会产生：** 摄入案、YAML、中间报告、知识修改。
 
-## 本轮新增的决定性证据
+**已经证明：** 质检学习、人员权限、交付状态和冲突问题能从少量规范页得到完整答案；当前未证明大知识库、第二领域或精确源码联查。
 
-### 通过：验收未完成量代码回写
+### 2. 用户要求开发或排障
 
-第五轮候选 `a8ea723` 得分 **24/24**，所有关键项通过。它正确保留：
+```text
+用户需求
+→ AGENTS.md 选择 develop-with-knowledge
+→ knowledge_route.py 取得最多三篇会改变实现的知识
+→ Skill 要求编辑前固定用户结果、责任链、组合总量和验证计划
+→ 原生 Codex/OpenCode 读取当前源码并完成最小纵切
+→ 真实 API / SQL / CLI / 页面 / 副作用验证
+→ 交付代码、实际证据、未验证边界和知识变化候选
+```
 
-- 实际仓库、branch、HEAD 和父版本；
-- 验收未完成量的业务含义、公式和聚合顺序；
-- 后端已有能力与前端新增消费的责任边界；
-- 旧保存列配置恢复机制和公共工作台职责；
-- 指标组合上限、真实四级结果和回归范围；
-- 父知识、生产未知、根入口和两种产品视图。
+**真正产物：** 代码和运行结果，不是 Harness 报告。Skill 不生成额外任务工作区。
 
-审计见[验收未完成量第五轮审计](../../eval/trials/real_work/MANUAL_QC_PENDING_VISIBILITY_WRITEBACK_CODEX_LUNA_HARNESS_005/audit.md)。
+**已经证明：** 页面指标接通、SQL 性能优化、跨层业务算法、无 Bug 零修改排障和一次知识查询→开发组合任务。数据写入有正向证据，但严格输入校验仍有缺口。
 
-### 未通过：快照导入精确契约 holdout
+### 3. 用户给一批混乱材料
 
-第三轮从 `20/24` 提升到 **21/24**，但 C05、C15、S02 三个关键项失败：
+```text
+用户指定材料与读者目标
+→ AGENTS.md 选择 ingest-knowledge 的 complete 模式
+→ ingestion_workspace.py 创建隔离候选并扫描材料
+→ next 返回当前材料单元，模型完整阅读并登记 finding
+→ 模型按长期 owner 规划 topic，而不是按来源文件建知识
+→ 使用 assets 形成规范正文、领域视图和旅程视图
+→ knowledge_check.py + 工作台 review
+→ 用户只审查 draft/knowledge 和 review.md
+```
 
-- 源码中的精确整数上界、布尔拒绝和状态字段类型被压缩；
-- 固定报告中的代表性人工状态值被概括成“状态保护通过”；
-- 日期平移夹具及其“不是产品能力”的边界遗漏。
+物理产物：
 
-这证明继续增加“请写详细”的提示不会解决问题。下一组件应帮助模型机械看到并核对**契约常量、类型/范围、跨字段不变量、代表性状态和夹具变换**，模型再负责解释和编织知识。审计见[快照导入第三轮保留集审计](../../eval/trials/real_work/CODE_TO_KNOWLEDGE_WRITEBACK_SNAPSHOT_IMPORT_CODEX_LUNA_HARNESS_003/audit.md)。
+```text
+workspaces/knowledge-ingestion/<case-id>/
+├─ draft/knowledge/
+├─ draft/config/knowledge-domains.yaml
+├─ review.md
+├─ evidence/runs/<run-id>/
+└─ .state/case.json + source-manifest.jsonl
+```
 
-## Harness 本体变更与验证
+**已经证明：** 真实质检基础文档、代码纵切和存量增量可以形成可浏览知识；同一增量由两个不同模型完成，父知识保留和产品视图同步通过。
 
-本轮最终采用的 Harness 变化集中在通用能力，没有写入质检公式或评分答案：
+### 4. 用户要求代码变化回写知识
 
-1. `6deafb9`：固定来源 branch/HEAD/parent，并要求兼容结论追到真实恢复机制；
-2. `183fc6d`：把代码知识回写提升为声明切片内可推荐试用能力；
-3. `a2f790e`：记录精确契约/状态 holdout 边界，防止能力被错误外推。
+```text
+固定代码仓库@commit + 已有正式知识
+→ AGENTS.md 选择 ingest-knowledge 的 writeback 模式
+→ ingestion_workspace.py 冻结来源并判断 same_system / new_system
+→ 固定 diff 与报告驱动业务、软件、兼容、公共能力、证据和导航影响计划
+→ 模型定向读取并原位修改 draft 中的既有 owner
+→ contract-inspect / 临时 worktree run / check-unit / review
+→ 停在 publish_ready，等待人工批准
+```
 
-验证结果：
+**已经证明：** “验收未完成量”同系统相邻增量候选内容 `24/24`，来源身份、公式、前后端职责、旧配置兼容、公共能力和产品视图均可答。
 
-- Harness 单元/契约回归：**108/108 通过**；
-- 空知识骨架检查：通过；
-- Git diff 检查：通过；
-- 远端实验分支：`experiment/development-harness-v1@a2f790e`。
+**仍未证明：** 快照导入 holdout 为 `21/24`，模型仍会压缩精确类型/范围、代表性数据库状态值和固定日期夹具；所以当前不能自动发布。
 
-已发布的 RC1 仍是 `release/development-writeback-harness-v1@a5104ec`；今晚验证后的实验版没有冒充正式 Release。下一次发布应在新组件经 holdout 验证后形成 RC2，而不是直接覆盖 RC1。
+## 工作台脚本与 Skill 的边界
 
-## 下一阶段最小施工目标
+这是理解 Harness 最关键的一点：
 
-下一阶段只做一个新的确定性组件和一个新复合用例：
+| 工作 | 谁负责 |
+|---|---|
+| 理解用户目的、判断语义、规划知识、写正文、做代码修改 | Codex/OpenCode 模型，在 Skill 指导下完成 |
+| 限制来源范围、记录状态、恢复会话、复制父知识、生成 diff、隔离运行 | Python 工具 |
+| 判断业务事实是否正确、冲突怎么裁决、是否批准正式发布 | 直接证据 + 模型分析 + 人工决定 |
+| 保存正式知识 | 只有人工批准后的发布动作；当前不自动执行 |
 
-1. **契约与运行证据提取：** 从固定源码暴露常量、类型/范围、跨字段不变量；从固定报告暴露代表状态、前后值和夹具/环境变换。输出作为当前工作台 packet 的证据，不新建用户需要维护的 YAML。
-2. **新开发复合工况：** 一次自然语言需求同时经过可信取知、真实开发、项目运行和知识回写；使用新的精确约束变化，不复用验收未完成量或快照导入题。
-3. **接受条件：** 功能真实跑通、知识内容关键项全过、正式知识和来源安全、完整回归不退化；若组件只改善检查而不改善弱模型内容，则撤回。
+因此 `ingestion_workspace.py` 不是一个自主 Agent，也不会调用模型；`SKILL.md` 也不是代码生成器。真正的 Harness 是 **AGENTS 路由 + Skill 语义流程 + 确定性工具 + 知识/工作区 + 测试** 的组合。
 
-## 用户现在需要做什么
+## 本轮实际改了哪些 Harness 文件
 
-当前无需维护实验状态或批准中间步骤。若要实际试用，可直接在 `/home/yyh/project/omni-brain-harness` 根目录提出知识摄入、知识问答、带知识开发或固定代码变化回写请求；需要稳定发布版本时仍使用 RC1。下一次需要用户介入的节点，是新复合工况产出可用业务结果和 RC2 候选之后的效果审查。
+| 提交 | 实体变化 | 目的与实际结果 |
+|---|---|---|
+| `6deafb9` | `ingest-knowledge/SKILL.md`、`ingestion_workspace.py` 及测试 | 固定代码来源 branch/HEAD/parent；兼容结论必须追到恢复机制源码。下一轮弱模型正确写出旧列配置合并机制 |
+| `183fc6d` | `harness.yaml`、`AGENTS.md`、`docs/now.md` 和契约测试 | 将代码回写标为“同一质检系统相邻增量切片内 verified”，同时保留人工审查和不可外推边界 |
+| `a2f790e` | `harness.yaml`、`docs/now.md` | 登记外部契约/数据库状态 holdout 未通过，防止把一个成功题误报成通用能力 |
+| 本次修订 | `README.md` | 把此前只展示知识摄入的旧入口改为完整实体地图、真实工作流和明确非能力 |
+
+回归结果为 **109/109**，空知识 Bundle 检查和 Git diff 检查通过。
+
+## 当前能覆盖哪些日常需求
+
+| 日常需求 | 当前判断 |
+|---|---|
+| 用已有知识快速学习、问答、判断未知 | **可用，质检切片已验证** |
+| 整理一批杂乱文档为长期知识和产品视图 | **可用，真实质检材料已验证** |
+| 把新增材料融入已有知识而不另建平行库 | **可用，同一增量跨模型已验证** |
+| 从业务知识进入前后端/SQL 开发并真实运行 | **可用，三类开发与一个复合切片已验证** |
+| 判断页面和 API 不一致是否真是 Bug | **可用，已有零修改排障证据** |
+| 安全执行任意数据库写入 | **不可泛化；只有有限正向证据** |
+| 代码改完自动更新并发布正式知识 | **只能生成高价值候选；仍需人工批准** |
+| 跨领域、任意模型、任意规模稳定工作 | **未验证** |
+| 向量检索、知识图谱、Web 知识产品 | **尚未实现** |
+
+## 下一项真正需要开发的实体
+
+不是再增加一份计划文档，也不是继续给 Skill 加提示。下一组件应落在 `ingestion_workspace.py` 的来源 packet/契约检查附近：
+
+1. 从固定源码机械提取常量、类型/范围和跨字段不变量；
+2. 从固定验证报告机械暴露代表性前后状态和夹具/环境变换；
+3. 把这些结果交给当前问题的 `check-unit`，但不替模型解释或直接写知识；
+4. 用一项新的精确约束代码变化验证它是否改善弱模型最终内容。
+
+只有这个新实体让新题的知识内容变好，才进入下一版 Harness；若只让检查更复杂而内容没有改善，应撤回。
