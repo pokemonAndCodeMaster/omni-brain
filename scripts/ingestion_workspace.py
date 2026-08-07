@@ -8,6 +8,7 @@ not decide knowledge truth, write domain content, or replace human review.
 from __future__ import annotations
 
 import argparse
+import ast
 import fcntl
 import hashlib
 import json
@@ -26,7 +27,7 @@ from typing import Any
 from knowledge_check import validate_bundle
 
 
-SCHEMA_VERSION = "1.3"
+SCHEMA_VERSION = "1.4"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 QUESTION_ID_RE = re.compile(r"^q-[0-9]{3}$")
 UNIT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -307,8 +308,12 @@ def load_case(cases_root: Path, case_id: str) -> tuple[Path, dict[str, Any]]:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise IngestionError(f"无法读取摄入案状态 {path}：{exc}") from exc
-    if not isinstance(value, dict) or value.get("schema_version") != SCHEMA_VERSION:
+    if not isinstance(value, dict) or value.get("schema_version") not in {"1.3", SCHEMA_VERSION}:
         raise IngestionError(f"不支持的摄入案状态：{path}")
+    if value.get("schema_version") == "1.3":
+        value["schema_version"] = SCHEMA_VERSION
+        for question in value.get("questions", []):
+            question.setdefault("contracts", [])
     return root, value
 
 
@@ -818,6 +823,7 @@ def new_question(number: int, text: str) -> dict[str, Any]:
         "run_ids": [],
         "pending_run_ids": [],
         "integrated_run_ids": [],
+        "contracts": [],
         "evidence": [],
         "query_terms": [],
         "candidate_queue": [],
@@ -979,11 +985,25 @@ def set_writeback_identity(args: argparse.Namespace) -> int:
     case["writeback"] = decided
     case["next_action"] = (
         "按身份、业务/数据/规则、软件/运行和产品视图的实际影响规划读者问题；"
-        "只取得会改变候选的直接来源"
+        "若下方存在固定验证报告，先把报告作为直接来源核对覆盖，再决定是否现场运行"
     )
     save_case(root, case)
     generate_review(root, case)
-    print(json.dumps({"writeback": decided, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            {
+                "writeback": decided,
+                "existing_run_evidence_candidates": fixed_run_evidence_candidates(root, case),
+                "evidence_rule": (
+                    "候选报告属于冻结来源，不自动证明正文声明；先读取并核对 commit、环境和覆盖。"
+                    "覆盖当前问题时作为直接来源登记，不机械重跑；不足时再运行来源项目。"
+                ),
+                "next": case["next_action"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 
@@ -1007,7 +1027,10 @@ def normalize_knowledge_path(value: str) -> str:
     if not normalized.startswith("draft/knowledge/") or not normalized.endswith(".md"):
         raise IngestionError("知识路径必须位于 draft/knowledge/ 且使用 .md")
     if Path(normalized).name == "index.md":
-        raise IngestionError("知识单元不能以 index.md 作为实质落点")
+        raise IngestionError(
+            "index.md 是最终导航同步，不是实质知识单元；"
+            "请规划正文或受维护的产品视图，最后直接同步 index.md"
+        )
     return normalized
 
 
@@ -1037,7 +1060,22 @@ def plan_unit(args: argparse.Namespace) -> int:
     question["next_action"] = "围绕当前问题取得第一小批直接来源"
     case["next_action"] = f"运行 next 为 {question['id']} 取得直接来源"
     save_case(root, case)
-    print(json.dumps({"unit": unit, "requires_run": question["requires_run"], "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    payload: dict[str, Any] = {
+        "unit": unit,
+        "requires_run": question["requires_run"],
+        "next": case["next_action"],
+    }
+    if question["requires_run"]:
+        payload["run_evidence_rule"] = (
+            "下一次 next 会优先返回冻结来源内的验证报告。先核对其版本、环境和覆盖；"
+            "报告足以回答时直接登记，只有覆盖不足时才现场运行。"
+        )
+    if unit["kind"] == "data":
+        payload["data_contract_rule"] = (
+            "若 packet 给出 contract_candidates，选择会影响读者/开发的契约运行 contract-inspect；"
+            "知识页必须保留其完整字段，不得只概括字段组。"
+        )
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -1277,6 +1315,17 @@ def candidate_role(reference: str) -> str:
     name = PurePosixPath(relative).name.lower()
     if ".test." in name or ".spec." in name or "/tests/" in f"/{lowered}/":
         return "test"
+    if (
+        lowered.endswith((".md", ".rst", ".txt", ".json", ".yaml", ".yml"))
+        and any(
+            marker in name
+            for marker in (
+                "verification-report", "validation-report", "test-report",
+                "test-results", "run-report", "qa-report", "benchmark-report",
+            )
+        )
+    ):
+        return "run_evidence"
     if name in {"agents.md", "readme.md", "handoff.md"} or lowered.startswith("docs/handoff"):
         return "run_contract"
     if lowered.endswith(".vue"):
@@ -1298,9 +1347,115 @@ def candidate_role(reference: str) -> str:
     return "other"
 
 
+def python_contracts(path: Path) -> list[dict[str, Any]]:
+    """Return annotated class fields, including local annotated bases.
+
+    This deliberately supports one observable contract form rather than trying to
+    infer an ontology from arbitrary source code. Other languages can add their
+    own deterministic extractors when a real slice requires them.
+    """
+    if path.suffix.lower() != ".py":
+        return []
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, SyntaxError):
+        return []
+    classes = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef)
+    }
+
+    def fields_for(name: str, visiting: set[str] | None = None) -> list[str]:
+        node = classes.get(name)
+        if node is None:
+            return []
+        active = set(visiting or ())
+        if name in active:
+            return []
+        active.add(name)
+        fields: list[str] = []
+        for base in node.bases:
+            if isinstance(base, ast.Name):
+                fields.extend(fields_for(base.id, active))
+        for statement in node.body:
+            if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+                fields.append(statement.target.id)
+        return list(dict.fromkeys(fields))
+
+    contracts = [
+        {"symbol": name, "field_count": len(fields), "fields": fields}
+        for name in classes
+        if len(fields := fields_for(name)) >= 4
+    ]
+    contracts.sort(key=lambda item: (-item["field_count"], item["symbol"]))
+    return contracts[:8]
+
+
+def contract_candidates(case: dict[str, Any], reference: str) -> list[dict[str, Any]]:
+    try:
+        return python_contracts(resolve_source(case, reference))
+    except IngestionError:
+        return []
+
+
+def fixed_run_evidence_candidates(
+    root: Path, case: dict[str, Any], *, limit: int = 6
+) -> list[dict[str, Any]]:
+    sources = source_map(case)
+    candidates: list[dict[str, Any]] = []
+    for item in read_manifest(root):
+        ref = manifest_ref(item)
+        if candidate_role(ref) != "run_evidence":
+            continue
+        candidates.append(
+            {
+                "ref": ref,
+                "role": "run_evidence",
+                "absolute_path": str(Path(sources[item["source_id"]]["root"]) / item["path"]),
+                "title": item.get("title"),
+                "headings": item.get("headings", [])[:8],
+            }
+        )
+    return candidates[:limit]
+
+
+def prioritize_fixed_run_evidence(
+    root: Path,
+    case: dict[str, Any],
+    question: dict[str, Any],
+    queue: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if not question.get("requires_run"):
+        return queue
+    seen = {item["ref"] for item in question.get("evidence", [])}
+    for packet in question.get("dismissed_packets", []):
+        seen.update(packet.get("refs", []))
+    by_ref = {item["ref"]: item for item in queue}
+    prioritized: list[dict[str, Any]] = []
+    for item in fixed_run_evidence_candidates(root, case):
+        if item["ref"] in seen:
+            continue
+        candidate = by_ref.pop(item["ref"], None) or {
+            "ref": item["ref"],
+            "score": 100,
+            "reasons": ["固定来源包含现有验证报告；先核对覆盖范围，再决定是否重跑"],
+        }
+        candidate["score"] = max(100, int(candidate.get("score", 0)))
+        candidate["reasons"] = list(dict.fromkeys([
+            "固定来源包含现有验证报告；先核对覆盖范围，再决定是否重跑",
+            *candidate.get("reasons", []),
+        ]))[:6]
+        prioritized.append(candidate)
+    return [*prioritized, *sorted(by_ref.values(), key=lambda item: (-item["score"], item["ref"]))]
+
+
 def take_diverse_packet(queue: list[dict[str, Any]], limit: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     if len(queue) <= limit:
-        return queue[:], []
+        return [
+            {**item, "role": candidate_role(item["ref"])}
+            for item in queue
+        ], []
     chosen: list[dict[str, Any]] = []
     chosen_refs: set[str] = set()
 
@@ -1314,7 +1469,7 @@ def take_diverse_packet(queue: list[dict[str, Any]], limit: int) -> tuple[list[d
     choose(queue[0])
     role_order = (
         "frontend_view", "frontend_logic", "frontend_api", "api", "backend_logic",
-        "data_access", "data_schema", "run_contract",
+        "data_access", "data_schema", "run_evidence", "run_contract",
     )
     for role in role_order:
         candidate = next((item for item in queue if candidate_role(item["ref"]) == role), None)
@@ -1824,6 +1979,9 @@ def next_sources(args: argparse.Namespace) -> int:
         )
         question["query_terms"] = terms
         question["candidate_closure"] = None
+    question["candidate_queue"] = prioritize_fixed_run_evidence(
+        root, case, question, question["candidate_queue"]
+    )
     limit = args.limit
     packet, remaining = take_diverse_packet(question["candidate_queue"], limit)
     question["candidate_queue"] = remaining
@@ -1839,10 +1997,12 @@ def next_sources(args: argparse.Namespace) -> int:
     output_packet = []
     for item in packet:
         source_id, relative = split_source_ref(item["ref"])
+        contracts = contract_candidates(case, item["ref"])
         output_packet.append(
             {
                 **item,
                 "absolute_path": str(Path(sources[source_id]["root"]) / relative),
+                **({"contract_candidates": contracts} if contracts else {}),
             }
         )
     print(
@@ -1852,8 +2012,78 @@ def next_sources(args: argparse.Namespace) -> int:
                 "query_terms": question["query_terms"],
                 "packet": output_packet,
                 "remaining_relevant_candidates": len(question["candidate_queue"]),
-                "reading_rule": "只读取本 packet；读完立即更新规范知识并 record，不维护逐文件覆盖表",
+                "reading_rule": (
+                    "只读取本 packet；读完立即更新规范知识并 record，不维护逐文件覆盖表。"
+                    "run_evidence 先核对版本、环境和覆盖，足够时不要机械重跑。"
+                    "当问题需要完整数据契约且 packet 给出 contract_candidates 时，"
+                    "先运行 contract-inspect，再把返回字段完整写入规范知识。"
+                ),
                 "next": question["next_action"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def inspect_contract(args: argparse.Namespace) -> int:
+    """Freeze a machine-readable source contract that must survive writeback."""
+    root, case = load_case(args.cases_root, args.case_id)
+    question = question_by_id(case, args.question_id)
+    available = {
+        item["ref"] for item in question.get("active_packet", [])
+    } | {
+        item["ref"] for item in question.get("evidence", [])
+    }
+    if args.source not in available:
+        choices = ", ".join(sorted(available)) or "（先运行 next 取得包含契约的来源）"
+        raise IngestionError(
+            f"契约来源必须属于当前 packet 或本问题已登记证据：{args.source}；可用来源：{choices}"
+        )
+    contracts = {
+        item["symbol"]: item
+        for item in contract_candidates(case, args.source)
+    }
+    contract = contracts.get(args.symbol)
+    if contract is None:
+        choices = ", ".join(contracts) or "（该来源没有当前支持的 Python 注解类）"
+        raise IngestionError(f"来源中没有可检查契约 {args.symbol}；可选：{choices}")
+    frozen = {
+        "source": args.source,
+        "symbol": contract["symbol"],
+        "field_count": contract["field_count"],
+        "fields": contract["fields"],
+        "purpose": args.purpose.strip(),
+        "inspected_at": utc_now(),
+    }
+    existing = next(
+        (
+            item for item in question.setdefault("contracts", [])
+            if item["source"] == frozen["source"] and item["symbol"] == frozen["symbol"]
+        ),
+        None,
+    )
+    if existing:
+        if any(existing.get(key) != frozen[key] for key in ("field_count", "fields", "purpose")):
+            raise IngestionError("同一来源契约已经冻结且内容不同；来源变化时请新建摄入案")
+        frozen = existing
+        already = True
+    else:
+        question["contracts"].append(frozen)
+        question["updated_at"] = utc_now()
+        save_case(root, case)
+        already = False
+    print(
+        json.dumps(
+            {
+                "contract": frozen,
+                "already_inspected": already,
+                "writing_rule": (
+                    f"在本问题的规范知识中逐项保留这 {frozen['field_count']} 个字段，"
+                    "并说明粒度、嵌套对象、状态或兼容边界；check-unit 会核对字段名。"
+                ),
+                "next": "读取字段语义和嵌套契约，更新正文后运行 record",
             },
             ensure_ascii=False,
             indent=2,
@@ -1868,6 +2098,7 @@ def record_result(args: argparse.Namespace) -> int:
     if args.status not in QUESTION_STATES - {"working"}:
         raise IngestionError(f"无效问题状态：{args.status}")
     active = {item["ref"]: item for item in question["active_packet"]}
+    recorded = {item["ref"]: item for item in question["evidence"]}
     used = list(dict.fromkeys(args.source))
     used_runs = list(dict.fromkeys(args.run_id))
     runs_by_id = {item["id"]: item for item in case.get("runs", [])}
@@ -1880,11 +2111,12 @@ def record_result(args: argparse.Namespace) -> int:
     ]
     if wrong_question_runs:
         raise IngestionError("以下运行证据不属于当前问题：" + ", ".join(wrong_question_runs))
-    unknown = [item for item in used if item not in active]
+    unknown = [item for item in used if item not in active and item not in recorded]
     if unknown:
-        available = ", ".join(active) or "（当前没有活动小批，请先 next）"
+        available_refs = list(dict.fromkeys([*active, *recorded]))
+        available = ", ".join(available_refs) or "（当前没有活动小批，请先 next）"
         raise IngestionError(
-            "以下 --source 不在当前小批，不能登记："
+            "以下 --source 不在当前小批或本问题已登记证据中，不能登记："
             + ", ".join(unknown)
             + "；当前可登记来源："
             + available
@@ -1905,6 +2137,8 @@ def record_result(args: argparse.Namespace) -> int:
         if not (root / path).is_file():
             raise IngestionError(f"规范知识尚未形成：{root / path}")
     for ref in used:
+        if ref in recorded:
+            continue
         item = active[ref]
         path = resolve_source(case, ref)
         actual = digest_bytes(path.read_bytes())
@@ -2097,6 +2331,21 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
             errors.append("未说明缺失或冲突内容")
         if not question["next_action"]:
             errors.append("未说明下一补充动作")
+    knowledge_text = "\n".join(
+        (root / path).read_text(encoding="utf-8")
+        for path in question.get("knowledge_paths", [])
+        if (root / path).is_file()
+    )
+    for contract in question.get("contracts", []):
+        missing_fields = [
+            field for field in contract.get("fields", [])
+            if not re.search(rf"(?<![A-Za-z0-9_]){re.escape(field)}(?![A-Za-z0-9_])", knowledge_text)
+        ]
+        if missing_fields:
+            errors.append(
+                f"源码契约 {contract['symbol']} 的字段未完整进入规范知识："
+                + ", ".join(missing_fields)
+            )
     pending_runs = question.get("pending_run_ids", [])
     if pending_runs:
         errors.append(
@@ -2110,8 +2359,15 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
             and item.get("exit_code") == item.get("expected_exit")
             and item.get("evidence_complete", True)
         ]
-        if not passed_runs:
-            errors.append("本问题要求真实运行，但尚无通过的隔离运行证据")
+        fixed_reports = [
+            item["ref"] for item in question.get("evidence", [])
+            if candidate_role(item["ref"]) == "run_evidence"
+        ]
+        if not passed_runs and not fixed_reports:
+            errors.append(
+                "本问题要求当前行为证据，但既没有已核对的固定来源验证报告，"
+                "也没有通过的隔离运行证据"
+            )
     report = validate_bundle(
         root / "draft" / "knowledge", root / "draft" / "config" / "knowledge-domains.yaml"
     )
@@ -2156,6 +2412,54 @@ def check_unit(args: argparse.Namespace) -> int:
     return 0 if report["ready"] else 1
 
 
+CHINESE_COUNT = {
+    "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
+    "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+}
+
+
+def navigation_semantic_errors(root: Path, changed_paths: set[str]) -> list[str]:
+    """Catch a few cheap navigation contradictions exposed by real trials."""
+    errors: list[str] = []
+    for relative in sorted(changed_paths):
+        if not relative.startswith("knowledge/") or not relative.endswith(".md"):
+            continue
+        path = root / "draft" / relative
+        if not path.is_file():
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            match = re.search(r"上面([一二三四五六七八九十]|\d+)项", line)
+            if match:
+                expected = CHINESE_COUNT.get(match.group(1), int(match.group(1)) if match.group(1).isdigit() else -1)
+                cursor = index - 1
+                while cursor >= 0 and not lines[cursor].strip():
+                    cursor -= 1
+                actual = 0
+                while cursor >= 0 and re.match(r"^\s*[-*+]\s+", lines[cursor]):
+                    actual += 1
+                    cursor -= 1
+                if actual and actual != expected:
+                    errors.append(
+                        f"导航数量表述与紧邻列表不一致：{relative}:{index + 1} "
+                        f"写 {expected} 项，实际 {actual} 项"
+                    )
+        previous: tuple[str, int] | None = None
+        for index, line in enumerate(lines):
+            match = re.match(r"^(\s*)(\d+)\.\s+", line)
+            if not match:
+                if line.strip():
+                    previous = None
+                continue
+            current = (match.group(1), int(match.group(2)))
+            if previous == current and current[1] != 1:
+                errors.append(
+                    f"有序列表出现重复编号：{relative}:{index + 1} 重复 {current[1]}"
+                )
+            previous = current
+    return errors
+
+
 def writeback_review_errors(root: Path, case: dict[str, Any]) -> list[str]:
     """Validate the reusable boundaries of a code-to-knowledge candidate."""
     errors: list[str] = []
@@ -2179,6 +2483,7 @@ def writeback_review_errors(root: Path, case: dict[str, Any]) -> list[str]:
     errors.extend(incremental_entrypoint_errors(case, changes))
 
     changed = set(changes["added"] + changes["modified"] + changes["deleted"])
+    errors.extend(navigation_semantic_errors(root, changed))
     planned_units = {
         unit["path"].removeprefix("draft/")
         for question in case["questions"]
@@ -3031,6 +3336,17 @@ def build_parser() -> argparse.ArgumentParser:
     next_command.add_argument("--limit", type=int, choices=range(1, 9), default=6)
     next_command.set_defaults(func=next_sources)
 
+    contract = subparsers.add_parser(
+        "contract-inspect",
+        help="冻结一个机器可读源码契约，并在知识单元检查中防止字段丢失",
+    )
+    contract.add_argument("case_id")
+    contract.add_argument("question_id")
+    contract.add_argument("--source", required=True)
+    contract.add_argument("--symbol", required=True)
+    contract.add_argument("--purpose", required=True)
+    contract.set_defaults(func=inspect_contract)
+
     finding = subparsers.add_parser("finding-add", help="为当前材料组登记一项带精确来源的读后发现")
     finding.add_argument("case_id")
     finding.add_argument("finding_id")
@@ -3151,7 +3467,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action in {
-            "identity-set", "question-add", "plan-unit", "next", "finding-add", "record-material", "material-reopen", "plan-reopen",
+            "identity-set", "question-add", "plan-unit", "next", "contract-inspect", "finding-add", "record-material", "material-reopen", "plan-reopen",
             "topic-add", "plan-review", "record-topic", "record", "stop-search",
             "check-unit", "run", "review",
         }:

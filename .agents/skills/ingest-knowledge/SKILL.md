@@ -244,6 +244,8 @@ python scripts/ingestion_workspace.py identity-set <case-id> \
 
 来源身份和系统身份不是文件分类。前者说明代码/材料来自哪里、固定到哪个版本、能证明什么；后者说明用户面对哪套可独立运行和演进的能力。不同仓库、commit 和运行链可以共享业务规则，但不能因此伪装成同一系统版本。
 
+`identity-set` 会同时返回冻结来源中的验证报告候选。先核对报告对应的 commit、环境、夹具和覆盖范围；报告足以回答当前问题时，把它放进后续 `next`/`record` 的直接来源，不重复运行。报告过时、范围不足或用户要求复验时，才进入隔离运行。
+
 ### 3.2 从影响面规划，不从仓库目录规划
 
 为每个问题规划一至三个规范落点。新系统的来源页、系统页必须出现在问题一；软件结构必须至少有一个 `software` 单元；业务事实优先更新现有数据、规则或流程页，只有职责确实独立时才新建：
@@ -258,6 +260,8 @@ python scripts/ingestion_workspace.py plan-unit <case-id> <question-id> <unit-id
 
 只有答案依赖**尚无固定证据的当前行为或数值**时才使用 `--require-run`。代码变化来自已经验证的开发任务，且固定 commit 内已有可定位的验证报告/结果时，把它作为直接来源并说明证据范围；不要为了通过工作台再次机械运行。已有报告不足、会改变业务结论或用户明确要求复验时，再使用隔离运行。
 
+使用 `--require-run` 后，首次 `next` 会把冻结来源中的验证报告优先放入 packet。工作台把已登记的固定验证报告或本案成功隔离运行都视为“当前行为证据”，但只做来源与流程约束；Agent 仍必须检查报告是否真的覆盖当前 commit 和读者问题，不能因文件名叫 report 就照单全收。
+
 随后按问题定向取源：
 
 ```bash
@@ -266,6 +270,17 @@ python scripts/ingestion_workspace.py next <case-id> <question-id> \
 ```
 
 一次只读当前 packet。优先连接：产品入口与用户动作 → Schema/类型与状态 → Service/算法 → Repository/SQL/迁移 → 前端转换与共享组件 → 测试和真实运行。文档帮助定位，当前行为最终以固定源码、契约和运行结果为准。取得最低充分证据后立即写知识并 `record`；剩余候选不会改变答案时用 `--close-candidates` 停止，不扩展成整仓阅读。
+
+当 packet 的源码项返回 `contract_candidates`，且读者需要完整字段对齐时，选择真正承担契约的符号冻结字段清单：
+
+```bash
+python scripts/ingestion_workspace.py contract-inspect <case-id> <question-id> \
+  --source '<source-id>:<path>' \
+  --symbol '<契约类名>' \
+  --purpose '<该契约为什么影响读者理解或开发>'
+```
+
+首版只确定性提取 Python 注解类及其本地继承字段；其他语言没有提取器时仍按源码人工内化，并把组件缺口留在审查中。`contract-inspect` 返回的字段必须全部进入本问题的规范知识，`check-unit` 会逐项核对，从而防止“18 个字段”被压缩成几个字段组。
 
 ### 3.3 把发现重构成知识，而不是更新摘要
 
@@ -291,6 +306,8 @@ python scripts/ingestion_workspace.py next <case-id> <question-id> \
 - 更新实际受影响的领域视图和旅程/学习视图，使新规范对象可达；
 - 在 `draft/knowledge/log.md` 追加本轮新增、修改、保持边界和未合入内容；
 - 检查旧页面中的“当前没有、尚未进入、以后补齐”和“上面 N 项”等范围/数量描述是否已过时，不改写无关父知识。
+
+根 `index.md`、各类 `*/index.md` 和 `log.md` 是最终导航/记录同步，不作为实质 `plan-unit`；需要让某个视图承担稳定阅读入口时，规划具体的领域视图或旅程视图。`record` 可以重复引用本问题已经登记过的来源来补充知识路径或状态，不必为了同一来源重新取包。
 
 最后运行：
 
