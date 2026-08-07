@@ -78,6 +78,9 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不运行 `rg --files`", skill)
         self.assertIn("不能用“等、等等、诸如此类”", skill)
         self.assertIn("绝对文件路径", skill)
+        self.assertIn("相对于包含该链接的文档解析", skill)
+        self.assertIn("先只读取最直接的一篇", skill)
+        self.assertIn("硬上限而不是建议目标", skill)
 
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in (
