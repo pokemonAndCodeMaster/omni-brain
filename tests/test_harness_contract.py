@@ -67,6 +67,11 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不加载 `ingest-knowledge`", contract)
 
     def test_trusted_query_skill_is_stateless_and_bounded(self) -> None:
+        manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(
+            "verified_at_quality_check_trusted_query_slices",
+            manifest["capabilities"]["knowledge_query_and_context"]["adoption"],
+        )
         skill = (ROOT / ".agents/skills/answer-from-knowledge/SKILL.md").read_text(
             encoding="utf-8"
         )

@@ -61,7 +61,7 @@ capabilities:
       - 人工批准、正式知识发布与干净消费已经完成；本 Release 不预装领域知识
       - 跨领域、OpenCode 实际宿主、部分批准、发布回滚和过程成本优化仍未验证
   knowledge_query_and_context:
-    adoption: implemented_unverified_markdown_slice
+    adoption: verified_at_quality_check_trusted_query_slices
     entrypoints:
       - .agents/skills/answer-from-knowledge/SKILL.md
       - .agents/skills/answer-from-knowledge/scripts/knowledge_route.py
@@ -70,7 +70,8 @@ capabilities:
       - 当前只使用入口链接路由、产品视图、规范页和必要的有界 rg，不包含 FTS、向量、图查询或 Web UI
       - 入口路由器只对受治理链接的标题与上下文做确定性排序，不读取原料、不回答问题、不持久化索引或状态
       - 普通问答不创建持久状态；答案状态、最低充分范围和任务上下文仍由 Agent 语义判断
-      - Markdown 问答已取得首轮弱模型内容证据；入口路由器尚待新的盲测证明能减少扩读且不损害答案
+      - 确定性路由在十个质检问法上主入口通过；固定较弱模型在新的人员权限与交付状态问题上实际调用路由、零宽泛搜索并取得完整内容结果
+      - 证据限于当前中文 Markdown、单一宿主/模型、单一质检领域和最多三篇规范页；第二领域、OpenCode、大规模知识与精确源码联查仍未验证
   knowledge_guided_development:
     adoption: verified_at_three_manual_qc_development_slices
     entrypoints:
