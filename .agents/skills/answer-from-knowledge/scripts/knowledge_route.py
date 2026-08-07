@@ -161,6 +161,12 @@ def rank_candidates(query: str, candidates: dict[Path, Candidate]) -> list[dict[
     query_tokens = tokens(query)
     if not query_tokens:
         return []
+    focus_text = re.split(
+        r"同时说明|以及哪些|并说明|最后说明|另外说明|同时",
+        query,
+        maxsplit=1,
+    )[0]
+    focus_tokens = tokens(focus_text)
     navigation_intent = any(
         marker in query.lower()
         for marker in ("学习", "入门", "全貌", "浏览", "导航", "阅读路线", "从哪里开始")
@@ -186,6 +192,7 @@ def rank_candidates(query: str, candidates: dict[Path, Candidate]) -> list[dict[
     ranked: list[dict[str, object]] = []
     for path, candidate in candidates.items():
         anchor_tokens = tokens(candidate.anchor_text)
+        title_tokens = tokens(candidate.title)
         page_tokens = document_tokens[path]
         matched = query_tokens & page_tokens
         if not matched:
@@ -194,6 +201,10 @@ def rank_candidates(query: str, candidates: dict[Path, Candidate]) -> list[dict[
         for token in matched:
             idf = math.log((count + 1) / (frequencies[token] + 1)) + 1.0
             score += idf * (2.5 if token in anchor_tokens else 1.0)
+            if token in title_tokens:
+                score += idf * 15.0
+            if token in focus_tokens:
+                score += idf * 3.0
             if len(token) >= 4:
                 score += idf * 0.35
         if "views" in path.parts or path.name == "index.md":
@@ -221,12 +232,41 @@ def rank_candidates(query: str, candidates: dict[Path, Candidate]) -> list[dict[
 
 def build_result(root: Path, query: str, limit: int) -> dict[str, object]:
     candidates = collect_candidates(root)
-    ranked = rank_candidates(query, candidates)[:limit]
+    ranked = rank_candidates(query, candidates)
+    selected: list[dict[str, object]] = ranked[:1]
+    selected_paths = {str(item["path"]) for item in selected}
+
+    clauses = [
+        clause.strip()
+        for clause in re.split(
+            r"[。；;？！?]+|同时说明|以及哪些|并说明|最后说明|另外说明|同时|以及",
+            query,
+        )
+        if len(clause.strip()) >= 4
+    ]
+    for clause in clauses:
+        if len(selected) >= limit:
+            break
+        clause_ranked = rank_candidates(clause, candidates)
+        if not clause_ranked:
+            continue
+        clause_primary = clause_ranked[0]
+        if str(clause_primary["path"]) not in selected_paths:
+            selected.append(clause_primary)
+            selected_paths.add(str(clause_primary["path"]))
+
+    for item in ranked:
+        if len(selected) >= limit:
+            break
+        if str(item["path"]) not in selected_paths:
+            selected.append(item)
+            selected_paths.add(str(item["path"]))
+
     return {
         "root": str(root.resolve()),
         "query": query,
-        "primary": ranked[0] if ranked else None,
-        "fallbacks": ranked[1:] if len(ranked) > 1 else [],
+        "primary": selected[0] if selected else None,
+        "fallbacks": selected[1:] if len(selected) > 1 else [],
         "candidate_count": len(candidates),
         "instruction": (
             "Read primary only. Open a fallback only when a named part of the question "

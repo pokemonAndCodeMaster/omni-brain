@@ -39,6 +39,16 @@ class KnowledgeRouteTest(unittest.TestCase):
             "# 验收生命周期\n## 五类业务对象\n",
             encoding="utf-8",
         )
+        (knowledge / "domains/permissions.md").write_text(
+            "---\ntitle: 人员与权限边界\ndescription: 角色、权限与人员责任\n---\n"
+            "# 人员与权限边界\n",
+            encoding="utf-8",
+        )
+        (knowledge / "index.md").write_text(
+            (knowledge / "index.md").read_text(encoding="utf-8")
+            + "| 角色权限 | [人员与权限](domains/permissions.md) |\n",
+            encoding="utf-8",
+        )
         (knowledge / "sources/current.md").write_text(
             "# 当前原型来源\nPostgreSQL migration、空库与 Ratio 预览证据。\n",
             encoding="utf-8",
@@ -137,6 +147,36 @@ class KnowledgeRouteTest(unittest.TestCase):
             )
             result = json.loads(completed.stdout)
             self.assertNotIn("/sources/", result["primary"]["path"])
+
+    def test_fallbacks_cover_a_distinct_question_clause(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.make_knowledge(Path(tmp))
+            completed = subprocess.run(
+                [
+                    "python",
+                    str(SCRIPT),
+                    "--root",
+                    str(root),
+                    "--query",
+                    "完整列出五类业务对象；同时说明角色权限边界",
+                    "--format",
+                    "json",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            result = json.loads(completed.stdout)
+            self.assertEqual(
+                {
+                    str((root.parent / "domains/lifecycle.md").resolve()),
+                    str((root.parent / "domains/permissions.md").resolve()),
+                },
+                {
+                    result["primary"]["path"],
+                    result["fallbacks"][0]["path"],
+                },
+            )
 
 
 if __name__ == "__main__":
