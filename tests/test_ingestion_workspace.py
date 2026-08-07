@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from ingestion_workspace import (
     generate_complete_source_index,
     incremental_entrypoint_errors,
+    navigation_semantic_errors,
     parent_content_regressions,
 )
 
@@ -1045,6 +1046,138 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertIn("README", payload["query_terms"])
         self.assertIn("annotation_submitted", payload["query_terms"])
         self.assertIn("API", payload["query_terms"])
+
+    def test_required_run_prioritizes_and_accepts_fixed_source_report(self) -> None:
+        docs = self.source / "docs"
+        docs.mkdir()
+        (docs / "verification-report.md").write_text(
+            "# Verification report\n\nFixed source validation for annotation_submitted: 17 tests passed.\n",
+            encoding="utf-8",
+        )
+        case = self.start()
+        self.plan(require_run=True)
+        self.write_candidate(case)
+
+        result = self.run_tool(
+            "next", "sample-case", "q-001",
+            "--query", "annotation_submitted", "--limit", "2",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        report = next(
+            item for item in payload["packet"]
+            if item["ref"] == "app:docs/verification-report.md"
+        )
+        self.assertEqual("run_evidence", report["role"])
+
+        arguments = [
+            "record", "sample-case", "q-001",
+            "--status", "answered",
+            "--summary", "固定来源报告和源码共同说明当前指标链路",
+            "--source", report["ref"],
+            "--knowledge", "draft/knowledge/systems/metric-flow.md",
+            "--close-candidates", "固定报告已经覆盖当前问题，不需要机械重跑",
+        ]
+        if len(payload["packet"]) > 1:
+            arguments.extend(["--dismiss-unused", "本包其余实现入口不改变验证结论"])
+        recorded = self.run_tool(*arguments)
+        self.assertEqual(0, recorded.returncode, recorded.stderr)
+        checked = self.run_tool("check-unit", "sample-case", "q-001")
+        self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
+        status = json.loads(self.run_tool("status", "sample-case").stdout)
+        self.assertEqual([], status["questions"][0]["run_ids"])
+
+    def test_contract_inspect_blocks_field_loss_until_all_fields_are_internalized(self) -> None:
+        (self.source / "schema.py").write_text(
+            "class BaseRow:\n"
+            "    id: int\n"
+            "    stat_date: str\n"
+            "    scene_name: str\n"
+            "    group_name: str\n\n"
+            "class SnapshotRow(BaseRow):\n"
+            "    employee_id: str\n"
+            "    good_metrics: dict\n"
+            "    bad_metrics: dict\n"
+            "    option_metrics: dict\n",
+            encoding="utf-8",
+        )
+        case = self.start()
+        planned = self.run_tool(
+            "plan-unit", "sample-case", "q-001", "snapshot-contract",
+            "--title", "快照契约", "--kind", "data",
+            "--path", "draft/knowledge/systems/metric-flow.md",
+        )
+        self.assertEqual(0, planned.returncode, planned.stderr)
+        self.write_candidate(case)
+        packet = json.loads(self.run_tool(
+            "next", "sample-case", "q-001", "--query", "SnapshotRow", "--limit", "2"
+        ).stdout)
+        schema = next(item for item in packet["packet"] if item["ref"] == "app:schema.py")
+        candidate = next(item for item in schema["contract_candidates"] if item["symbol"] == "SnapshotRow")
+        self.assertEqual(8, candidate["field_count"])
+        inspected = self.run_tool(
+            "contract-inspect", "sample-case", "q-001",
+            "--source", "app:schema.py", "--symbol", "SnapshotRow",
+            "--purpose", "开发者需要完整对齐快照顶层字段",
+        )
+        self.assertEqual(0, inspected.returncode, inspected.stderr)
+
+        args = [
+            "record", "sample-case", "q-001", "--status", "answered",
+            "--summary", "快照契约已经进入规范知识",
+            "--source", "app:schema.py",
+            "--knowledge", "draft/knowledge/systems/metric-flow.md",
+            "--close-candidates", "契约类已直接给出全部顶层字段",
+        ]
+        if len(packet["packet"]) > 1:
+            args.extend(["--dismiss-unused", "其余 packet 不改变字段契约"])
+        self.assertEqual(0, self.run_tool(*args).returncode)
+        incomplete = self.run_tool("check-unit", "sample-case", "q-001")
+        self.assertEqual(1, incomplete.returncode)
+        self.assertIn("字段未完整进入", incomplete.stdout)
+
+        target = case / "draft" / "knowledge" / "systems" / "metric-flow.md"
+        target.write_text(
+            target.read_text(encoding="utf-8")
+            + "\n## 快照顶层字段\n\n"
+            + "、".join(f"`{field}`" for field in candidate["fields"])
+            + "。\n",
+            encoding="utf-8",
+        )
+        complete = self.run_tool("check-unit", "sample-case", "q-001")
+        self.assertEqual(0, complete.returncode, complete.stdout + complete.stderr)
+
+    def test_record_can_reuse_already_registered_source_without_requery(self) -> None:
+        case = self.start()
+        self.plan()
+        self.write_candidate(case)
+        packet = self.get_packet()
+        first = self.record_answer(packet)
+        self.assertEqual(0, first.returncode, first.stderr)
+        ref = json.loads(first.stdout)["used_sources"][0]
+        repeated = self.run_tool(
+            "record", "sample-case", "q-001",
+            "--status", "answered",
+            "--summary", "同一直接来源继续支持补充后的规范知识",
+            "--source", ref,
+            "--knowledge", "draft/knowledge/systems/metric-flow.md",
+        )
+        self.assertEqual(0, repeated.returncode, repeated.stderr)
+        state = json.loads((case / ".state" / "case.json").read_text(encoding="utf-8"))
+        self.assertEqual(1, len(state["questions"][0]["evidence"]))
+
+    def test_navigation_semantic_checks_count_and_duplicate_number(self) -> None:
+        root = self.root / "semantic-case"
+        target = root / "draft" / "knowledge" / "sources" / "index.md"
+        target.parent.mkdir(parents=True)
+        target.write_text(
+            "# 来源\n\n- A\n- B\n- C\n\n上面四项来自父版本。\n\n"
+            "9. 九\n10. 十\n10. 十一\n",
+            encoding="utf-8",
+        )
+        errors = navigation_semantic_errors(root, {"knowledge/sources/index.md"})
+        self.assertTrue(any("实际 3 项" in item for item in errors))
+        self.assertTrue(any("重复 10" in item for item in errors))
 
     def test_next_resolves_common_vite_at_alias_without_project_specific_config(self) -> None:
         features = self.source / "frontend" / "src" / "features"

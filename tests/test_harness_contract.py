@@ -152,14 +152,19 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("一个明确读者问题为最小交付单位", agents)
 
         expected_steps = (
-            "## 1. 选择最低充分模式",
+            "## 1. 选择最低充分路径",
             "## 2. 宽范围完整整理",
             "### 2.1 固定用户承诺与材料范围",
             "### 2.2 审视材料地图并形成读后发现",
             "### 2.3 规划并复核知识目录",
             "### 2.4 按目录形成规范知识和产品视图",
-            "## 3. 聚焦代码或问题整理",
-            "## 4. 人工审查与发布",
+            "## 3. 代码变化回写",
+            "### 3.1 先固定读者问题与系统身份",
+            "### 3.2 从影响面规划，不从仓库目录规划",
+            "### 3.3 把发现重构成知识，而不是更新摘要",
+            "### 3.4 完成父知识融合与审查",
+            "## 4. 聚焦代码或问题整理",
+            "## 5. 人工审查与发布",
         )
         positions = [skill.index(step) for step in expected_steps]
         self.assertEqual(sorted(positions), positions)
