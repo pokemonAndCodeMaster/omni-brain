@@ -68,12 +68,14 @@ capabilities:
       - 当前只有文件导航和定向事实源读取
       - 没有 FTS、向量、图查询或自动上下文组装
   knowledge_guided_development:
-    adoption: verified_at_manual_qc_allocation_and_readonly_sql_slices
+    adoption: verified_at_three_manual_qc_development_slices
     entrypoints:
       - .agents/skills/develop-with-knowledge/SKILL.md
     limits:
-      - 已在验收配额页面和问题选项只读 SQL 性能两类用例上完成成功重放；证据仍限于同一质检领域、宿主和模型
+      - 已在验收配额页面、问题选项只读 SQL 性能和验收分配缺口跨层算法三类用例上完成成功重放；证据仍限于同一质检领域、宿主和模型
+      - 分配缺口用例中盲测候选反证并纠正了首轮参考口径；这证明参考可被运行和领域语义推翻，不证明任意业务规则都能自动裁决
       - 本地 CSV 单事务写库取得正向证据，但仍存在不完整指标输入问题，不计入已验证切片
+      - 真实页面出现与页面交互必须分别取证；最终知识变化交接仍有被弱模型跳过的记录
       - 不包含自动上下文组装、环境管理或正式知识自动发布
       - 低风险局部修改不应被机械升级为完整流程
 

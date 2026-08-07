@@ -79,11 +79,11 @@ class HarnessContractTest(unittest.TestCase):
             for entrypoint in capability["entrypoints"]:
                 self.assertTrue((ROOT / entrypoint).exists(), entrypoint)
 
-    def test_development_workflow_is_verified_in_two_scoped_slices(self) -> None:
+    def test_development_workflow_is_verified_in_three_scoped_slices(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["knowledge_guided_development"]
         self.assertEqual(
-            "verified_at_manual_qc_allocation_and_readonly_sql_slices",
+            "verified_at_three_manual_qc_development_slices",
             capability["adoption"],
         )
         self.assertEqual(
@@ -104,7 +104,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("冲突样本", skill)
         self.assertIn("行数相同", skill)
         self.assertIn("不能继续写入", skill)
-        self.assertIn("真实输出", skill)
+        self.assertIn("实际输出证据", skill)
         self.assertIn("真实路径验证", skill)
         self.assertIn("知识变化候选", skill)
         self.assertIn("来源身份", skill)
