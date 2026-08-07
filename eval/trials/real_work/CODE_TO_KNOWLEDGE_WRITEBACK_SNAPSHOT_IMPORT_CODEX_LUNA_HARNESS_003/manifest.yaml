@@ -1,0 +1,52 @@
+schema_version: '0.1'
+trial_id: CODE_TO_KNOWLEDGE_WRITEBACK_SNAPSHOT_IMPORT_CODEX_LUNA_HARNESS_003
+use_case: code_to_knowledge_writeback_snapshot_import_v1
+status: evaluated_not_accepted
+model:
+  host: codex-cli
+  version: 0.144.1
+  id: gpt-5.6-luna
+  reasoning_effort: medium
+inputs:
+  parent_knowledge_commit: c625f40
+  harness_commit: 183fc6d0a475e57bcf880504ecd4c3e3ad4b5e13
+  source_commit: ea10860103a9d282dd05da3639f50f00cf45b882
+  implementation_commit: c51e232
+  implementation_parent_commit: 35948aebf41b8772b77df18bd68ce9ff2d295344
+prompt:
+  path: ../CODE_TO_KNOWLEDGE_WRITEBACK_SNAPSHOT_IMPORT_CODEX_LUNA_HARNESS_002/prompt.md
+  reused_unchanged: true
+result:
+  repository: /home/yyh/project/omni-brain-snapshot-import-writeback-luna-v3
+  commit: 4e6274aa770b289be0f1fa419a5902144ffe9755
+  workbench_stage: publish_ready
+  published: false
+score:
+  passed: 21
+  total: 24
+  minimum: 22
+  accepted: false
+  critical_failures:
+    - C05
+    - C15
+    - S02
+  other_failures: []
+process:
+  wall_time_seconds: 504
+  commands: 34
+  failed_commands: 6
+  input_tokens: 3159635
+  cached_input_tokens: 3024128
+  output_tokens: 21490
+  reasoning_output_tokens: 1301
+  thread_id: 019fdb7c-d954-73f3-ac20-4ccda19ed8f8
+candidate:
+  files_added: 0
+  files_modified: 11
+  files_deleted: 0
+checks:
+  knowledge_check: passed
+  diff_check: passed
+  source_repository_clean: true
+  formal_knowledge_repository_clean: true
+  parent_deletions: 0

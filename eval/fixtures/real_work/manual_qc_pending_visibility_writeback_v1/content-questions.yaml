@@ -1,0 +1,78 @@
+schema_version: '0.1'
+use_case: manual_qc_pending_visibility_writeback_v1
+acceptance:
+  minimum_score: 20
+  critical_questions_must_pass: true
+questions:
+  - id: C01
+    critical: true
+    question: 当前代码来源、固定 commit、实现父版本与现实身份是什么？
+  - id: C02
+    critical: true
+    question: 为什么这是同一 Quality Platform Lab 的增量，而不是新建系统或覆盖早期 Ratio 原型？
+  - id: C03
+    critical: true
+    question: 验收未完成量回答什么业务问题，和分配缺口分别定位哪两个阶段？
+  - id: C04
+    critical: true
+    question: acceptance.pending 的公式与聚合顺序是什么，为什么不能照搬分类原子缺口公式？
+  - id: C05
+    critical: false
+    question: 正数为什么只是剩余工作量，而不能自动解释成风险或异常？
+  - id: C06
+    critical: true
+    question: 父版本已经具备哪些后端能力，本次开发实际新增了哪些消费环节？
+  - id: C07
+    critical: true
+    question: useTaskAnalysisTree、TaskAnalysisRow、映射函数和 TaskAnalysisTable 在新链路中各自负责什么？
+  - id: C08
+    critical: false
+    question: 为什么这次不需要新增专用 API、Service、数据库表或前端公式？
+  - id: C09
+    critical: true
+    question: 任务表基础指标和动态问题选项的当前组合上限是什么，第 17 个指标怎样失败？
+  - id: C10
+    critical: false
+    question: 旧的保存列顺序缺少新列时怎样兼容？
+  - id: C11
+    critical: true
+    question: 真实 PostgreSQL、API、测试、构建和 Edge 分别验证了什么？
+  - id: C12
+    critical: true
+    question: 完整 14 天范围下四级下钻的代表值是什么，各级代表什么范围？
+  - id: C13
+    critical: false
+    question: 既有分配缺口能力与回归证据是否被保留而未被新指标替代？
+  - id: C14
+    critical: true
+    question: 当前证据为什么不能证明生产部署、实时数据或正式分配与验收执行闭环？
+  - id: I01
+    critical: true
+    question: 既有来源页和系统页是否更新到新版本，同时保留父版本关系和证据边界？
+  - id: I02
+    critical: true
+    question: 新事实是否原位融入数据/口径、软件结构和实现地图，而非新增批次化开发周报？
+  - id: I03
+    critical: true
+    question: 本次真实使用的公共数据工作台是否说明新增消费者、配置兼容和业务边界？
+  - id: I04
+    critical: true
+    question: 根入口与验收学习/任务旅程是否能直接到达新能力？
+  - id: I05
+    critical: false
+    question: 变更日志是否准确说明本轮修改、证据、保持项和未确认内容？
+  - id: I06
+    critical: true
+    question: 父知识中的业务机制、图表、链接、早期原型和未知是否保持，没有被缩写覆盖？
+  - id: S01
+    critical: true
+    question: 候选是否在独立摄入工作区形成，来源代码、父知识仓和正式知识仓均未被修改？
+  - id: S02
+    critical: true
+    question: 候选是否停在人工审查/待发布状态，没有自行发布？
+  - id: S03
+    critical: true
+    question: 是否存在可审查的父知识 diff、固定来源身份和具体运行证据，而非只写“测试通过”？
+  - id: S04
+    critical: false
+    question: 链接、frontmatter、索引、日志和知识结构检查是否通过？

@@ -1,0 +1,42 @@
+schema_version: '0.1'
+trial_id: MANUAL_QC_PENDING_VISIBILITY_WRITEBACK_CODEX_LUNA_HARNESS_005
+use_case: manual_qc_pending_visibility_writeback_v1
+status: evaluated
+model:
+  host: codex-cli
+  version: 0.144.1
+  id: gpt-5.6-luna
+  reasoning_effort: medium
+inputs:
+  parent_knowledge_commit: 28b0951be7c49f00439365113d3d0b1c90dbdf44
+  harness_commit: 6deafb9d357bcd81189ecfed974f4f782e9b4173
+  source_commit: 26db0e1c98657cd120430cec0b92964c888cacd5
+prompt:
+  path: ../../../fixtures/real_work/manual_qc_pending_visibility_writeback_v1/prompt.md
+result:
+  repository: /home/yyh/project/omni-brain-pending-writeback-luna-v5
+  commit: a8ea723ed3f72c472dfb013fb84d59970a5247ad
+  workbench_stage: publish_ready
+  published: false
+score:
+  passed: 24
+  total: 24
+  minimum: 20
+  accepted: true
+  critical_failures: []
+  other_failures: []
+process:
+  wall_time_seconds: 545
+  commands: 65
+  failed_commands: 8
+  input_tokens: 5391450
+  cached_input_tokens: 5230592
+  output_tokens: 23531
+  reasoning_output_tokens: 2103
+  thread_id: 019fdb6b-5b2c-7830-9ccd-cbc3a88c44b3
+checks:
+  knowledge_check: passed
+  source_repository_clean: true
+  formal_knowledge_repository_clean: true
+  parent_deletions: 0
+  diff_check: passed
