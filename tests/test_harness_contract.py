@@ -79,11 +79,11 @@ class HarnessContractTest(unittest.TestCase):
             for entrypoint in capability["entrypoints"]:
                 self.assertTrue((ROOT / entrypoint).exists(), entrypoint)
 
-    def test_development_workflow_is_scoped_and_trial_pending(self) -> None:
+    def test_development_workflow_is_verified_in_two_scoped_slices(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["knowledge_guided_development"]
         self.assertEqual(
-            "verified_at_manual_qc_allocation_slice",
+            "verified_at_manual_qc_allocation_and_readonly_sql_slices",
             capability["adoption"],
         )
         self.assertEqual(
