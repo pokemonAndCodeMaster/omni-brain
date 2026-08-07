@@ -75,6 +75,9 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("没有搜到", skill)
         self.assertIn("任务上下文额外给出一个紧凑交接", skill)
         self.assertIn("没有用户授权时不创建文件", skill)
+        self.assertIn("不运行 `rg --files`", skill)
+        self.assertIn("不能用“等、等等、诸如此类”", skill)
+        self.assertIn("绝对文件路径", skill)
 
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in (
