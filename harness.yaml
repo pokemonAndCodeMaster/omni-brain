@@ -1,14 +1,14 @@
 schema_version: '0.4'
 name: omni-brain-harness
 release_channel: release
-release_id: m1-ingestion-harness-v1
-release_date: '2026-08-03'
+release_id: development-writeback-harness-v1
+release_date: '2026-08-07'
 roadmap: docs/roadmap.md
 
 current_stage:
-  id: M1
-  status: released_verified_at_quality_check_incremental_slice
-  outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
+  id: M4
+  status: release_candidate_with_m1_and_m3_verified_slices_and_m4_trial_evidence
+  outcome: 真实知识既能指导开发，也能在固定代码变化后形成隔离、可审查的知识回写候选
 
 runtime:
   primary: opencode
@@ -60,6 +60,18 @@ capabilities:
       - 增量融合已经在认证父知识与后来材料上通过两个独立模型重放：父知识保留、原位融合、入口语义同步和候选差异均有内容证据
       - 人工批准、正式知识发布与干净消费已经完成；本 Release 不预装领域知识
       - 跨领域、OpenCode 实际宿主、部分批准、发布回滚和过程成本优化仍未验证
+  knowledge_code_writeback:
+    adoption: implemented_and_trialed_at_quality_check_code_writeback_slice
+    entrypoints:
+      - .agents/skills/ingest-knowledge/SKILL.md
+      - scripts/ingestion_workspace.py
+      - scripts/knowledge_check.py
+    limits:
+      - 已完成同一真实固定代码变化的强参考和四轮 Luna 盲测；最近一轮候选隔离、系统身份、完整 Python 数据契约、固定验证证据发现、父知识原位融合和产品视图同步均通过
+      - 最近一轮固定内容题为 22/24，前端行转换与固定验证结果的内化深度不足，关键题未全过，因此尚未升级为 verified
+      - 最近一次 Trial 后已加强转换入口和固定验证结果的内容要求，并修正审查页证据语义；这些改动回归通过但尚待新真实切片重放
+      - 当前证据限于质检领域、Python/SQL/Vue 固定仓库和 Codex/Luna；不代表跨领域、其他宿主或任意代码库已经稳定
+      - 候选只停在人工审查，正式知识发布仍需用户批准
   knowledge_query_and_context:
     adoption: not_implemented
     entrypoints:
