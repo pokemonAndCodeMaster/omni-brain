@@ -29,7 +29,6 @@
 
 ## 工作方式
 
-- 开发、修复或重构需要领域/架构知识、跨文件或跨层修改、真实数据库/API/页面验证，或会影响长期知识时，加载 `develop-with-knowledge`；显而易见的单文件低风险修改仍直接执行；
 - 后端按 Router → Service → Repository → PostgreSQL 分层；SQL 只在 Repository；
 - Vue 使用 Composition API、`<script setup lang="ts">`、typed props/emits；
 - 顶部筛选定义全页数据范围，表头筛选默认只影响明细；只有用户显式点击
