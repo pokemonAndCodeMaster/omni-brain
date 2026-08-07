@@ -61,12 +61,14 @@ capabilities:
       - 人工批准、正式知识发布与干净消费已经完成；本 Release 不预装领域知识
       - 跨领域、OpenCode 实际宿主、部分批准、发布回滚和过程成本优化仍未验证
   knowledge_query_and_context:
-    adoption: not_implemented
+    adoption: implemented_unverified_markdown_slice
     entrypoints:
+      - .agents/skills/answer-from-knowledge/SKILL.md
       - knowledge/index.md
     limits:
-      - 当前只有文件导航和定向事实源读取
-      - 没有 FTS、向量、图查询或自动上下文组装
+      - 当前只使用根入口、产品视图、规范页和有界 rg，不包含 FTS、向量、图查询或 Web UI
+      - 普通问答不创建持久状态；答案状态、最低充分范围和任务上下文仍由 Agent 语义判断
+      - 尚未取得弱模型在学习、事实、缺口和任务上下文工况的固定用例证据
   knowledge_guided_development:
     adoption: verified_at_three_manual_qc_development_slices
     entrypoints:

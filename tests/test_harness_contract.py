@@ -63,11 +63,24 @@ class HarnessContractTest(unittest.TestCase):
 
     def test_existing_knowledge_queries_do_not_trigger_ingestion(self) -> None:
         contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        self.assertIn("浏览、学习、查询或回答已有正式/候选知识", contract)
+        self.assertIn("加载 `answer-from-knowledge`", contract)
         self.assertIn("不加载 `ingest-knowledge`", contract)
 
+    def test_trusted_query_skill_is_stateless_and_bounded(self) -> None:
+        skill = (ROOT / ".agents/skills/answer-from-knowledge/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("不创建工作区、账本、YAML", skill)
+        self.assertIn("最多三篇", skill)
+        self.assertIn("没有搜到", skill)
+        self.assertIn("任务上下文额外给出一个紧凑交接", skill)
+        self.assertIn("没有用户授权时不创建文件", skill)
+
     def test_skill_frontmatter_is_discoverable(self) -> None:
-        for name in ("task-knowledge-prep", "ingest-knowledge", "develop-with-knowledge"):
+        for name in (
+            "task-knowledge-prep", "ingest-knowledge", "answer-from-knowledge",
+            "develop-with-knowledge",
+        ):
             path = ROOT / f".agents/skills/{name}/SKILL.md"
             match = re.match(r"\A---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.DOTALL)
             self.assertIsNotNone(match, name)
