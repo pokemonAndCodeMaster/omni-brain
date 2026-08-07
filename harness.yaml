@@ -68,11 +68,11 @@ capabilities:
       - 当前只有文件导航和定向事实源读取
       - 没有 FTS、向量、图查询或自动上下文组装
   knowledge_guided_development:
-    adoption: implemented_trial_pending
+    adoption: verified_at_manual_qc_allocation_slice
     entrypoints:
       - .agents/skills/develop-with-knowledge/SKILL.md
     limits:
-      - 只依据首个真实质检开发基线暴露的问题形成，尚无修订后模型重放证据
+      - 已在同一真实验收配额用例上经过基线、失败修订和成功重放；尚未证明跨开发工况泛化
       - 不包含自动上下文组装、环境管理或正式知识自动发布
       - 低风险局部修改不应被机械升级为完整流程
 

@@ -82,7 +82,10 @@ class HarnessContractTest(unittest.TestCase):
     def test_development_workflow_is_scoped_and_trial_pending(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["knowledge_guided_development"]
-        self.assertEqual("implemented_trial_pending", capability["adoption"])
+        self.assertEqual(
+            "verified_at_manual_qc_allocation_slice",
+            capability["adoption"],
+        )
         self.assertEqual(
             [".agents/skills/develop-with-knowledge/SKILL.md"],
             capability["entrypoints"],
