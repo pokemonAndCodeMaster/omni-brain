@@ -1,17 +1,3 @@
 schema_version: '0.1'
-domains:
-  - id: quality
-    title: 质检
-    parent: null
-    scope: 对数据、标注或业务结果的质量进行评价、解释和改进
-    excludes: 生产任务本身的完整创建、执行与交付管理
-  - id: quality.manual
-    title: 人工质检
-    parent: quality
-    scope: 由人完成质量判断、验收、反馈或复核的质检方式
-    excludes: 完全由规则或模型自动完成且无人参与的质量检测
-  - id: quality.manual.acceptance
-    title: 人工质检验收
-    parent: quality.manual
-    scope: 从标注结果可供抽样验收开始，到形成验收结论并据此通过、打回、返工或进入交付判断
-    excludes: 上游标注规则制定、标注平台全部能力和最终业务数据交付
+domains: []
+
