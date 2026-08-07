@@ -1,0 +1,67 @@
+schema_version: '0.1'
+trial_id: TRUSTED_KNOWLEDGE_ANSWER_ROUTER_CODEX_LUNA_HARNESS_001
+use_case: trusted_knowledge_answer_router_blind_v1
+status: completed_content_pass_bounded_route_pass
+started_at: '2026-08-07T14:32:00+08:00'
+completed_at: '2026-08-07T14:32:32+08:00'
+execution:
+  mode: two_independent_parallel_read_only_sessions
+  maximum_wall_seconds: 31
+  aggregate_agent_seconds: 61
+host:
+  product: Codex CLI
+  version: 0.144.1
+  auth: ChatGPT
+  sandbox: read-only
+model:
+  id: gpt-5.6-luna
+  reasoning_effort: medium
+candidate:
+  repository: /home/yyh/project/omni-brain-trusted-query-luna-v1
+  branch: trial/m2-trusted-query-luna-001
+  base_commit: a1cd94c
+  working_tree_modified_by_model: false
+harness:
+  capability_commit: 0da62f3
+  skill: .agents/skills/answer-from-knowledge/SKILL.md
+  router: .agents/skills/answer-from-knowledge/scripts/knowledge_route.py
+knowledge:
+  certified_commit: 900cf851865bcea9a959d795cf2c127f2c8094e1
+  knowledge_check: passed_33_markdown_24_concepts
+sessions:
+  q9:
+    thread_id: 019fdaea-5c02-76c1-b35e-d174f85fd004
+    command_executions: 4
+    failed_commands: 0
+    router_called: true
+    normative_pages_read: 2
+    content_score: 5
+    content_total: 5
+    input_tokens: 92177
+    cached_input_tokens: 77568
+    output_tokens: 1500
+    reasoning_output_tokens: 340
+  q10:
+    thread_id: 019fdaea-5e85-73c1-a321-61656b99a683
+    command_executions: 4
+    failed_commands: 0
+    router_called: true
+    normative_pages_read: 2
+    content_score: 5
+    content_total: 5
+    input_tokens: 91079
+    cached_input_tokens: 76544
+    output_tokens: 1508
+    reasoning_output_tokens: 163
+result:
+  content_questions_passed: 10
+  content_questions_total: 10
+  minimum_score_reached: true
+  critical_questions_passed: true
+  file_isolation: passed
+  broad_searches: 0
+  failed_commands: 0
+  absolute_citations: passed
+  q9_route_and_stop: passed_primary_plus_one_justified_fallback
+  q10_route_and_stop: passed_bounded_but_second_page_was_optional
+  disposition: verified_at_quality_check_router_integrated_answer_pair

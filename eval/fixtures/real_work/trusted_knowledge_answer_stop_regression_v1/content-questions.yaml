@@ -1,0 +1,46 @@
+schema_version: '0.1'
+use_case: trusted_knowledge_answer_stop_regression_v1
+acceptance:
+  minimum_score: 9
+  critical_questions_must_pass: true
+questions:
+  - id: Q7-01
+    scenario: Q7
+    critical: true
+    question: 是否给出最终目标20、Good15、Bad5、shortage0？
+  - id: Q7-02
+    scenario: Q7
+    critical: true
+    question: 是否明确 Bad 容量不足，5 个名额由 Good 补足并产生用户可见 warning？
+  - id: Q7-03
+    scenario: Q7
+    critical: true
+    question: 是否说明数量预览没有决定具体 task、验收员和外部正式分配？
+  - id: Q7-04
+    scenario: Q7
+    critical: false
+    question: 是否说明总容量只有12时最终目标降为12、总量 shortage 为8且必须显式告知？
+  - id: Q7-05
+    scenario: Q7
+    critical: false
+    question: 是否使用绝对可点击的采样与分配规范页？
+  - id: Q8-01
+    scenario: Q8
+    critical: true
+    question: 是否明确不能确认空库执行固定 migration 后可跑通查询和 Ratio 预览？
+  - id: Q8-02
+    scenario: Q8
+    critical: true
+    question: 是否说明固定 migration 只建 delivery_task、operation_preview、portal_view_config，没有创建 Repository 查询的 daily_snapshot？
+  - id: Q8-03
+    scenario: Q8
+    critical: true
+    question: 是否说明当前代码与目标模型还有 submitted/completed 等字段版本冲突？
+  - id: Q8-04
+    scenario: Q8
+    critical: false
+    question: 是否把现有证据限定为代码结构、局部行为和使用 FakePostgres/内存替身的测试，而非真实 PostgreSQL 端到端？
+  - id: Q8-05
+    scenario: Q8
+    critical: false
+    question: 是否要求当前 DDL/迁移、兼容种子或样例、固定提交及真实 PostgreSQL 查询/预览作为最小直接证据？

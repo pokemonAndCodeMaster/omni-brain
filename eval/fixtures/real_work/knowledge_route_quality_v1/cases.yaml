@@ -1,0 +1,61 @@
+schema_version: '0.1'
+use_case: knowledge_route_quality_v1
+knowledge_commit: 900cf851865bcea9a959d795cf2c127f2c8094e1
+minimum_primary_hits: 10
+cases:
+  - id: R01
+    query: 我是新同学，想先了解人工质检验收在质检领域的位置和完整学习路线
+    acceptable_primary:
+      - knowledge/views/by-domain/quality.md
+      - knowledge/views/by-journey/manual-qc-acceptance.md
+  - id: R02
+    query: 现有知识能否确认交付中心、SSO、快照刷新和通过打回已经在生产上线
+    acceptable_primary:
+      - knowledge/domains/quality/manual/acceptance/open-questions.md
+      - knowledge/domains/quality/manual/platform-and-module-map.md
+      - knowledge/systems/manual-qc-acceptance-prototype.md
+      - knowledge/domains/quality/manual/delivery-management.md
+      - knowledge/domains/quality/manual/acceptance/conclusion-and-execution.md
+    required_top3_any:
+      - knowledge/domains/quality/manual/acceptance/overview.md
+      - knowledge/domains/quality/manual/acceptance/open-questions.md
+      - knowledge/domains/quality/manual/platform-and-module-map.md
+  - id: R03
+    query: 快照是26个扁平字段还是18个字段加JSONB，冲突怎么处理
+    acceptable_primary:
+      - knowledge/domains/quality/manual/acceptance/data-flow-and-state.md
+      - knowledge/domains/quality/manual/acceptance/open-questions.md
+  - id: R04
+    query: 我要把Ratio数量预览扩展为选择具体task并正式分配，需要哪些开发上下文
+    acceptable_primary:
+      - knowledge/domains/quality/manual/acceptance/sampling-and-assignment.md
+      - knowledge/domains/quality/manual/acceptance/python-architecture-and-implementation.md
+      - knowledge/domains/quality/manual/acceptance/implementation-map.md
+  - id: R05
+    query: 完整列出人工质检验收五类业务对象及其边界
+    acceptable_primary:
+      - knowledge/domains/quality/manual/acceptance/lifecycle.md
+  - id: R06
+    query: 质量通过率分母是已完成验收还是已分配验收，当前冲突如何裁决
+    acceptable_primary:
+      - knowledge/domains/quality/manual/acceptance/data-flow-and-state.md
+      - knowledge/domains/quality/manual/acceptance/open-questions.md
+  - id: R07
+    query: Ratio请求20且Good比例50%，Good容量40、Bad容量5时计划怎么算
+    acceptable_primary:
+      - knowledge/domains/quality/manual/acceptance/sampling-and-assignment.md
+  - id: R08
+    query: 固定migration执行后空PostgreSQL能否跑通任务查询和Ratio预览
+    acceptable_primary:
+      - knowledge/systems/manual-qc-acceptance-prototype.md
+      - knowledge/domains/quality/manual/acceptance/python-architecture-and-implementation.md
+      - knowledge/domains/quality/manual/acceptance/implementation-map.md
+  - id: R09
+    query: 数据库公共能力现在怎样管理连接、事务和业务Repository边界
+    acceptable_primary:
+      - knowledge/capabilities/database-access.md
+      - knowledge/domains/quality/manual/acceptance/system-architecture.md
+  - id: R10
+    query: 当前OBS对象存储实现了什么，哪些仍然未知
+    acceptable_primary:
+      - knowledge/capabilities/object-storage.md

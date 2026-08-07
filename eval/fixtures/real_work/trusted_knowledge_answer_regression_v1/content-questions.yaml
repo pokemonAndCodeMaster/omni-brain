@@ -1,0 +1,46 @@
+schema_version: '0.1'
+use_case: trusted_knowledge_answer_regression_v1
+acceptance:
+  minimum_score: 9
+  critical_questions_must_pass: true
+questions:
+  - id: Q5-01
+    scenario: Q5
+    critical: true
+    question: 是否完整列出候选总体、验收样本、验收记录、质量结论和执行结果五项，没有以“等”省略？
+  - id: Q5-02
+    scenario: Q5
+    critical: true
+    question: 是否逐项说明形成阶段与用途？
+  - id: Q5-03
+    scenario: Q5
+    critical: true
+    question: 是否逐项说明不能替代的相邻对象？
+  - id: Q5-04
+    scenario: Q5
+    critical: false
+    question: 是否收束为抽样判断、业务决定、外部状态不可混为一体？
+  - id: Q5-05
+    scenario: Q5
+    critical: false
+    question: 是否使用绝对、可点击的生命周期知识路径？
+  - id: Q6-01
+    scenario: Q6
+    critical: true
+    question: 是否明确当前知识不能裁决质量通过率分母，不能直接选择一种写成当前规则？
+  - id: Q6-02
+    scenario: Q6
+    critical: true
+    question: 是否说明通过/已完成回答已判断样本的质量，通过/已分配会把未完成状态纳入口径？
+  - id: Q6-03
+    scenario: Q6
+    critical: true
+    question: 是否区分验收完成进度与质量通过率，要求页面显式显示公式？
+  - id: Q6-04
+    scenario: Q6
+    critical: false
+    question: 是否要求业务负责人裁决，并取得当前规则/产品口径与代表性数据或运行结果？
+  - id: Q6-05
+    scenario: Q6
+    critical: false
+    question: 是否没有把历史 95%、0.9499、0.7999 或目标字段版本冒充当前生产规则？

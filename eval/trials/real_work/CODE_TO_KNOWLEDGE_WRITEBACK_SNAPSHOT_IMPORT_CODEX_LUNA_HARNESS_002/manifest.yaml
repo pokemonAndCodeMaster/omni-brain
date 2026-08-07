@@ -1,0 +1,80 @@
+schema_version: '0.1'
+trial_id: CODE_TO_KNOWLEDGE_WRITEBACK_SNAPSHOT_IMPORT_CODEX_LUNA_HARNESS_002
+use_case: code_to_knowledge_writeback_snapshot_import_v1
+status: completed_materially_improved_but_content_not_certified
+started_at: '2026-08-07T13:26:47+08:00'
+completed_at: '2026-08-07T13:35:37+08:00'
+elapsed_seconds: 530
+host:
+  product: Codex CLI
+  version: 0.144.1
+  auth: ChatGPT
+  sandbox: workspace-write
+model:
+  id: gpt-5.6-luna
+  reasoning_effort: medium
+candidate:
+  repository: /home/yyh/project/omni-brain-snapshot-import-writeback-luna-v2
+  branch: trial/m4-snapshot-import-writeback-luna-002
+  base_commit: 937b9af
+  working_tree_candidate: workspaces/knowledge-ingestion/qpl-snapshot-csv-writeback-20260807
+harness:
+  capability_commit: f29328b
+  entrypoint: .agents/skills/ingest-knowledge/SKILL.md
+  route: writeback
+knowledge:
+  parent_knowledge_content: c625f40
+  product_source_repository: /home/yyh/project/qpl-evolution-import-v1
+  product_source_commit: ea10860103a9d282dd05da3639f50f00cf45b882
+  implementation_commit: c51e232
+  implementation_parent_commit: 35948aebf41b8772b77df18bd68ce9ff2d295344
+reference:
+  repository: /home/yyh/project/omni-brain-snapshot-import-writeback-ref
+  commit: b798af8
+  exposed_to_model: false
+prompt:
+  path: prompt.md
+artifacts:
+  trajectory: observable-trace.jsonl
+  final_message: final-message.md
+  audit: audit.md
+process:
+  thread_id: 019fdab0-34ee-7803-88ea-0d8462ff0e9a
+  command_executions: 49
+  failed_commands: 13
+  file_change_events: 8
+  token_usage:
+    input: 5393214
+    cached_input: 5236480
+    non_cached_input: 156734
+    output: 22698
+    reasoning_output: 1619
+candidate_result:
+  stage: publish_ready
+  formal_knowledge_modified: false
+  source_repository_modified: false
+  candidate_files_added: 0
+  candidate_files_modified: 11
+  candidate_files_deleted: 0
+  inserted_lines: 124
+  deleted_lines: 20
+  content_questions_passed: 20
+  content_questions_total: 24
+  critical_questions_passed: false
+  candidate_knowledge_check: passed
+  disposition: materially_improved_but_content_not_certified
+assessment:
+  same_system_identity: passed_with_internal_source_contradiction
+  parent_knowledge_preservation: passed
+  source_commit_ancestry: passed
+  csv_external_contract: passed
+  transformation_chain: passed
+  state_preservation: passed
+  software_ownership_depth: passed
+  fixed_evidence_depth: passed
+  runnable_user_entrypoint: failed
+  shared_database_knowledge_merge: failed
+  validation_fixture_boundary: failed
+  candidate_structure_and_links: passed
+  isolation_and_rollback: passed
+  process_cost: improved_but_recovery_retries_remain

@@ -1,0 +1,78 @@
+schema_version: '0.1'
+use_case: code_to_knowledge_writeback_snapshot_import_v1
+acceptance:
+  minimum_score: 22
+  critical_questions_must_pass: true
+questions:
+  - id: C01
+    critical: true
+    question: 新来源固定在哪个 commit，它与 35948ae、c51e232 和既有 Quality Platform Lab 是什么关系？
+  - id: C02
+    critical: true
+    question: 用户从项目根怎样预览和确认写入，预览与执行分别返回什么？
+  - id: C03
+    critical: false
+    question: 当前能力为什么是本地低频小批量入口，而不是生产导入、上传页面或通用 ETL？
+  - id: C04
+    critical: true
+    question: CSV 的 11 列、四字段自然键和七个来源拥有字段分别是什么？
+  - id: C05
+    critical: true
+    question: Good、Bad 和问题标签→选项指标怎样校验，哪些数量不变量和类型边界会整批拒绝？
+  - id: C06
+    critical: true
+    question: CSV 行怎样转换为 SnapshotImportRow、有效行、差异结果和最终写入参数？
+  - id: C07
+    critical: false
+    question: insert、update、unchanged 怎样判定，changed_fields 和 written_rows 各表示什么？
+  - id: C08
+    critical: true
+    question: confirmation_token 由什么事实计算，为什么文件或相关数据库来源字段变化都会使它失效？
+  - id: C09
+    critical: true
+    question: apply 为什么要在事务内重新解析、锁表、FOR UPDATE 重读并重建计划，分别关闭什么竞态？
+  - id: C10
+    critical: true
+    question: 顶层人工确认/执行字段，以及 Good、Bad、CSV 内同名问题选项的 conclusion/exec_status 怎样保留？
+  - id: C11
+    critical: true
+    question: 为什么 CSV 仍表示完整来源结构，未出现在 CSV 中的问题选项为什么不能被承诺自动保留？
+  - id: C12
+    critical: true
+    question: 参数化 UPSERT、ON CONFLICT、IS DISTINCT FROM 与 PGConnector.transaction 分别承担什么？
+  - id: C13
+    critical: false
+    question: 重复导入为什么 written_rows 为 0，updated_at 为什么不变化？
+  - id: C14
+    critical: false
+    question: 什么时候当前直接写表方案失效，需要 staging、持久批次、异步或更细并发设计？
+  - id: C15
+    critical: true
+    question: 固定运行证据具体证明了哪些首写、幂等、脏批、过期令牌、状态保护和回归结果？
+  - id: C16
+    critical: true
+    question: CLI、import models、Service、Repository、PGConnector 和快照表的职责、依赖方向与修改入口是什么？
+  - id: I01
+    critical: true
+    question: 同一系统的来源页和系统页是否原位更新，是否避免新建重复 QPL 身份？
+  - id: I02
+    critical: true
+    question: 数据、软件架构、实现地图和数据库公共能力是否原位吸收新事实，而非追加批次摘要？
+  - id: I03
+    critical: true
+    question: 根入口、领域视图、学习旅程、系统/来源导航和变更日志是否同步可达？
+  - id: I04
+    critical: false
+    question: 既有只读分析、分配缺口、Ratio 原型和父知识细节是否仍可到达且未被压缩？
+  - id: S01
+    critical: true
+    question: 候选是否隔离生成，正式知识和代码来源是否未被直接修改？
+  - id: S02
+    critical: true
+    question: 本地实验、固定日期锚定和运行数字是否保持证据边界，没有外推为生产规则或产品能力？
+  - id: S03
+    critical: true
+    question: 生产 Schema、部署、权限、外部系统、刷新、批次审计和并发边界是否仍被保留？
+  - id: S04
+    critical: false
+    question: 链接、frontmatter、索引、知识结构、Harness 回归和可审查 diff 是否通过？

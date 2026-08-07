@@ -1,0 +1,63 @@
+schema_version: '0.1'
+trial_id: TRUSTED_KNOWLEDGE_ANSWER_STOP_CODEX_LUNA_HARNESS_001
+use_case: trusted_knowledge_answer_stop_regression_v1
+status: completed_content_pass_process_partial
+started_at: '2026-08-07T14:10:00+08:00'
+completed_at: '2026-08-07T14:10:44+08:00'
+execution:
+  mode: two_independent_parallel_read_only_sessions
+  maximum_wall_seconds: 43
+  aggregate_agent_seconds: 70
+host:
+  product: Codex CLI
+  version: 0.144.1
+  auth: ChatGPT
+  sandbox: read-only
+model:
+  id: gpt-5.6-luna
+  reasoning_effort: medium
+candidate:
+  repository: /home/yyh/project/omni-brain-trusted-query-luna-v1
+  branch: trial/m2-trusted-query-luna-001
+  base_commit: 9f4e55a
+  working_tree_modified_by_model: false
+harness:
+  capability_commit: fc7651d
+knowledge:
+  certified_commit: 900cf851865bcea9a959d795cf2c127f2c8094e1
+  knowledge_check: passed_33_markdown_24_concepts
+sessions:
+  q7:
+    thread_id: 019fdad7-4d93-7f30-9a90-411f5b0aa505
+    command_executions: 3
+    failed_commands: 0
+    content_score: 5
+    content_total: 5
+    normative_pages_read: 1
+    normative_page_budget: 1
+    input_tokens: 74068
+    cached_input_tokens: 50176
+    output_tokens: 1346
+    reasoning_output_tokens: 754
+  q8:
+    thread_id: 019fdad7-4eda-7a03-83aa-078607b044cc
+    command_executions: 6
+    failed_commands: 0
+    content_score: 5
+    content_total: 5
+    normative_pages_read: 3
+    normative_page_budget: 1
+    input_tokens: 155565
+    cached_input_tokens: 133376
+    output_tokens: 1904
+    reasoning_output_tokens: 646
+result:
+  content_questions_passed: 10
+  content_questions_total: 10
+  minimum_score_reached: true
+  critical_questions_passed: true
+  file_isolation: passed
+  q7_progressive_stop: passed
+  q8_progressive_stop: failed
+  absolute_citations: passed
+  disposition: content_verified_in_adjacent_pair_but_bounded_route_not_stable

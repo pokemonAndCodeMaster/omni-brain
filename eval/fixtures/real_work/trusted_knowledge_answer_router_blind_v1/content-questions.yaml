@@ -1,0 +1,46 @@
+schema_version: '0.1'
+use_case: trusted_knowledge_answer_router_blind_v1
+acceptance:
+  minimum_score: 9
+  critical_questions_must_pass: true
+questions:
+  - id: Q9-01
+    scenario: Q9
+    critical: true
+    question: 是否说明目标人员模型允许同一employee_id多行，以end_time识别当前记录，并保留历史记录？
+  - id: Q9-02
+    scenario: Q9
+    critical: true
+    question: 是否说明调组要关闭旧有效行、插入新行并记录人员操作日志，目标上应在同一事务完成？
+  - id: Q9-03
+    scenario: Q9
+    critical: false
+    question: 是否说明历史组归属不应因之后调组被改写，可用于解释旧快照？
+  - id: Q9-04
+    scenario: Q9
+    critical: true
+    question: 是否说明后端从JWT sub取得employee_id并按模块、角色和数据范围授权，前端只做显示裁剪？
+  - id: Q9-05
+    scenario: Q9
+    critical: false
+    question: 是否保留业务键形态冲突及真实SSO、Schema、迁移、PersonnelService、事务实现未直接核验的边界？
+  - id: Q10-01
+    scenario: Q10
+    critical: true
+    question: 是否完整列出阶段、健康、行动项、验收/结论四条轴，没有用等省略？
+  - id: Q10-02
+    scenario: Q10
+    critical: true
+    question: 是否逐项说明业务走到哪里、是否有风险、谁还要做什么、质量判断是什么？
+  - id: Q10-03
+    scenario: Q10
+    critical: true
+    question: 是否解释PASS、执行回查中和交付风险属于不同轴因而可以同时成立？
+  - id: Q10-04
+    scenario: Q10
+    critical: true
+    question: 是否说明PASS后仍需真实执行状态、可交付Good数量和交付目标，因而不等于交付完成？
+  - id: Q10-05
+    scenario: Q10
+    critical: false
+    question: 是否说明交付中心、预测、提醒等只是长期边界/目标，不能据此确认生产上线？

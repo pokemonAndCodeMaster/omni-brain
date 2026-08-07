@@ -1,0 +1,86 @@
+schema_version: '0.1'
+trial_id: TRUSTED_KNOWLEDGE_ANSWER_PACK_CODEX_LUNA_HARNESS_001
+use_case: trusted_knowledge_answer_pack_v1
+status: completed_content_acceptance_line_but_not_verified
+started_at: '2026-08-07T13:54:03+08:00'
+completed_at: '2026-08-07T13:55:07+08:00'
+execution:
+  mode: four_independent_parallel_read_only_sessions
+  maximum_wall_seconds: 53
+  aggregate_agent_seconds: 143
+host:
+  product: Codex CLI
+  version: 0.144.1
+  auth: ChatGPT
+  sandbox: read-only
+model:
+  id: gpt-5.6-luna
+  reasoning_effort: medium
+candidate:
+  repository: /home/yyh/project/omni-brain-trusted-query-luna-v1
+  branch: trial/m2-trusted-query-luna-001
+  base_commit: ef38e46
+  working_tree_modified_by_model: false
+harness:
+  capability_commit: 3cf55a9
+  entrypoint: .agents/skills/answer-from-knowledge/SKILL.md
+knowledge:
+  certified_repository: /home/yyh/project/omni-brain-harness-quality-check-v1
+  certified_commit: 900cf851865bcea9a959d795cf2c127f2c8094e1
+  integration_commits:
+    - 272f26b
+    - ef38e46
+  knowledge_check: passed_33_markdown_24_concepts
+reference:
+  path: eval/reference/real_work/trusted_knowledge_answer_pack_v1
+  exposed_to_model: false
+sessions:
+  q1:
+    thread_id: 019fdac9-1ff6-79c1-947e-8bfb9e43b02a
+    command_executions: 3
+    failed_commands: 0
+    content_score: 4
+    content_total: 6
+    input_tokens: 85589
+    cached_input_tokens: 65536
+    output_tokens: 976
+    reasoning_output_tokens: 211
+  q2:
+    thread_id: 019fdac9-2021-7f92-9321-5061e337d689
+    command_executions: 5
+    failed_commands: 0
+    content_score: 6
+    content_total: 6
+    input_tokens: 85694
+    cached_input_tokens: 50432
+    output_tokens: 1651
+    reasoning_output_tokens: 607
+  q3:
+    thread_id: 019fdac9-2093-7390-a107-062ac3993658
+    command_executions: 3
+    failed_commands: 0
+    content_score: 5
+    content_total: 5
+    input_tokens: 86433
+    cached_input_tokens: 65536
+    output_tokens: 1537
+    reasoning_output_tokens: 364
+  q4:
+    thread_id: 019fdac9-2021-7311-9168-9f1c83fa5de0
+    command_executions: 5
+    failed_commands: 1
+    content_score: 7
+    content_total: 7
+    input_tokens: 189577
+    cached_input_tokens: 152064
+    output_tokens: 2926
+    reasoning_output_tokens: 563
+result:
+  content_questions_passed: 22
+  content_questions_total: 24
+  minimum_score_reached: true
+  critical_questions_passed: false
+  file_isolation: passed
+  bounded_reading: passed_q1_q2_q3_failed_q4
+  citation_portability: failed_q1_q3_inconsistent_q2
+  disposition: high_value_content_but_harness_not_verified

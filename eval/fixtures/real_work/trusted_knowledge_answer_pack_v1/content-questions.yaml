@@ -1,0 +1,103 @@
+schema_version: '0.1'
+use_case: trusted_knowledge_answer_pack_v1
+acceptance:
+  minimum_score: 21
+  critical_questions_must_pass: true
+  maximum_normative_pages_per_scenario: 3
+questions:
+  - id: Q1-01
+    scenario: Q1
+    critical: true
+    question: 是否明确质检目标设计包含人工质检、大模型质检、自动化质检和专题数据质量四个并列子域，验收位于人工质检内部？
+  - id: Q1-02
+    scenario: Q1
+    critical: true
+    question: 是否说明验收连接上游标注结果与下游结论执行、返工和交付判断？
+  - id: Q1-03
+    scenario: Q1
+    critical: true
+    question: 是否给出范围选择、抽样/分配、验收作业、质量依据、结论、执行、回查和返工/交付的连续主线？
+  - id: Q1-04
+    scenario: Q1
+    critical: true
+    question: 是否区分验收样本、验收记录、质量结论、执行全集和外部最终状态？
+  - id: Q1-05
+    scenario: Q1
+    critical: false
+    question: 是否解释 PASS/REJECT 后仍需执行、回查、返工或交付汇总，因而验收不是一个按钮？
+  - id: Q1-06
+    scenario: Q1
+    critical: false
+    question: 是否只给最多三篇、顺序合理且可点击的继续阅读页？
+  - id: Q2-01
+    scenario: Q2
+    critical: true
+    question: 是否逐项判断交付中心、完整验收工作台、SSO、实时快照刷新和通过/打回执行，而非用一个总括结论代替？
+  - id: Q2-02
+    scenario: Q2
+    critical: true
+    question: 是否说明交付中心、人员权限、统一工作台和验收闭环存在业务决定或目标设计，但这不证明生产上线？
+  - id: Q2-03
+    scenario: Q2
+    critical: true
+    question: 是否准确限定当前仓库原型只覆盖任务查询、按日展开、Ratio 数量预览和预览保存/读取？
+  - id: Q2-04
+    scenario: Q2
+    critical: true
+    question: 是否明确当前生产页面/API/SSO、生产 Schema、快照刷新、外部执行和端到端部署均不能由现有知识确认？
+  - id: Q2-05
+    scenario: Q2
+    critical: false
+    question: 是否没有把历史脚本、目标组件名、前端壳层或固定代码存在误写为已部署？
+  - id: Q2-06
+    scenario: Q2
+    critical: false
+    question: 是否把最小补证分给业务/运营、数据、外部系统和原型维护者，并要求当前 Schema、接口、部署或运行证据？
+  - id: Q3-01
+    scenario: Q3
+    critical: true
+    question: 是否明确两套快照结构是未裁决的版本冲突，不能静默选择一种作为当前事实？
+  - id: Q3-02
+    scenario: Q3
+    critical: true
+    question: 是否补充当前代码字段与目标字段还有 submitted/completed、结论/执行字段差异，并且固定迁移未创建快照表？
+  - id: Q3-03
+    scenario: Q3
+    critical: true
+    question: 是否拒绝仅凭这些知识直接修改生产数据库？
+  - id: Q3-04
+    scenario: Q3
+    critical: true
+    question: 是否要求生产 DDL/迁移、当前源码提交、真实样例或运行查询作为最小直接证据？
+  - id: Q3-05
+    scenario: Q3
+    critical: false
+    question: 是否说明由数据负责人提供 Schema/血缘/字段口径，原型或系统维护者核对代码与部署，业务负责人裁决业务口径？
+  - id: Q4-01
+    scenario: Q4
+    critical: true
+    question: 是否把用户结果定义为冻结具体 task_ids、合法分配给验收员、记录实际成功/失败/跳过/未知并回查，而不只是继续算数量？
+  - id: Q4-02
+    scenario: Q4
+    critical: true
+    question: 是否保持预览统计桶不等于执行对象、执行范围不等于验收样本、执行前必须使用当前可操作原始任务事实？
+  - id: Q4-03
+    scenario: Q4
+    critical: true
+    question: 是否指出当前预览只保存范围、配额、来源版本和过期时间，不保存具体 task_ids，因此不能直接执行？
+  - id: Q4-04
+    scenario: Q4
+    critical: false
+    question: 是否定向给出 Router/Schema、AssignmentPreviewService、sampler、Repository、数据库公共能力等现有入口，并说明需要新增的候选查询/分配/外部边界？
+  - id: Q4-05
+    scenario: Q4
+    critical: true
+    question: 是否要求验证稳定样本选择、人员资格、过期/数据变化、部分失败与未知、重复确认及状态回查，而非只跑自编单测？
+  - id: Q4-06
+    scenario: Q4
+    critical: true
+    question: 是否列出会改变方案的外部接口认证/状态/批量限制、当前任务状态、人员权限、生产 Schema 与业务粒度等未知？
+  - id: Q4-07
+    scenario: Q4
+    critical: false
+    question: 是否停在最低充分上下文并明确下一步核验，而没有预先发明完整平台、阈值或多策略框架？
