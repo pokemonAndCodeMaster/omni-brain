@@ -67,6 +67,7 @@ QUESTION_STATUS_LABELS = {
 }
 RUN_KINDS = {"health", "api", "sql", "page", "other"}
 MAX_CANDIDATE_POOL = 24
+MAX_KNOWLEDGE_UNITS_PER_QUESTION = 4
 MAX_MATERIAL_GROUP_MEMBERS = 12
 MAX_MATERIAL_GROUP_BYTES = 100_000
 NARRATIVE_SUFFIXES = {".md", ".rst", ".txt"}
@@ -1042,8 +1043,11 @@ def plan_unit(args: argparse.Namespace) -> int:
     validate_id(args.unit_id, "unit id", UNIT_ID_RE)
     if any(item["id"] == args.unit_id for item in question["expected_units"]):
         raise IngestionError(f"知识单元已存在：{args.unit_id}")
-    if len(question["expected_units"]) >= 3:
-        raise IngestionError("一个读者问题最多规划三个规范知识落点")
+    if len(question["expected_units"]) >= MAX_KNOWLEDGE_UNITS_PER_QUESTION:
+        raise IngestionError(
+            f"一个读者问题最多规划 {MAX_KNOWLEDGE_UNITS_PER_QUESTION} 个规范知识落点；"
+            "导航、日志和来源清单应留到最终同步，超过上限时拆分读者问题"
+        )
     path = normalize_knowledge_path(args.path)
     if any(item["path"] == path for item in question["expected_units"]):
         raise IngestionError(f"知识路径已规划：{path}")
@@ -2269,6 +2273,13 @@ def markdown_link_targets(path: Path) -> set[Path]:
     return targets
 
 
+def contains_template_placeholder(text: str) -> bool:
+    """Find unfilled prose/template markers without rejecting literal code examples."""
+    without_fenced_code = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    without_code = re.sub(r"`[^`\n]+`", "", without_fenced_code)
+    return bool(PLACEHOLDER_RE.search(without_code))
+
+
 def view_targets(root: Path) -> set[Path]:
     targets: set[Path] = set()
     views = root / "draft" / "knowledge" / "views"
@@ -2285,8 +2296,10 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
     if not question["expected_units"]:
         errors.append("尚未规划任何知识单元")
     expected_paths = [item["path"] for item in question["expected_units"]]
-    if len(expected_paths) > 3:
-        errors.append("一个问题不能依赖超过三篇规范知识页")
+    if len(expected_paths) > MAX_KNOWLEDGE_UNITS_PER_QUESTION:
+        errors.append(
+            f"一个问题不能依赖超过 {MAX_KNOWLEDGE_UNITS_PER_QUESTION} 篇规范知识页"
+        )
     linked = view_targets(root)
     source_index_targets = markdown_link_targets(
         root / "draft" / "knowledge" / "sources" / "index.md"
@@ -2299,7 +2312,7 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
         text = path.read_text(encoding="utf-8")
         if len(text.strip()) < 400:
             errors.append(f"知识单元内容过薄：{unit['path']}")
-        if PLACEHOLDER_RE.search(text):
+        if contains_template_placeholder(text):
             errors.append(f"知识单元仍含模板占位符：{unit['path']}")
         if unit["path"].startswith("draft/knowledge/views/"):
             pass

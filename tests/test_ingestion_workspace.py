@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "ingestion_workspace.py"
 sys.path.insert(0, str(ROOT / "scripts"))
 from ingestion_workspace import (
+    contains_template_placeholder,
     generate_complete_source_index,
     incremental_entrypoint_errors,
     navigation_semantic_errors,
@@ -20,6 +21,13 @@ from ingestion_workspace import (
 
 
 class IngestionWorkspaceTest(unittest.TestCase):
+    def test_template_placeholder_ignores_literal_code_examples(self) -> None:
+        self.assertFalse(contains_template_placeholder("使用 `<任务ID>-date-<日期>` 形成键。"))
+        self.assertFalse(
+            contains_template_placeholder("```text\n<任务ID>-date-<日期>\n```\n这是合法格式示例。")
+        )
+        self.assertTrue(contains_template_placeholder("# <标题>\n\n<这里填写正文>"))
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
@@ -706,6 +714,33 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertTrue(payload["ready"])
         self.assertEqual([], payload["candidate_changes"]["deleted"])
         self.assertIn("knowledge/sources/new-system.md", payload["candidate_changes"]["added"])
+
+    def test_question_allows_four_substantive_units_but_rejects_a_fifth(self) -> None:
+        self.start_writeback()
+        self.assertEqual(
+            0,
+            self.run_tool(
+                "identity-set", "writeback-case",
+                "--relationship", "new_system",
+                "--reason", "独立代码来源和运行入口",
+                "--source-path", "draft/knowledge/sources/new-system.md",
+                "--system-path", "draft/knowledge/systems/new-system.md",
+            ).returncode,
+        )
+        for number in range(1, 5):
+            result = self.run_tool(
+                "plan-unit", "writeback-case", "q-003", f"software-{number}",
+                "--title", f"软件责任 {number}", "--kind", "software",
+                "--path", f"draft/knowledge/systems/software-{number}.md",
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+        rejected = self.run_tool(
+            "plan-unit", "writeback-case", "q-003", "software-5",
+            "--title", "软件责任 5", "--kind", "software",
+            "--path", "draft/knowledge/systems/software-5.md",
+        )
+        self.assertEqual(2, rejected.returncode)
+        self.assertIn("最多规划 4 个", rejected.stderr)
 
     def test_incremental_must_reconcile_root_entry_and_append_log(self) -> None:
         case = {
