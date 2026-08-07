@@ -64,11 +64,13 @@ capabilities:
     adoption: implemented_unverified_markdown_slice
     entrypoints:
       - .agents/skills/answer-from-knowledge/SKILL.md
+      - .agents/skills/answer-from-knowledge/scripts/knowledge_route.py
       - knowledge/index.md
     limits:
-      - 当前只使用根入口、产品视图、规范页和有界 rg，不包含 FTS、向量、图查询或 Web UI
+      - 当前只使用入口链接路由、产品视图、规范页和必要的有界 rg，不包含 FTS、向量、图查询或 Web UI
+      - 入口路由器只对受治理链接的标题与上下文做确定性排序，不读取原料、不回答问题、不持久化索引或状态
       - 普通问答不创建持久状态；答案状态、最低充分范围和任务上下文仍由 Agent 语义判断
-      - 尚未取得弱模型在学习、事实、缺口和任务上下文工况的固定用例证据
+      - Markdown 问答已取得首轮弱模型内容证据；入口路由器尚待新的盲测证明能减少扩读且不损害答案
   knowledge_guided_development:
     adoption: verified_at_three_manual_qc_development_slices
     entrypoints:
