@@ -105,6 +105,16 @@ class HarnessContractTest(unittest.TestCase):
             for entrypoint in capability["entrypoints"]:
                 self.assertTrue((ROOT / entrypoint).exists(), entrypoint)
 
+    def test_readme_exposes_the_concrete_component_map(self) -> None:
+        manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for capability in manifest["capabilities"].values():
+            for entrypoint in capability["entrypoints"]:
+                self.assertIn(entrypoint, readme, entrypoint)
+        self.assertIn("workspaces/knowledge-ingestion/<case-id>/", readme)
+        self.assertIn("workspaces/task-cases/<case-id>/", readme)
+        self.assertIn("`AGENTS.md` 负责选 Skill，Skill 指导模型", readme)
+
     def test_development_workflow_is_verified_in_scoped_and_composite_slices(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["knowledge_guided_development"]
