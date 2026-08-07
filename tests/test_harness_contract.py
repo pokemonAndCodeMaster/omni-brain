@@ -105,11 +105,11 @@ class HarnessContractTest(unittest.TestCase):
             for entrypoint in capability["entrypoints"]:
                 self.assertTrue((ROOT / entrypoint).exists(), entrypoint)
 
-    def test_development_workflow_is_verified_in_three_scoped_slices(self) -> None:
+    def test_development_workflow_is_verified_in_scoped_and_composite_slices(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["knowledge_guided_development"]
         self.assertEqual(
-            "verified_at_three_manual_qc_development_slices",
+            "verified_at_three_manual_qc_development_and_one_trusted_context_composite_slice",
             capability["adoption"],
         )
         self.assertEqual(
@@ -145,6 +145,10 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("真实路径验证", skill)
         self.assertIn("知识变化候选", skill)
         self.assertIn("来源身份", skill)
+        self.assertIn("页面默认范围不能冒充固定工况", skill)
+        self.assertIn("具体结果值", skill)
+        self.assertIn("视觉或状态样式也要匹配业务语义", skill)
+        self.assertIn("规范落点不能只写当前工程", skill)
 
     def test_knowledge_bundle_matches_declared_adoption(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
