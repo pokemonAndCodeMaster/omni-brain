@@ -13,6 +13,7 @@ SCRIPT = ROOT / "scripts" / "ingestion_workspace.py"
 sys.path.insert(0, str(ROOT / "scripts"))
 from ingestion_workspace import (
     contains_template_placeholder,
+    compatibility_mechanism_errors,
     generate_complete_source_index,
     incremental_entrypoint_errors,
     navigation_semantic_errors,
@@ -54,6 +55,34 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(1, len(candidates))
         self.assertEqual("15", candidates[0]["old"])
         self.assertIn("current.md", str(candidates[0]["path"]))
+
+    def test_compatibility_mechanism_requires_code_evidence_not_only_report(self) -> None:
+        source = self.root / "compat-source"
+        source.mkdir()
+        (source / "report.md").write_text("旧配置缺少新增列时仍可恢复。\n", encoding="utf-8")
+        (source / "workbench.ts").write_text(
+            "function applyState(state) { return state.columnOrder }\n", encoding="utf-8"
+        )
+        case = {
+            "writeback": {
+                "change_hints": {
+                    "compatibility_probes": [
+                        {
+                            "signal": "旧配置缺少新增列时仍可恢复",
+                            "terms": ["columnOrder", "applyState"],
+                        }
+                    ]
+                }
+            },
+            "writeback_impact_review": {"impacts": {"compatibility": ["q-001:compat"]}},
+            "sources": [{"id": "app", "root": str(source)}],
+            "questions": [
+                {"id": "q-001", "evidence": [{"ref": "app:report.md"}]}
+            ],
+        }
+        self.assertTrue(compatibility_mechanism_errors(self.root, case))
+        case["questions"][0]["evidence"].append({"ref": "app:workbench.ts"})
+        self.assertEqual([], compatibility_mechanism_errors(self.root, case))
 
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -847,6 +876,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertTrue(any("旧配置" in item["line"] for item in hints["compatibility_signals"]))
         self.assertTrue(any(item["old"] == "10" and item["new"] == "11" for item in hints["fact_transitions"]))
         self.assertTrue(any(item["old"] == "15" and item["new"] == "16" for item in hints["fact_transitions"]))
+        self.assertTrue(any(item["kind"] == "saved_column_state" for item in hints["compatibility_probes"]))
         self.assertIn("旧输入", json.loads(decided.stdout)["compatibility_followup"])
 
         for question, unit_id, kind, path in (
@@ -1773,6 +1803,14 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(str(self.source), source["root"])
         self.assertEqual("local_git", source["kind"])
         self.assertEqual(expected_commit, source["git"]["commit"])
+        expected_branch = subprocess.run(
+            ["git", "symbolic-ref", "--short", "HEAD"],
+            cwd=self.source,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        self.assertEqual(expected_branch, source["git"]["branch"])
         self.assertEqual(".", source["git"]["scope"])
         self.assertFalse(source["git"]["dirty"])
 

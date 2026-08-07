@@ -402,9 +402,11 @@ def git_identity(root: Path) -> dict[str, Any] | None:
     status = run_git(git_root, "status", "--short", "--", str(root))
     if head.returncode != 0 or status.returncode != 0:
         return None
+    branch_result = run_git(git_root, "symbolic-ref", "--quiet", "--short", "HEAD")
     return {
         "root": str(git_root),
         "commit": head.stdout.strip(),
+        "branch": branch_result.stdout.strip() if branch_result.returncode == 0 else None,
         "scope": str(root.relative_to(git_root)) if root != git_root else ".",
         "dirty": bool(status.stdout.strip()),
     }
@@ -418,6 +420,7 @@ def writeback_change_hints(source: dict[str, Any], parent_commit: str | None) ->
             "changed_paths": [],
             "shared_dependencies": [],
             "compatibility_signals": [],
+            "compatibility_probes": [],
             "fact_transitions": [],
         }
     git_root = Path(source["git"]["root"])
@@ -511,12 +514,28 @@ def writeback_change_hints(source: dict[str, Any], parent_commit: str | None) ->
             continue
         seen_transitions.add(key)
         unique_transitions.append(item)
+    compatibility_probes: list[dict[str, Any]] = []
+    for signal in compatibility_signals:
+        line = signal["line"]
+        if re.search(r"列顺序|新增列|saved.{0,16}column|column.{0,16}order", line, re.IGNORECASE):
+            terms = ["columnOrder", "column_order", "applyState", "restore", "normalize"]
+            kind = "saved_column_state"
+        elif re.search(r"配置|config|setting|preference", line, re.IGNORECASE):
+            terms = ["config", "legacy", "restore", "normalize", "fallback", "default"]
+            kind = "saved_configuration"
+        else:
+            terms = ["legacy", "compat", "migrate", "normalize", "fallback", "default"]
+            kind = "generic_compatibility"
+        compatibility_probes.append(
+            {"kind": kind, "source_path": signal["path"], "signal": line, "terms": terms}
+        )
     return {
         "parent_commit": parent_sha,
         "current_commit": head,
         "changed_paths": changed_paths,
         "shared_dependencies": shared_dependencies[:20],
         "compatibility_signals": compatibility_signals,
+        "compatibility_probes": compatibility_probes[:12],
         "fact_transitions": unique_transitions[:20],
     }
 
@@ -560,6 +579,52 @@ def stale_current_fact_candidates(root: Path, case: dict[str, Any]) -> list[dict
                 )
                 break
     return candidates[:30]
+
+
+def compatibility_mechanism_errors(root: Path, case: dict[str, Any]) -> list[str]:
+    """Require compatibility conclusions to cite implementation or focused test mechanics."""
+    hints = (case.get("writeback") or {}).get("change_hints") or {}
+    probes = hints.get("compatibility_probes") or []
+    impact_review = case.get("writeback_impact_review") or {}
+    compatibility_refs = impact_review.get("impacts", {}).get("compatibility", [])
+    if not probes or not compatibility_refs:
+        return []
+    question_ids = {ref.split(":", 1)[0] for ref in compatibility_refs}
+    evidence_refs = {
+        evidence["ref"]
+        for question in case.get("questions", [])
+        if question.get("id") in question_ids
+        for evidence in question.get("evidence", [])
+    }
+    sources = source_map(case)
+    evidence_texts: list[tuple[str, str]] = []
+    for ref in sorted(evidence_refs):
+        source_id, separator, relative = ref.partition(":")
+        source = sources.get(source_id)
+        if not separator or source is None:
+            continue
+        path = Path(source["root"]) / relative
+        if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
+            continue
+        try:
+            evidence_texts.append((ref, path.read_text(encoding="utf-8")[:1_000_000]))
+        except (OSError, UnicodeError):
+            continue
+    errors: list[str] = []
+    for probe in probes:
+        terms = [str(term) for term in probe.get("terms", [])]
+        if any(
+            any(term.lower() in text.lower() for term in terms)
+            for _, text in evidence_texts
+        ):
+            continue
+        errors.append(
+            "兼容结论只有结果信号，缺少恢复/归一化机制的实现或聚焦测试来源："
+            f"{probe.get('signal')}；请在兼容问题登记包含 "
+            + "/".join(terms)
+            + " 等真实机制的源码或测试，并把旧输入、处理、结果和 owner 写入正文"
+        )
+    return errors
 
 
 def source_files(root: Path) -> list[Path]:
@@ -944,6 +1009,7 @@ def public_source_identity(item: dict[str, Any]) -> dict[str, Any]:
     if isinstance(git, dict):
         payload["git"] = {
             "commit": git["commit"],
+            "branch": git.get("branch"),
             "scope": git["scope"],
             "dirty": git["dirty"],
         }
@@ -1128,6 +1194,7 @@ def set_writeback_identity(args: argparse.Namespace) -> int:
         "changed_paths": [],
         "shared_dependencies": [],
         "compatibility_signals": [],
+        "compatibility_probes": [],
         "fact_transitions": [],
     }
     source_path = normalize_knowledge_path(args.source_path) if args.source_path else None
@@ -1209,6 +1276,8 @@ def set_writeback_identity(args: argparse.Namespace) -> int:
                 "compatibility_followup": (
                     "兼容信号只给出结果。把它单独变成读者问题，继续定位旧输入或旧状态、"
                     "恢复/合并机制、可观察结果和长期 owner；若由共享能力承担，更新共享 owner。"
+                    "最终审查要求兼容问题登记命中 compatibility_probes 的实现或聚焦测试，"
+                    "不能只登记验证报告。"
                     if change_hints.get("compatibility_signals")
                     else None
                 ),
@@ -2849,6 +2918,7 @@ def writeback_review_errors(root: Path, case: dict[str, Any]) -> list[str]:
         )
     errors.extend(incremental_parent_preservation_errors(root, case, changes))
     errors.extend(incremental_entrypoint_errors(case, changes))
+    errors.extend(compatibility_mechanism_errors(root, case))
     stale_candidates = stale_current_fact_candidates(root, case)
     if stale_candidates:
         errors.append(
@@ -2888,10 +2958,11 @@ def writeback_review_errors(root: Path, case: dict[str, Any]) -> list[str]:
             required_identity_values = [source.get("root")]
             if source.get("git"):
                 required_identity_values.append(source["git"].get("commit"))
+                required_identity_values.append(source["git"].get("branch"))
             missing_identity_values = [value for value in required_identity_values if value and value not in text]
             if missing_identity_values:
                 errors.append(
-                    "来源规范页没有写入冻结来源的当前路径/commit："
+                    "来源规范页没有写入冻结来源的当前路径/branch/commit："
                     + ", ".join(missing_identity_values)
                 )
     if relationship == "new_system":
