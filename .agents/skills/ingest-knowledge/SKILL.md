@@ -208,12 +208,13 @@ python scripts/ingestion_workspace.py record-topic <case-id> <topic-id> \
 
 ### 3.1 先固定读者问题与系统身份
 
-启动时把用户结果拆成三到四个问题；按实际影响删减，不机械凑齐：
+启动时把用户结果拆成三到五个问题；按实际影响组合，不机械凑齐。问题合起来必须承接真实变化的用户结果、当前态、语义、软件、兼容、公共能力、证据和导航：
 
 1. 代码属于哪个来源和系统，当前用户能做什么，不能证明什么；
 2. 哪些业务对象、数据、状态、规则或算法已经变化；
 3. 软件结构、跨层数据转换、关键实现和修改入口怎样变化，运行证据证明到哪里；
-4. 根入口、领域/旅程视图、系统/来源导航、未知和日志怎样同步。
+4. API、数据、保存配置、数量上限和既有消费者怎样兼容；实际复用的公共能力是否新增责任或消费者；
+5. 根入口、领域/旅程视图、系统/来源导航、未知和日志怎样同步。
 
 ```bash
 python scripts/ingestion_workspace.py start <case-id> \
@@ -224,6 +225,7 @@ python scripts/ingestion_workspace.py start <case-id> \
   --question '<来源、系统身份、当前能力和现实边界是什么？>' \
   --question '<受影响的业务、数据和规则怎样变化？>' \
   --question '<软件责任、调用链、修改入口和运行证据怎样变化？>' \
+  --question '<兼容行为、受影响公共能力和当前数量限制怎样变化？>' \
   --question '<用户从哪些产品视图进入，哪些旧表述需要同步？>' \
   --boundary '<代码事实不能外推成生产或人工决定>'
 ```
@@ -250,15 +252,42 @@ python scripts/ingestion_workspace.py identity-set <case-id> \
 
 ### 3.2 从影响面规划，不从仓库目录规划
 
-为每个问题规划一至四个规范落点，只保留共同回答该问题所需的页面。新系统的来源页、系统页必须出现在问题一；软件结构必须至少有一个 `software` 单元；业务事实优先更新现有数据、规则或流程页，只有职责确实独立时才新建。若第四个落点只是导航、日志或来源清单，留到最终同步，不占问题单元：
+为每个问题规划一至四个规范落点，只保留共同回答该问题所需的页面。新系统的来源页、系统页必须出现在问题一；同一系统也要把既有来源页和系统页作为 `identity` 单元负责。软件结构至少有一个 `software` 单元；业务事实优先更新现有数据、规则或流程页。真实使用的公共组件、基础设施或跨模块契约用 `shared` 单元更新既有 owner，或在影响复核中给出不适用依据；不能只在领域软件页顺带提名字。稳定产品视图使用 `navigation` 单元，根 index 和日志仍留到最终同步。
 
 ```bash
 python scripts/ingestion_workspace.py plan-unit <case-id> <question-id> <unit-id> \
   --title '<长期稳定标题>' \
-  --kind <business|data|software|run|other> \
+  --kind <identity|business|data|software|compatibility|shared|run|navigation|other> \
   --path 'draft/knowledge/<area>/<page>.md' \
   [--require-run]
 ```
+
+规划完成后做一次**代码变化影响复核**。它只写入摄入案后台状态，不增加用户维护的 YAML 或新文档：
+
+```bash
+python scripts/ingestion_workspace.py impact-review <case-id> \
+  --impact outcome=<question-id>:<unit-id> \
+  --impact current_state=<question-id>:<source-unit-id>,<question-id>:<system-unit-id> \
+  --impact semantics=<question-id>:<unit-id> \
+  --impact software=<question-id>:<unit-id> \
+  --impact compatibility=<question-id>:<unit-id> \
+  --impact shared=<question-id>:<unit-id> \
+  --impact evidence=<question-id>:<unit-id> \
+  --impact navigation=<question-id>:<unit-id>
+```
+
+真正不涉及语义、兼容或公共能力时，使用 `--not-applicable <impact>=<代码事实和保持边界>`；用户结果、当前态、软件、证据和导航不能排除。这里的角度不是固定页面数：一个单元可以承担多个相邻影响，但 `current_state` 必须同时覆盖来源和系统，`shared` 必须由公共能力单元承担，`navigation` 必须落到受维护产品视图。
+
+影响复核前先从固定 diff、验证报告和父知识回答：
+
+- **当前态：** 仓库/分支/commit/父版本、能力状态和所有会变化的数量上限；
+- **语义：** 业务问题、字段、公式、聚合顺序、状态与相邻概念；
+- **软件：** 定义者、转换者、消费者和真实修改路径；
+- **兼容：** API、Schema、旧数据、旧保存配置、默认值和失败边界；
+- **公共能力：** 本次真实使用的共享组件是否新增消费者、契约或业务保持边界；
+- **证据：** 报告对应的版本、输入范围、代表性结果和不能外推内容。
+
+完成这一步后再运行 `next`。新增知识单元会使影响复核失效，应更新映射后重跑；不要先修改一堆页面，再让第一次全局审查替你发现计划遗漏。
 
 只有答案依赖**尚无固定证据的当前行为或数值**时才使用 `--require-run`。代码变化来自已经验证的开发任务，且固定 commit 内已有可定位的验证报告/结果时，把它作为直接来源并说明证据范围；不要为了通过工作台再次机械运行。已有报告不足、会改变业务结论或用户明确要求复验时，再使用隔离运行。
 
@@ -275,7 +304,7 @@ python scripts/ingestion_workspace.py next <case-id> <question-id> \
 
 停止取源前，回到**原始读者问题**逐项核对，而不是只核对自己刚写的总结。问题点名了多个组件、转换或结果时，每一项都必须在正文中得到责任、输入输出或证据范围；不能用“已经讲清调用链”代替仍未说明的数据转换。软件问题若候选中仍有直接承担 `types`、`utils`、`mapper`、`adapter`、领域模型或行转换的文件，至少读取并解释决定行为的入口，直到模型、转换、编排、数据访问和写入对象的职责与修改路径闭合；不得把一个未更新的旧页面登记为已承载新答案。固定验证报告被采用时，正文应内化会改变读者判断的**具体范围与代表性结果**，包括关键输入、数量或状态前后值和本次回归范围；逐项识别日期移动、种子、夹具和环境修补，保留会影响解释的准备动作并明确它不是产品能力，不能只写“测试通过”或把报告链接当作答案。
 
-当 packet 的源码项返回 `contract_candidates`，且读者需要完整字段对齐时，选择真正承担契约的符号冻结字段清单：
+当 packet 的源码项返回 `contract_candidates`，且读者需要构造、迁移或逐字段对齐该契约时，选择真正承担契约的符号冻结字段清单。不要因为工具给出了候选就机械展开完整字段；先确保版本身份、变化语义、数量限制、兼容行为和真实消费者这些更会改变行动的内容已经闭合：
 
 ```bash
 python scripts/ingestion_workspace.py contract-inspect <case-id> <question-id> \
@@ -318,6 +347,8 @@ python scripts/ingestion_workspace.py contract-inspect <case-id> <question-id> \
 - 检查旧页面中的“当前没有、尚未进入、以后补齐”和“上面 N 项”等范围/数量描述是否已过时，不改写无关父知识。
 - 对每个修改的父页面，复核所有绑定旧 commit、分支、版本或能力状态的当前态句子；新事实与旧句冲突时原位修正或标成有时间范围的历史，不能只在后文追加相反结论。
 - 用户点名或本次代码真实使用的既有公共能力，应更新其规范页以说明新增消费者与责任边界；若公共契约和维护责任确实没有变化，审查中明确说明为何无需修改，不能只在领域软件页提到组件就视为已融合。
+
+全局审查前做一次**当前态一致性检查**：从固定 diff 和验证报告列出本次改变的 commit/分支、字段或公式、数量上限、能力状态、兼容行为与代表性结果；在候选中搜索新旧值，逐处判断旧值是仍有效历史还是过时的当前声明。来源页、系统能力表、软件时序/限制、实现地图和产品入口之间不能一处写新值、另一处仍把旧值写成当前事实。公式必须保留决定语义的聚合顺序，不能把 `max(sum(A)-sum(B),0)` 缩成可能被理解为逐行截断的 `max(A-B,0)`。
 
 根 `index.md`、各类 `*/index.md` 和 `log.md` 是最终导航/记录同步，不作为实质 `plan-unit`；需要让某个视图承担稳定阅读入口时，规划具体的领域视图或旅程视图。`record` 可以重复引用本问题已经登记过的来源来补充知识路径或状态，不必为了同一来源重新取包。
 

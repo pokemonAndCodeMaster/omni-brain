@@ -27,7 +27,7 @@ from typing import Any
 from knowledge_check import validate_bundle
 
 
-SCHEMA_VERSION = "1.4"
+SCHEMA_VERSION = "1.5"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 QUESTION_ID_RE = re.compile(r"^q-[0-9]{3}$")
 UNIT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -91,6 +91,33 @@ PLAN_LENSES = {
     "shared",
     "reality",
     "navigation",
+}
+WRITEBACK_IMPACTS = {
+    "outcome",
+    "current_state",
+    "semantics",
+    "software",
+    "compatibility",
+    "shared",
+    "evidence",
+    "navigation",
+}
+MANDATORY_WRITEBACK_IMPACTS = {
+    "outcome",
+    "current_state",
+    "software",
+    "evidence",
+    "navigation",
+}
+WRITEBACK_IMPACT_KINDS = {
+    "outcome": {"business", "identity"},
+    "current_state": {"identity"},
+    "semantics": {"business", "data"},
+    "software": {"software"},
+    "compatibility": {"compatibility", "software", "data"},
+    "shared": {"shared"},
+    "evidence": {"identity", "run"},
+    "navigation": {"navigation"},
 }
 class IngestionError(Exception):
     """An actionable ingestion-workbench error."""
@@ -874,6 +901,11 @@ def start_case(args: argparse.Namespace) -> int:
             if args.mode == "writeback"
             else None
         ),
+        "writeback_impact_review": (
+            {"passed": False, "impacts": {}, "not_applicable": {}, "issues": []}
+            if args.mode == "writeback"
+            else None
+        ),
         "created_at": now,
         "updated_at": now,
         "next_action": (
@@ -1059,6 +1091,13 @@ def plan_unit(args: argparse.Namespace) -> int:
         "status": "planned",
     }
     question["expected_units"].append(unit)
+    if case.get("mode") == "writeback":
+        case["writeback_impact_review"] = {
+            "passed": False,
+            "impacts": {},
+            "not_applicable": {},
+            "issues": ["知识单元发生变化，需要重新运行 impact-review"],
+        }
     question["requires_run"] = bool(question["requires_run"] or args.require_run)
     question["updated_at"] = utc_now()
     question["next_action"] = "围绕当前问题取得第一小批直接来源"
@@ -1081,6 +1120,100 @@ def plan_unit(args: argparse.Namespace) -> int:
         )
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
+
+
+def review_writeback_impacts(args: argparse.Namespace) -> int:
+    """Bind a code change's user-visible impact axes to planned knowledge owners."""
+    root, case = load_case(args.cases_root, args.case_id)
+    if case.get("mode") != "writeback":
+        raise IngestionError("impact-review 只用于代码变化回写案")
+    if not (case.get("writeback") or {}).get("relationship"):
+        raise IngestionError("先运行 identity-set 判断系统身份")
+
+    impact_values = parse_key_values(args.impact, "--impact")
+    not_applicable = parse_key_values(args.not_applicable, "--not-applicable")
+    unknown = (set(impact_values) | set(not_applicable)) - WRITEBACK_IMPACTS
+    if unknown:
+        raise IngestionError("未知变化影响角度：" + ", ".join(sorted(unknown)))
+    overlap = set(impact_values) & set(not_applicable)
+    if overlap:
+        raise IngestionError("同一影响角度不能同时映射和排除：" + ", ".join(sorted(overlap)))
+
+    missing = WRITEBACK_IMPACTS - set(impact_values) - set(not_applicable)
+    errors: list[str] = []
+    if missing:
+        errors.append("以下变化影响尚未映射或说明不适用：" + ", ".join(sorted(missing)))
+    forbidden_na = MANDATORY_WRITEBACK_IMPACTS & set(not_applicable)
+    if forbidden_na:
+        errors.append("以下回写影响不能标为不适用：" + ", ".join(sorted(forbidden_na)))
+    for impact, reason in not_applicable.items():
+        if len(reason) < 12:
+            errors.append(f"影响角度 {impact} 的不适用依据过短，需说明代码事实和保持边界")
+
+    unit_lookup: dict[str, dict[str, Any]] = {}
+    for question in case["questions"]:
+        for unit in question["expected_units"]:
+            unit_lookup[f"{question['id']}:{unit['id']}"] = unit
+    impact_units: dict[str, list[str]] = {
+        impact: [item.strip() for item in value.split(",") if item.strip()]
+        for impact, value in impact_values.items()
+    }
+    for impact, refs in impact_units.items():
+        if not refs:
+            errors.append(f"变化影响 {impact} 没有知识单元")
+            continue
+        for ref in refs:
+            unit = unit_lookup.get(ref)
+            if unit is None:
+                errors.append(f"变化影响 {impact} 引用了未知知识单元：{ref}")
+                continue
+            allowed = WRITEBACK_IMPACT_KINDS[impact]
+            if unit["kind"] not in allowed:
+                errors.append(
+                    f"变化影响 {impact} 的知识单元 {ref} 类型应为 "
+                    + "/".join(sorted(allowed))
+                    + f"，当前为 {unit['kind']}"
+                )
+
+    identity = case.get("writeback") or {}
+    current_state_paths = {
+        unit_lookup[ref]["path"]
+        for ref in impact_units.get("current_state", [])
+        if ref in unit_lookup
+    }
+    required_identity_paths = {
+        path for path in (identity.get("source_path"), identity.get("system_path")) if path
+    }
+    if required_identity_paths - current_state_paths:
+        errors.append(
+            "current_state 必须同时覆盖来源页和系统页："
+            + ", ".join(sorted(required_identity_paths - current_state_paths))
+        )
+    navigation_paths = {
+        unit_lookup[ref]["path"]
+        for ref in impact_units.get("navigation", [])
+        if ref in unit_lookup
+    }
+    if navigation_paths and not all(path.startswith("draft/knowledge/views/") for path in navigation_paths):
+        errors.append("navigation 只能映射到 draft/knowledge/views/ 下的受维护产品视图")
+
+    report = {
+        "passed": not errors,
+        "impacts": impact_units,
+        "not_applicable": not_applicable,
+        "issues": errors,
+        "reviewed_at": utc_now(),
+    }
+    case["writeback_impact_review"] = report
+    case["next_action"] = (
+        "按影响面逐题取源并形成知识；最终审查前复核版本、公式、数量限制和兼容行为的当前态一致性"
+        if report["passed"]
+        else "修正知识单元或变化影响映射后重新运行 impact-review"
+    )
+    save_case(root, case)
+    generate_review(root, case)
+    print(json.dumps({"impact_review": report, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    return 0 if report["passed"] else 1
 
 
 def default_query_terms(text: str) -> list[str]:
@@ -2482,6 +2615,9 @@ def writeback_review_errors(root: Path, case: dict[str, Any]) -> list[str]:
         errors.append("尚未用 identity-set 判断代码来源与既有系统知识的身份关系")
     elif relationship == "uncertain":
         errors.append("系统身份仍为 uncertain；取得直接证据后改为 same_system 或 new_system")
+    impact_review = case.get("writeback_impact_review") or {}
+    if not impact_review.get("passed"):
+        errors.append("代码变化影响尚未通过 impact-review：用户结果、当前态、语义、软件、兼容、公共能力、证据和导航未闭合")
 
     for question in case["questions"]:
         report = check_question(root, case, question)
@@ -2792,9 +2928,9 @@ def generate_complete_review(root: Path, case: dict[str, Any]) -> None:
     lines = [
         "# 知识摄入审查",
         "",
-        f"> **目标：** {case['goal']}  ",
-        f"> **目标读者：** {case['target_reader']}  ",
-        f"> **当前阶段：** {case['stage']}  ",
+        f"> **目标：** {case['goal']}",
+        f"> **目标读者：** {case['target_reader']}",
+        f"> **当前阶段：** {case['stage']}",
         "> 正式知识尚未修改；本页只汇总候选知识、事实边界和需要人工决定的事项。",
         "",
         "## 从这里开始看内容",
@@ -3032,6 +3168,17 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
             lines.extend(["## 当前审查未通过的原因", ""])
             lines.extend(f"- {item}" for item in case["last_review_issues"])
             lines.append("")
+        impact_review = case.get("writeback_impact_review") or {}
+        lines.extend(["## 代码变化影响", ""])
+        if impact_review.get("passed"):
+            for impact in sorted(impact_review.get("impacts", {})):
+                refs = "、".join(f"`{item}`" for item in impact_review["impacts"][impact])
+                lines.append(f"- **{impact}：** {refs}")
+            for impact in sorted(impact_review.get("not_applicable", {})):
+                lines.append(f"- **{impact}：** 不适用；{impact_review['not_applicable'][impact]}")
+        else:
+            lines.append("- 尚未通过 `impact-review`；不能只凭页面已修改进入发布审查。")
+        lines.append("")
     lines.extend(["## 从这里开始看内容", ""])
     if views:
         for path in views:
@@ -3292,6 +3439,7 @@ def status_case(args: argparse.Namespace) -> int:
         "goal": case["goal"],
         "target_reader": case["target_reader"],
         "writeback": case.get("writeback"),
+        "writeback_impact_review": case.get("writeback_impact_review"),
         "sources": [public_source_identity(item) for item in case["sources"]],
         "questions": [
             {
@@ -3354,10 +3502,23 @@ def build_parser() -> argparse.ArgumentParser:
     unit.add_argument("question_id")
     unit.add_argument("unit_id")
     unit.add_argument("--title", required=True)
-    unit.add_argument("--kind", choices=("business", "data", "software", "run", "other"), required=True)
+    unit.add_argument(
+        "--kind",
+        choices=("identity", "business", "data", "software", "compatibility", "shared", "run", "navigation", "other"),
+        required=True,
+    )
     unit.add_argument("--path", required=True)
     unit.add_argument("--require-run", action="store_true")
     unit.set_defaults(func=plan_unit)
+
+    impact = subparsers.add_parser(
+        "impact-review",
+        help="把代码变化影响映射到计划知识单元，并显式处理兼容与公共能力",
+    )
+    impact.add_argument("case_id")
+    impact.add_argument("--impact", action="append", default=[])
+    impact.add_argument("--not-applicable", action="append", default=[])
+    impact.set_defaults(func=review_writeback_impacts)
 
     next_command = subparsers.add_parser("next", help="取得当前材料组、知识主题或聚焦问题的小批来源")
     next_command.add_argument("case_id")
@@ -3497,7 +3658,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action in {
-            "identity-set", "question-add", "plan-unit", "next", "contract-inspect", "finding-add", "record-material", "material-reopen", "plan-reopen",
+            "identity-set", "question-add", "plan-unit", "impact-review", "next", "contract-inspect", "finding-add", "record-material", "material-reopen", "plan-reopen",
             "topic-add", "plan-review", "record-topic", "record", "stop-search",
             "check-unit", "run", "review",
         }:

@@ -580,12 +580,12 @@ class IngestionWorkspaceTest(unittest.TestCase):
             ).returncode,
         )
         units = (
-            ("q-001", "source", "新系统来源", "other", "draft/knowledge/sources/new-system.md"),
-            ("q-001", "system", "新分析系统", "software", "draft/knowledge/systems/new-system.md"),
+            ("q-001", "source", "新系统来源", "identity", "draft/knowledge/sources/new-system.md"),
+            ("q-001", "system", "新分析系统", "identity", "draft/knowledge/systems/new-system.md"),
             ("q-002", "rule", "质检指标规则", "business", "draft/knowledge/domains/quality/metric-rule.md"),
             ("q-003", "architecture", "分析系统软件结构", "software", "draft/knowledge/systems/new-system-architecture.md"),
-            ("q-003", "domain-view", "质检领域视图", "other", "draft/knowledge/views/by-domain/quality.md"),
-            ("q-003", "journey-view", "质检学习旅程", "other", "draft/knowledge/views/by-journey/quality.md"),
+            ("q-003", "domain-view", "质检领域视图", "navigation", "draft/knowledge/views/by-domain/quality.md"),
+            ("q-003", "journey-view", "质检学习旅程", "navigation", "draft/knowledge/views/by-journey/quality.md"),
         )
         for question, unit_id, title, kind, path in units:
             result = self.run_tool(
@@ -593,6 +593,19 @@ class IngestionWorkspaceTest(unittest.TestCase):
                 "--title", title, "--kind", kind, "--path", path,
             )
             self.assertEqual(0, result.returncode, result.stderr)
+
+        impact = self.run_tool(
+            "impact-review", "writeback-case",
+            "--impact", "outcome=q-001:system",
+            "--impact", "current_state=q-001:source,q-001:system",
+            "--impact", "semantics=q-002:rule",
+            "--impact", "software=q-003:architecture",
+            "--impact", "evidence=q-001:source",
+            "--impact", "navigation=q-003:domain-view,q-003:journey-view",
+            "--not-applicable", "compatibility=本次新增独立系统，没有需要继承的旧 API、数据或保存配置",
+            "--not-applicable", "shared=固定代码没有调用父知识中的公共组件或跨模块基础设施",
+        )
+        self.assertEqual(0, impact.returncode, impact.stdout + impact.stderr)
 
         knowledge = case / "draft" / "knowledge"
         concept = (
@@ -714,6 +727,60 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertTrue(payload["ready"])
         self.assertEqual([], payload["candidate_changes"]["deleted"])
         self.assertIn("knowledge/sources/new-system.md", payload["candidate_changes"]["added"])
+
+    def test_writeback_impact_review_requires_current_state_shared_and_compatibility_decisions(self) -> None:
+        self.start_writeback()
+        self.assertEqual(
+            0,
+            self.run_tool(
+                "identity-set", "writeback-case",
+                "--relationship", "new_system",
+                "--reason", "独立代码来源和运行入口",
+                "--source-path", "draft/knowledge/sources/new-system.md",
+                "--system-path", "draft/knowledge/systems/new-system.md",
+            ).returncode,
+        )
+        for question, unit_id, kind, path in (
+            ("q-001", "source", "identity", "draft/knowledge/sources/new-system.md"),
+            ("q-001", "system", "identity", "draft/knowledge/systems/new-system.md"),
+            ("q-002", "rule", "data", "draft/knowledge/domains/quality/metric-rule.md"),
+            ("q-003", "software", "software", "draft/knowledge/systems/new-system-architecture.md"),
+            ("q-003", "journey", "navigation", "draft/knowledge/views/by-journey/quality.md"),
+        ):
+            result = self.run_tool(
+                "plan-unit", "writeback-case", question, unit_id,
+                "--title", unit_id, "--kind", kind, "--path", path,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+
+        incomplete = self.run_tool(
+            "impact-review", "writeback-case",
+            "--impact", "outcome=q-001:system",
+            "--impact", "current_state=q-001:source",
+            "--impact", "semantics=q-002:rule",
+            "--impact", "software=q-003:software",
+            "--impact", "evidence=q-001:source",
+            "--impact", "navigation=q-003:journey",
+        )
+        self.assertEqual(1, incomplete.returncode)
+        report = json.loads(incomplete.stdout)["impact_review"]
+        self.assertTrue(any("compatibility" in item for item in report["issues"]))
+        self.assertTrue(any("shared" in item for item in report["issues"]))
+        self.assertTrue(any("系统页" in item for item in report["issues"]))
+
+        complete = self.run_tool(
+            "impact-review", "writeback-case",
+            "--impact", "outcome=q-001:system",
+            "--impact", "current_state=q-001:source,q-001:system",
+            "--impact", "semantics=q-002:rule",
+            "--impact", "software=q-003:software",
+            "--impact", "evidence=q-001:source",
+            "--impact", "navigation=q-003:journey",
+            "--not-applicable", "compatibility=这是独立系统，没有父 API、数据或保存配置需要兼容",
+            "--not-applicable", "shared=固定源码没有调用既有公共组件或跨模块共享契约",
+        )
+        self.assertEqual(0, complete.returncode, complete.stdout + complete.stderr)
+        self.assertTrue(json.loads(complete.stdout)["impact_review"]["passed"])
 
     def test_question_allows_four_substantive_units_but_rejects_a_fifth(self) -> None:
         self.start_writeback()
