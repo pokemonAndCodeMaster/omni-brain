@@ -204,6 +204,9 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不恢复逐文件 `mark`", skill)
         self.assertIn("目标覆盖", skill)
         self.assertIn("stop-search", skill)
+        self.assertIn("从项目根可复制执行的命令", skill)
+        self.assertIn("绑定旧 commit、分支、版本或能力状态", skill)
+        self.assertIn("新增消费者与责任边界", skill)
         self.assertIn("id/title/parent/scope/excludes", (assets / "domain-overview.md").read_text(encoding="utf-8"))
         retired_assets = (
             "brief.md", "completion.yaml", "inventory.md", "questions.md",
