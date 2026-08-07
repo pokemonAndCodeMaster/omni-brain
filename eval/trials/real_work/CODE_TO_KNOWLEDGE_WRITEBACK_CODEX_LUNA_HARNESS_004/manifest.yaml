@@ -1,0 +1,75 @@
+schema_version: '0.1'
+trial_id: CODE_TO_KNOWLEDGE_WRITEBACK_CODEX_LUNA_HARNESS_004
+use_case: code_to_knowledge_writeback_v1
+status: completed_content_useful_with_two_depth_gaps
+started_at: '2026-08-07T04:12:14Z'
+completed_at: '2026-08-07T04:25:13Z'
+elapsed_seconds: 779
+host:
+  product: Codex CLI
+  version: 0.144.1
+  auth: ChatGPT
+  sandbox: workspace-write
+model:
+  id: gpt-5.6-luna
+  reasoning_effort: medium
+candidate:
+  repository: /home/yyh/project/omni-brain-knowledge-writeback-luna-v4
+  branch: trial/m4-quality-platform-writeback-luna-004
+  base_commit: a0033f5
+  evaluator_checkpoint_commit: 3a6c5da
+harness:
+  capability_commit: c9bca1a
+  entrypoint: .agents/skills/ingest-knowledge/SKILL.md
+  route: writeback
+knowledge:
+  product_source_repository: /home/yyh/project/qpl-gap-ref
+  product_source_commit: 35948aebf41b8772b77df18bd68ce9ff2d295344
+reference:
+  repository: /home/yyh/project/omni-brain-knowledge-writeback-ref
+  commit: 28b0951
+  exposed_to_model: false
+prompt:
+  path: prompt.md
+artifacts:
+  trajectory: observable-trace.jsonl
+  final_message: final-message.md
+  audit: audit.md
+process:
+  thread_id: 019fda6b-f803-7550-abf8-cad9f9659e7e
+  command_executions: 59
+  failed_commands: 14
+  file_change_events: 12
+  directly_recorded_sources: 32
+  token_usage:
+    input: 8216620
+    cached_input: 7990528
+    non_cached_input: 226092
+    output: 34817
+    reasoning_output: 3893
+candidate_result:
+  stage: publish_ready
+  formal_knowledge_modified: false
+  source_repository_modified: false
+  candidate_files_added: 3
+  candidate_files_modified: 9
+  candidate_files_deleted: 0
+  inserted_lines: 236
+  deleted_lines: 10
+  content_questions_passed: 22
+  content_questions_total: 24
+  critical_questions_passed: false
+  candidate_knowledge_check: passed
+  disposition: structurally_ready_but_content_not_certified
+assessment:
+  independent_system_identity: passed
+  parent_provenance_preservation: passed
+  impact_driven_navigation: passed
+  knowledge_internalization: passed
+  complete_snapshot_contract: passed
+  fixed_evidence_discovery: passed
+  fixed_evidence_depth: failed
+  frontend_row_transformation: failed
+  candidate_structure_and_links: passed
+  harness_regression_execution: passed_at_capability_commit
+  process_cost: improved_in_run_selection_but_record_retries_remain
