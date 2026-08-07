@@ -11,7 +11,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "ingestion_workspace.py"
 sys.path.insert(0, str(ROOT / "scripts"))
-from ingestion_workspace import incremental_entrypoint_errors, parent_content_regressions
+from ingestion_workspace import (
+    generate_complete_source_index,
+    incremental_entrypoint_errors,
+    parent_content_regressions,
+)
 
 
 class IngestionWorkspaceTest(unittest.TestCase):
@@ -112,6 +116,49 @@ class IngestionWorkspaceTest(unittest.TestCase):
         )
         self.assertEqual(0, result.returncode, result.stderr)
         return self.cases / "complete-case"
+
+    def start_writeback(self) -> Path:
+        quality = self.harness / "knowledge" / "domains" / "quality"
+        quality.mkdir(parents=True, exist_ok=True)
+        (quality / "overview.md").write_text(
+            "---\ntype: Domain Overview\ntitle: 质检\ndescription: 质检领域边界\n"
+            "tags: []\n---\n\n# 质检\n\n既有质检知识。\n",
+            encoding="utf-8",
+        )
+        (self.harness / "knowledge" / "views" / "by-domain" / "quality.md").write_text(
+            "---\ntype: Navigation View\ntitle: 质检领域视图\ndescription: 浏览质检知识\n"
+            "tags: []\n---\n\n# 质检领域视图\n\n"
+            "- [质检](../../domains/quality/overview.md)\n",
+            encoding="utf-8",
+        )
+        (self.harness / "knowledge" / "views" / "by-journey" / "quality.md").write_text(
+            "---\ntype: Navigation View\ntitle: 质检学习旅程\ndescription: 学习质检知识\n"
+            "tags: []\n---\n\n# 质检学习旅程\n\n"
+            "- [质检](../../domains/quality/overview.md)\n",
+            encoding="utf-8",
+        )
+        (self.harness / "knowledge" / "index.md").write_text(
+            "# 知识入口\n\n- [质检领域视图](views/by-domain/quality.md)\n"
+            "- [质检学习旅程](views/by-journey/quality.md)\n",
+            encoding="utf-8",
+        )
+        (self.harness / "config" / "knowledge-domains.yaml").write_text(
+            "schema_version: '0.1'\ndomains:\n"
+            "  - id: quality\n    title: 质检\n    parent: null\n"
+            "    scope: 质量评价\n    excludes: 生产执行\n",
+            encoding="utf-8",
+        )
+        result = self.run_tool(
+            "start", "writeback-case", "--mode", "writeback",
+            "--goal", "让读者理解新分析系统并继续修改",
+            "--reader", "质检开发者",
+            "--source", f"app={self.source}",
+            "--question", "新代码来源和系统身份是什么？",
+            "--question", "业务数据和规则发生了什么变化？",
+            "--question", "软件结构、修改入口和产品视图怎样变化？",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        return self.cases / "writeback-case"
 
     def finish_complete_discovery(self) -> list[str]:
         finding_ids: list[str] = []
@@ -457,6 +504,207 @@ class IngestionWorkspaceTest(unittest.TestCase):
         errors = parent_content_regressions("knowledge/systems/design.md", parent, compressed)
         self.assertTrue(any("缩小超过 10%" in item for item in errors))
         self.assertTrue(any("description" in item for item in errors))
+
+    def test_complete_source_index_appends_without_replacing_previous_increment(self) -> None:
+        root = self.root / "provenance-case"
+        target = root / "draft" / "knowledge" / "sources" / "index.md"
+        target.parent.mkdir(parents=True)
+        previous = (
+            "# 直接材料与结论定位\n\n"
+            "<!-- omni-brain:incremental-provenance:start -->\n\n"
+            "## 已发布的第一批来源\n\n- batch-1:source.md\n\n"
+            "<!-- omni-brain:incremental-provenance:end -->\n"
+        )
+        target.write_text(previous, encoding="utf-8")
+        case = {
+            "id": "increment-2",
+            "baseline": {"substantive_file_count": 1},
+            "sources": [],
+            "topics": [],
+        }
+        generate_complete_source_index(root, case)
+        generate_complete_source_index(root, case)
+        text = target.read_text(encoding="utf-8")
+        self.assertIn("已发布的第一批来源", text)
+        self.assertIn("batch-1:source.md", text)
+        self.assertEqual(1, text.count("omni-brain:provenance:increment-2:start"))
+        self.assertEqual(1, text.count("omni-brain:provenance:increment-2:end"))
+
+    def test_writeback_requires_identity_before_planning(self) -> None:
+        self.start_writeback()
+        blocked = self.run_tool(
+            "plan-unit", "writeback-case", "q-001", "new-system",
+            "--title", "新系统", "--kind", "software",
+            "--path", "draft/knowledge/systems/new-system.md",
+        )
+        self.assertEqual(2, blocked.returncode)
+        self.assertIn("identity-set", blocked.stderr)
+        decided = self.run_tool(
+            "identity-set", "writeback-case",
+            "--relationship", "new_system",
+            "--reason", "独立仓库、版本和运行入口",
+            "--source-path", "draft/knowledge/sources/new-system.md",
+            "--system-path", "draft/knowledge/systems/new-system.md",
+        )
+        self.assertEqual(0, decided.returncode, decided.stderr)
+        repeated = self.run_tool(
+            "identity-set", "writeback-case",
+            "--relationship", "new_system",
+            "--reason", "独立仓库、版本和运行入口",
+            "--source-path", "draft/knowledge/sources/new-system.md",
+            "--system-path", "draft/knowledge/systems/new-system.md",
+        )
+        self.assertTrue(json.loads(repeated.stdout)["already_recorded"])
+        status = json.loads(self.run_tool("status", "writeback-case").stdout)
+        self.assertEqual("new_system", status["writeback"]["relationship"])
+
+    def test_writeback_reaches_review_with_independent_identity_and_parent_preserved(self) -> None:
+        case = self.start_writeback()
+        self.assertEqual(
+            0,
+            self.run_tool(
+                "identity-set", "writeback-case",
+                "--relationship", "new_system",
+                "--reason", "独立代码来源和运行链",
+                "--source-path", "draft/knowledge/sources/new-system.md",
+                "--system-path", "draft/knowledge/systems/new-system.md",
+            ).returncode,
+        )
+        units = (
+            ("q-001", "source", "新系统来源", "other", "draft/knowledge/sources/new-system.md"),
+            ("q-001", "system", "新分析系统", "software", "draft/knowledge/systems/new-system.md"),
+            ("q-002", "rule", "质检指标规则", "business", "draft/knowledge/domains/quality/metric-rule.md"),
+            ("q-003", "architecture", "分析系统软件结构", "software", "draft/knowledge/systems/new-system-architecture.md"),
+            ("q-003", "domain-view", "质检领域视图", "other", "draft/knowledge/views/by-domain/quality.md"),
+            ("q-003", "journey-view", "质检学习旅程", "other", "draft/knowledge/views/by-journey/quality.md"),
+        )
+        for question, unit_id, title, kind, path in units:
+            result = self.run_tool(
+                "plan-unit", "writeback-case", question, unit_id,
+                "--title", title, "--kind", kind, "--path", path,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+
+        knowledge = case / "draft" / "knowledge"
+        concept = (
+            "---\ntype: Test Concept\ntitle: {title}\ndescription: {description}\n"
+            "tags: []\n---\n\n# {title}\n\n## 核心判断\n\n{body}\n\n"
+            "# Citations\n\n1. [新系统来源]({source_link})\n"
+        )
+        sufficient_detail = (
+            "本文同时说明输入、处理步骤、输出、失败边界和继续核验入口。"
+            "当前结论只适用于固定代码版本，不能外推为生产部署、权限、真实数据或外部执行能力。"
+            "开发者修改前应从产品入口定位契约和数据转换，再核对业务规则、数据访问和真实运行结果；"
+            "如果直接来源与旧综合文档冲突，以固定源码、Schema 和运行证据裁决，并把未知保留下来。"
+            "知识正文需要让未打开源码的读者理解对象关系和责任边界，来源链接只负责追溯；"
+            "后续版本变化时应复核受影响页面、数据契约、规则口径、软件入口和产品导航，而不是追加孤立摘要。"
+        )
+        (knowledge / "sources" / "new-system.md").write_text(
+            concept.format(
+                title="新系统来源", description="固定代码来源和证据边界",
+                body="固定代码目录和版本只证明当前本地实现。" + sufficient_detail * 2,
+                source_link="new-system.md",
+            ),
+            encoding="utf-8",
+        )
+        (knowledge / "systems" / "new-system.md").write_text(
+            concept.format(
+                title="新分析系统", description="独立系统能力和现实边界",
+                body="这个系统有独立入口、数据链和当前能力边界。" + sufficient_detail * 2,
+                source_link="../sources/new-system.md",
+            ),
+            encoding="utf-8",
+        )
+        (knowledge / "systems" / "new-system-architecture.md").write_text(
+            concept.format(
+                title="分析系统软件结构", description="入口、转换、职责和修改路径",
+                body="页面调用 API，业务层转换输入，数据层读取结果；修改字段需同步契约和页面。" + sufficient_detail * 2,
+                source_link="../sources/new-system.md",
+            ),
+            encoding="utf-8",
+        )
+        (knowledge / "domains" / "quality" / "metric-rule.md").write_text(
+            concept.format(
+                title="质检指标规则", description="指标输入、计算和边界",
+                body="指标使用同一粒度的输入计算，不能跨位置抵消。" + sufficient_detail * 2,
+                source_link="../../sources/new-system.md",
+            ),
+            encoding="utf-8",
+        )
+        domain_view = knowledge / "views" / "by-domain" / "quality.md"
+        domain_view.write_text(
+            domain_view.read_text(encoding="utf-8")
+            + "- [新分析系统](../../systems/new-system.md)\n"
+            + "- [质检指标规则](../../domains/quality/metric-rule.md)\n",
+            encoding="utf-8",
+        )
+        domain_view.write_text(
+            domain_view.read_text(encoding="utf-8")
+            + "\n## 当前范围\n\n" + sufficient_detail * 2 + "\n",
+            encoding="utf-8",
+        )
+        journey_view = knowledge / "views" / "by-journey" / "quality.md"
+        journey_view.write_text(
+            journey_view.read_text(encoding="utf-8")
+            + "- [分析系统软件结构](../../systems/new-system-architecture.md)\n",
+            encoding="utf-8",
+        )
+        journey_view.write_text(
+            journey_view.read_text(encoding="utf-8")
+            + "\n## 学习与继续工作\n\n" + sufficient_detail * 2 + "\n",
+            encoding="utf-8",
+        )
+        (knowledge / "sources" / "index.md").write_text(
+            "# 来源记录\n\n- [新系统来源](new-system.md)\n", encoding="utf-8"
+        )
+        (knowledge / "systems" / "index.md").write_text(
+            "# 系统与实现\n\n- [新分析系统](new-system.md)\n"
+            "- [软件结构](new-system-architecture.md)\n", encoding="utf-8"
+        )
+        (knowledge / "index.md").write_text(
+            (knowledge / "index.md").read_text(encoding="utf-8")
+            + "- [新分析系统](systems/new-system.md)\n",
+            encoding="utf-8",
+        )
+        (knowledge / "log.md").write_text(
+            (knowledge / "log.md").read_text(encoding="utf-8")
+            + "- 新增独立分析系统、规则、架构和产品入口；未声明生产能力。\n",
+            encoding="utf-8",
+        )
+
+        paths_by_question = {
+            "q-001": ["draft/knowledge/sources/new-system.md", "draft/knowledge/systems/new-system.md"],
+            "q-002": ["draft/knowledge/domains/quality/metric-rule.md"],
+            "q-003": [
+                "draft/knowledge/systems/new-system-architecture.md",
+                "draft/knowledge/views/by-domain/quality.md",
+                "draft/knowledge/views/by-journey/quality.md",
+            ],
+        }
+        for question, paths in paths_by_question.items():
+            packet = json.loads(
+                self.run_tool("next", "writeback-case", question, "--query", "analysis", "--limit", "1").stdout
+            )
+            args = [
+                "record", "writeback-case", question,
+                "--status", "answered",
+                "--summary", "直接代码事实已经进入对应规范知识",
+                "--source", packet["packet"][0]["ref"],
+                "--close-candidates", "当前入口和实现已足以回答本问题",
+            ]
+            for path in paths:
+                args.extend(["--knowledge", path])
+            recorded = self.run_tool(*args)
+            self.assertEqual(0, recorded.returncode, recorded.stderr)
+            checked = self.run_tool("check-unit", "writeback-case", question)
+            self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
+
+        reviewed = self.run_tool("review", "writeback-case")
+        self.assertEqual(0, reviewed.returncode, reviewed.stdout + reviewed.stderr)
+        payload = json.loads(reviewed.stdout)
+        self.assertTrue(payload["ready"])
+        self.assertEqual([], payload["candidate_changes"]["deleted"])
+        self.assertIn("knowledge/sources/new-system.md", payload["candidate_changes"]["added"])
 
     def test_incremental_must_reconcile_root_entry_and_append_log(self) -> None:
         case = {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive a recoverable complete or focused knowledge-ingestion workbench.
+"""Drive a recoverable complete, focused, or code-writeback knowledge workbench.
 
 The tool keeps deterministic source identity and small recoverable state. It does
 not decide knowledge truth, write domain content, or replace human review.
@@ -69,7 +69,8 @@ MAX_CANDIDATE_POOL = 24
 MAX_MATERIAL_GROUP_MEMBERS = 12
 MAX_MATERIAL_GROUP_BYTES = 100_000
 NARRATIVE_SUFFIXES = {".md", ".rst", ".txt"}
-INGESTION_MODES = {"focused", "complete"}
+INGESTION_MODES = {"focused", "complete", "writeback"}
+SYSTEM_RELATIONSHIPS = {"same_system", "new_system", "uncertain"}
 MATERIAL_GROUP_STATES = {"unreviewed", "partial", "reviewed", "irrelevant", "external"}
 REALITY_STATES = {
     "current_implementation",
@@ -89,10 +90,6 @@ PLAN_LENSES = {
     "reality",
     "navigation",
 }
-PROVENANCE_START = "<!-- omni-brain:incremental-provenance:start -->"
-PROVENANCE_END = "<!-- omni-brain:incremental-provenance:end -->"
-
-
 class IngestionError(Exception):
     """An actionable ingestion-workbench error."""
 
@@ -214,6 +211,15 @@ def governed_candidate_path(path: str) -> bool:
     return True
 
 
+def governed_writeback_path(path: str) -> bool:
+    """Code writeback plans source records as first-class knowledge units."""
+    if not path.startswith("knowledge/"):
+        return False
+    if path == "knowledge/log.md" or path.endswith("/index.md"):
+        return False
+    return True
+
+
 def frontmatter_keys(text: str) -> set[str]:
     match = FRONTMATTER_RE.match(text)
     if not match:
@@ -246,7 +252,7 @@ def incremental_parent_preservation_errors(
     baseline = baseline_paths(case)
     repository = project_root()
     for path in changes["modified"]:
-        if not governed_candidate_path(path):
+        if not path.startswith("knowledge/") or path == "knowledge/log.md":
             continue
         original = baseline.get(path)
         parent_path = repository / path
@@ -828,7 +834,7 @@ def start_case(args: argparse.Namespace) -> int:
     if root.exists() and any(root.iterdir()):
         raise IngestionError(f"摄入案目录已存在且非空：{root}")
     questions = [item.strip() for item in args.question if item.strip()]
-    if args.mode == "focused" and not questions:
+    if args.mode in {"focused", "writeback"} and not questions:
         raise IngestionError("至少需要一个 --question；问题主线不能由工具猜测")
     sources, manifest = scan_sources(args.source)
     root.mkdir(parents=True, exist_ok=True)
@@ -850,10 +856,23 @@ def start_case(args: argparse.Namespace) -> int:
         "findings": [],
         "topics": [],
         "plan_review": {"passed": False, "lenses": {}, "not_applicable": {}, "issues": []},
+        "writeback": (
+            {
+                "relationship": None,
+                "reason": "",
+                "source_path": None,
+                "system_path": None,
+                "decided_at": None,
+            }
+            if args.mode == "writeback"
+            else None
+        ),
         "created_at": now,
         "updated_at": now,
         "next_action": (
-            "为 q-001 规划一至三个知识单元，再取得第一小批直接来源"
+            "先判断代码来源与既有系统知识的身份关系，再按影响面规划 q-001"
+            if args.mode == "writeback"
+            else "为 q-001 规划一至三个知识单元，再取得第一小批直接来源"
             if args.mode == "focused"
             else "查看材料地图，再从第一个材料组开始读后发现"
         ),
@@ -890,6 +909,84 @@ def start_case(args: argparse.Namespace) -> int:
     return 0
 
 
+def set_writeback_identity(args: argparse.Namespace) -> int:
+    """Record whether a fixed code source updates an existing system or introduces a new one."""
+    root, case = load_case(args.cases_root, args.case_id)
+    if case.get("mode") != "writeback":
+        raise IngestionError("identity-set 只用于代码变化回写案")
+    validate_id(args.case_id, "case id")
+    relationship = args.relationship
+    source_path = normalize_knowledge_path(args.source_path) if args.source_path else None
+    system_path = normalize_knowledge_path(args.system_path) if args.system_path else None
+    if relationship in {"same_system", "new_system"} and (not source_path or not system_path):
+        raise IngestionError(
+            f"{relationship} 必须同时声明独立的 --source-path 和 --system-path"
+        )
+    if source_path and not source_path.startswith("draft/knowledge/sources/"):
+        raise IngestionError("--source-path 必须位于 draft/knowledge/sources/")
+    if system_path and not system_path.startswith("draft/knowledge/systems/"):
+        raise IngestionError("--system-path 必须位于 draft/knowledge/systems/")
+    baseline = baseline_paths(case)
+    canonical_source = source_path.removeprefix("draft/") if source_path else None
+    canonical_system = system_path.removeprefix("draft/") if system_path else None
+    if relationship == "new_system":
+        existing = [
+            path for path in (canonical_source, canonical_system)
+            if path in baseline
+        ]
+        if existing:
+            raise IngestionError(
+                "new_system 必须使用父知识中不存在的独立来源/系统落点："
+                + ", ".join(existing)
+            )
+    if relationship == "same_system":
+        missing = [
+            path for path in (canonical_source, canonical_system)
+            if path not in baseline
+        ]
+        if missing:
+            raise IngestionError(
+                "same_system 必须更新父知识中已经存在的来源/系统落点："
+                + ", ".join(missing)
+            )
+    current = case.get("writeback") or {}
+    decision_fields = {
+        "relationship": relationship,
+        "reason": args.reason.strip(),
+        "source_path": source_path,
+        "system_path": system_path,
+    }
+    if all(current.get(key) == value for key, value in decision_fields.items()):
+        print(
+            json.dumps(
+                {"writeback": current, "already_recorded": True, "next": case["next_action"]},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+    decided = {
+        **decision_fields,
+        "decided_at": utc_now(),
+    }
+    if current.get("relationship") and current != decided:
+        started = any(
+            question.get("evidence") or question.get("knowledge_paths")
+            for question in case["questions"]
+        )
+        if started:
+            raise IngestionError("已经形成来源或知识后不能改写系统身份；请新建回写案")
+    case["writeback"] = decided
+    case["next_action"] = (
+        "按身份、业务/数据/规则、软件/运行和产品视图的实际影响规划读者问题；"
+        "只取得会改变候选的直接来源"
+    )
+    save_case(root, case)
+    generate_review(root, case)
+    print(json.dumps({"writeback": decided, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    return 0
+
+
 def add_question(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
     number = len(case["questions"]) + 1
@@ -917,6 +1014,8 @@ def normalize_knowledge_path(value: str) -> str:
 def plan_unit(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
     question = question_by_id(case, args.question_id)
+    if case.get("mode") == "writeback" and not (case.get("writeback") or {}).get("relationship"):
+        raise IngestionError("代码变化回写必须先运行 identity-set 判断系统身份")
     validate_id(args.unit_id, "unit id", UNIT_ID_RE)
     if any(item["id"] == args.unit_id for item in question["expected_units"]):
         raise IngestionError(f"知识单元已存在：{args.unit_id}")
@@ -1943,6 +2042,9 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
     if len(expected_paths) > 3:
         errors.append("一个问题不能依赖超过三篇规范知识页")
     linked = view_targets(root)
+    source_index_targets = markdown_link_targets(
+        root / "draft" / "knowledge" / "sources" / "index.md"
+    )
     for unit in question["expected_units"]:
         path = root / unit["path"]
         if not path.is_file():
@@ -1953,7 +2055,12 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
             errors.append(f"知识单元内容过薄：{unit['path']}")
         if PLACEHOLDER_RE.search(text):
             errors.append(f"知识单元仍含模板占位符：{unit['path']}")
-        if path.resolve() not in linked:
+        if unit["path"].startswith("draft/knowledge/views/"):
+            pass
+        elif unit["path"].startswith("draft/knowledge/sources/"):
+            if path.resolve() not in source_index_targets:
+                errors.append(f"来源导航尚未链接来源知识单元：{unit['path']}")
+        elif path.resolve() not in linked:
             errors.append(f"产品视图尚未链接知识单元：{unit['path']}")
         if question["status"] == "answered":
             for marker in STALE_MARKERS:
@@ -2035,6 +2142,81 @@ def check_unit(args: argparse.Namespace) -> int:
         for warning in report["warnings"]:
             print(f"- WARNING: {warning}")
     return 0 if report["ready"] else 1
+
+
+def writeback_review_errors(root: Path, case: dict[str, Any]) -> list[str]:
+    """Validate the reusable boundaries of a code-to-knowledge candidate."""
+    errors: list[str] = []
+    identity = case.get("writeback") or {}
+    relationship = identity.get("relationship")
+    if not relationship:
+        errors.append("尚未用 identity-set 判断代码来源与既有系统知识的身份关系")
+    elif relationship == "uncertain":
+        errors.append("系统身份仍为 uncertain；取得直接证据后改为 same_system 或 new_system")
+
+    for question in case["questions"]:
+        report = check_question(root, case, question)
+        errors.extend(f"{question['id']}：{item}" for item in report["errors"])
+
+    changes = candidate_changes(root, case)
+    if changes["deleted"]:
+        errors.append(
+            "代码回写不得顺带删除父知识文件：" + ", ".join(changes["deleted"])
+        )
+    errors.extend(incremental_parent_preservation_errors(root, case, changes))
+    errors.extend(incremental_entrypoint_errors(case, changes))
+
+    changed = set(changes["added"] + changes["modified"] + changes["deleted"])
+    planned_units = {
+        unit["path"].removeprefix("draft/")
+        for question in case["questions"]
+        for unit in question["expected_units"]
+    }
+    unplanned = sorted(
+        path for path in changes["added"] + changes["modified"]
+        if governed_writeback_path(path) and path not in planned_units
+    )
+    if unplanned:
+        errors.append(
+            "以下规范正文或产品视图发生变化但没有读者问题/知识单元负责："
+            + ", ".join(unplanned)
+        )
+
+    source_path = (identity.get("source_path") or "").removeprefix("draft/")
+    system_path = (identity.get("system_path") or "").removeprefix("draft/")
+    if relationship == "new_system":
+        for path, label in ((source_path, "独立来源页"), (system_path, "独立系统页")):
+            if path and path not in changes["added"]:
+                errors.append(f"new_system 的{label}尚未作为新规范对象形成：{path}")
+            if path and path not in planned_units:
+                errors.append(f"new_system 的{label}没有知识单元负责：{path}")
+        for path, label in (
+            ("knowledge/sources/index.md", "来源导航"),
+            ("knowledge/systems/index.md", "系统导航"),
+        ):
+            if path not in changed:
+                errors.append(f"new_system 尚未同步{label}：{path}")
+    elif relationship == "same_system":
+        for path, label in ((source_path, "来源页"), (system_path, "系统页")):
+            if path and path not in changes["modified"]:
+                errors.append(f"same_system 的既有{label}尚未更新：{path}")
+
+    if not any(path.startswith("knowledge/domains/") and not path.endswith("/index.md") for path in changed):
+        errors.append("代码事实尚未原位进入受影响的业务、数据或规则知识")
+    software_units = {
+        unit["path"].removeprefix("draft/")
+        for question in case["questions"]
+        for unit in question["expected_units"]
+        if unit["kind"] == "software"
+    }
+    if not software_units or not (software_units & changed):
+        errors.append("尚未形成由 software 知识单元负责的系统结构、调用链或修改入口更新")
+    if not any(
+        path.startswith("knowledge/views/") and not path.endswith("/index.md")
+        for path in changed
+    ):
+        errors.append("产品视图尚未同步受影响知识的稳定入口")
+    return list(dict.fromkeys(errors))
 
 
 def safe_mount(
@@ -2400,11 +2582,22 @@ def generate_complete_source_index(root: Path, case: dict[str, Any]) -> None:
     """Build the user-facing provenance view from already validated finding state."""
     target = root / "draft" / "knowledge" / "sources" / "index.md"
     incremental = bool(case.get("baseline", {}).get("substantive_file_count", 0))
+    section_start = f"<!-- omni-brain:provenance:{case['id']}:start -->"
+    section_end = f"<!-- omni-brain:provenance:{case['id']}:end -->"
     if incremental and target.is_file():
         previous = target.read_text(encoding="utf-8")
-        if PROVENANCE_START in previous:
-            previous = previous.split(PROVENANCE_START, 1)[0].rstrip()
-        lines = [*previous.splitlines(), "", PROVENANCE_START, ""]
+        if section_start in previous:
+            prefix, remainder = previous.split(section_start, 1)
+            if section_end not in remainder:
+                raise IngestionError(
+                    f"来源目录中的本案增量标记不完整：{case['id']}"
+                )
+            _, suffix = remainder.split(section_end, 1)
+            previous = (prefix.rstrip() + suffix).rstrip()
+        # Legacy markers belong to an earlier published increment.  They are
+        # deliberately left untouched; replacing them would erase parent
+        # provenance when a second increment is prepared.
+        lines = [*previous.splitlines(), "", section_start, ""]
     else:
         lines = [
             "# 直接材料与结论定位",
@@ -2467,7 +2660,7 @@ def generate_complete_source_index(root: Path, case: dict[str, Any]) -> None:
         ]
     )
     if incremental:
-        lines.extend([PROVENANCE_END, ""])
+        lines.extend([section_end, ""])
     atomic_write_text(target, "\n".join(lines))
 
 
@@ -2484,11 +2677,32 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
         "",
         f"> **目标：** {case['goal']}  ",
         f"> **目标读者：** {case['target_reader']}  ",
+        f"> **当前阶段：** {case['stage']}  ",
         "> 正式知识尚未修改；本页只汇总候选知识、事实边界和需要人工决定的事项。",
         "",
-        "## 从这里开始看内容",
-        "",
     ]
+    if case.get("mode") == "writeback":
+        identity = case.get("writeback") or {}
+        changes = candidate_changes(root, case)
+        lines.extend(
+            [
+                "## 代码来源与知识身份",
+                "",
+                f"- **关系：** `{identity.get('relationship') or '尚未判断'}`。",
+                f"- **判断依据：** {identity.get('reason') or '尚未登记'}。",
+                f"- **来源规范页：** `{identity.get('source_path') or '尚未规划'}`。",
+                f"- **系统规范页：** `{identity.get('system_path') or '尚未规划'}`。",
+                "- **父知识到候选：** "
+                f"新增 {len(changes['added'])}、修改 {len(changes['modified'])}、"
+                f"删除 {len(changes['deleted'])} 个文件。",
+                "",
+            ]
+        )
+        if case.get("last_review_issues"):
+            lines.extend(["## 当前审查未通过的原因", ""])
+            lines.extend(f"- {item}" for item in case["last_review_issues"])
+            lines.append("")
+    lines.extend(["## 从这里开始看内容", ""])
     if views:
         for path in views:
             lines.append(f"- [{document_title(path)}]({relative_link(root / 'review.md', path)})")
@@ -2583,6 +2797,34 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
 
 def review_case(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
+    if case.get("mode") == "writeback":
+        errors = writeback_review_errors(root, case)
+        case["last_review_issues"] = errors
+        if errors:
+            case["stage"] = "reviewing"
+            case["next_action"] = (
+                "按 review.md 中的内容、身份、父知识保持和导航问题修正候选；"
+                "只补受影响来源，不改写已确认的系统身份"
+            )
+        else:
+            case["stage"] = "publish_ready"
+            case["next_action"] = "请用户审查候选知识与 review.md，决定发布或退回"
+        save_case(root, case)
+        generate_review(root, case)
+        print(
+            json.dumps(
+                {
+                    "review": str(root / "review.md"),
+                    "ready": not errors,
+                    "errors": errors,
+                    "candidate_changes": candidate_changes(root, case),
+                    "next": case["next_action"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0 if not errors else 1
     if case.get("mode") == "complete":
         ensure_complete(case)
         errors: list[str] = []
@@ -2698,8 +2940,11 @@ def status_case(args: argparse.Namespace) -> int:
         return 0
     payload = {
         "case_id": case["id"],
+        "mode": case.get("mode", "focused"),
+        "stage": case.get("stage", "focused"),
         "goal": case["goal"],
         "target_reader": case["target_reader"],
+        "writeback": case.get("writeback"),
         "sources": [public_source_identity(item) for item in case["sources"]],
         "questions": [
             {
@@ -2715,6 +2960,8 @@ def status_case(args: argparse.Namespace) -> int:
             }
             for item in case["questions"]
         ],
+        "candidate_changes": candidate_changes(root, case),
+        "last_review_issues": case.get("last_review_issues", []),
         "review": str(root / "review.md"),
         "next": case["next_action"],
     }
@@ -2727,7 +2974,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cases-root", type=Path, default=default_cases_root())
     subparsers = parser.add_subparsers(dest="action", required=True)
 
-    start = subparsers.add_parser("start", help="创建聚焦或宽范围完整摄入案和后台来源基线")
+    start = subparsers.add_parser("start", help="创建聚焦、代码回写或宽范围完整摄入案和后台来源基线")
     start.add_argument("case_id")
     start.add_argument("--mode", choices=sorted(INGESTION_MODES), default="focused")
     start.add_argument("--goal", required=True)
@@ -2736,6 +2983,14 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--question", action="append", default=[])
     start.add_argument("--boundary", action="append", default=[])
     start.set_defaults(func=start_case)
+
+    identity = subparsers.add_parser("identity-set", help="判断代码来源与既有系统知识的身份关系")
+    identity.add_argument("case_id")
+    identity.add_argument("--relationship", choices=sorted(SYSTEM_RELATIONSHIPS), required=True)
+    identity.add_argument("--reason", required=True)
+    identity.add_argument("--source-path")
+    identity.add_argument("--system-path")
+    identity.set_defaults(func=set_writeback_identity)
 
     survey = subparsers.add_parser("survey", help="查看完整整理的客观材料地图")
     survey.add_argument("case_id")
@@ -2884,7 +3139,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action in {
-            "question-add", "plan-unit", "next", "finding-add", "record-material", "material-reopen", "plan-reopen",
+            "identity-set", "question-add", "plan-unit", "next", "finding-add", "record-material", "material-reopen", "plan-reopen",
             "topic-add", "plan-review", "record-topic", "record", "stop-search",
             "check-unit", "run", "review",
         }:
