@@ -113,14 +113,25 @@ class HarnessContractTest(unittest.TestCase):
             capability["adoption"],
         )
         self.assertEqual(
-            [".agents/skills/develop-with-knowledge/SKILL.md"],
+            [
+                ".agents/skills/develop-with-knowledge/SKILL.md",
+                ".agents/skills/answer-from-knowledge/scripts/knowledge_route.py",
+            ],
             capability["entrypoints"],
+        )
+        self.assertEqual(
+            ["knowledge_query_and_context"],
+            capability["dependencies"],
         )
 
         contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         skill = (ROOT / capability["entrypoints"][0]).read_text(encoding="utf-8")
         self.assertIn("加载 `develop-with-knowledge`", contract)
         self.assertIn("最低充分上下文", skill)
+        self.assertIn("用**原始用户请求**调用知识入口路由", skill)
+        self.assertIn("knowledge_route.py", skill)
+        self.assertIn("只读 `PRIMARY`", skill)
+        self.assertIn("三篇是硬上限，不是阅读目标", skill)
         self.assertIn("## 实现前快照", skill)
         self.assertIn("固定项 + 用户可追加项 + 隐式项 - 去重 = 最大合法总量", skill)
         self.assertIn("组合审计", skill)

@@ -74,14 +74,18 @@ capabilities:
       - 证据限于当前中文 Markdown、单一宿主/模型、单一质检领域和最多三篇规范页；第二领域、OpenCode、大规模知识与精确源码联查仍未验证
   knowledge_guided_development:
     adoption: verified_at_three_manual_qc_development_slices
+    dependencies:
+      - knowledge_query_and_context
     entrypoints:
       - .agents/skills/develop-with-knowledge/SKILL.md
+      - .agents/skills/answer-from-knowledge/scripts/knowledge_route.py
     limits:
       - 已在验收配额页面、问题选项只读 SQL 性能和验收分配缺口跨层算法三类用例上完成成功重放；证据仍限于同一质检领域、宿主和模型
       - 分配缺口用例中盲测候选反证并纠正了首轮参考口径；这证明参考可被运行和领域语义推翻，不证明任意业务规则都能自动裁决
       - 本地 CSV 单事务写库取得正向证据，但仍存在不完整指标输入问题，不计入已验证切片
       - 真实页面出现与页面交互必须分别取证；最终知识变化交接仍有被弱模型跳过的记录
       - 不包含自动上下文组装、环境管理或正式知识自动发布
+      - 确定性知识入口路由已经接入开发 Skill，但 M2 到 M3 的复合开发旅程尚待真实 Trial 验证
       - 低风险局部修改不应被机械升级为完整流程
 
 promotion_policy:
