@@ -103,6 +103,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("副作用基线", skill)
         self.assertIn("冲突样本", skill)
         self.assertIn("行数相同", skill)
+        self.assertIn("不能继续写入", skill)
+        self.assertIn("真实输出", skill)
         self.assertIn("真实路径验证", skill)
         self.assertIn("知识变化候选", skill)
         self.assertIn("来源身份", skill)
