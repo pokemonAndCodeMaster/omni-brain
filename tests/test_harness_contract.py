@@ -150,6 +150,22 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("视觉或状态样式也要匹配业务语义", skill)
         self.assertIn("规范落点不能只写当前工程", skill)
 
+    def test_writeback_is_verified_only_at_the_declared_slice(self) -> None:
+        manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
+        capability = manifest["capabilities"]["knowledge_writeback"]
+        self.assertEqual(
+            "verified_at_manual_qc_same_system_adjacent_writeback_slice",
+            capability["adoption"],
+        )
+        self.assertEqual(
+            ["knowledge_base", "knowledge_ingestion", "knowledge_guided_development"],
+            capability["dependencies"],
+        )
+        limits = "\n".join(capability["limits"])
+        self.assertIn("人工审查", limits)
+        self.assertIn("跨系统", limits)
+        self.assertIn("第二领域", limits)
+
     def test_knowledge_bundle_matches_declared_adoption(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         domains = yaml.safe_load(
