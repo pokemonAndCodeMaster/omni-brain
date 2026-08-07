@@ -1,4 +1,0 @@
-interface:
-  display_name: "带知识开发"
-  short_description: "以最低充分知识完成可运行软件纵切、真实验证和知识变化交接"
-  default_prompt: "Use $develop-with-knowledge to implement this software change with minimum sufficient context, real validation, and a knowledge-change handoff."
