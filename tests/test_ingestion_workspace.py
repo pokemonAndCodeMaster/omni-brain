@@ -195,6 +195,15 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertIn("index.md 是导航", result.stderr)
         self.assertIn("配套入口同步更新", result.stderr)
 
+    def test_existing_planned_unit_must_change_before_check_passes(self) -> None:
+        page = self.harness / "knowledge" / "systems" / "metric-flow.md"
+        page.write_text("# 既有指标页\n\n" + "现有内容。" * 120, encoding="utf-8")
+        self.start()
+        self.plan()
+        checked = self.run_tool("check-unit", "sample-case", "q-001", "--format", "json")
+        self.assertEqual(1, checked.returncode)
+        self.assertIn("仍与正式知识完全相同", checked.stdout)
+
     def write_candidate(self, case: Path, *, stale: bool = False) -> None:
         knowledge = case / "draft" / "knowledge"
         source_record = knowledge / "sources" / "app.md"
@@ -803,6 +812,25 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertNotIn("app:unrelated.txt", refs)
         self.assertNotIn("source-manifest", payload)
 
+    def test_explicit_multi_term_query_is_tokenized(self) -> None:
+        self.start()
+        result = self.run_tool(
+            "next",
+            "sample-case",
+            "q-001",
+            "--query",
+            "annotation_submitted api",
+            "--limit",
+            "4",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertIn("annotation_submitted", payload["query_terms"])
+        self.assertIn("api", payload["query_terms"])
+        refs = {item["ref"] for item in payload["packet"]}
+        self.assertIn("app:page.vue", refs)
+        self.assertIn("app:api.ts", refs)
+
     def test_next_resolves_common_vite_at_alias_without_project_specific_config(self) -> None:
         features = self.source / "frontend" / "src" / "features"
         shared = self.source / "frontend" / "src" / "shared"
@@ -880,6 +908,19 @@ class IngestionWorkspaceTest(unittest.TestCase):
         review = (case / "review.md").read_text(encoding="utf-8")
         self.assertIn("指标数据链路", review)
         self.assertNotIn("coverage", review)
+
+    def test_focused_check_only_reports_reader_warnings_for_planned_units(self) -> None:
+        case = self.start()
+        self.plan()
+        self.write_candidate(case)
+        index = case / "draft" / "knowledge" / "index.md"
+        index.write_text(index.read_text(encoding="utf-8") + "\nBatch 1 维护说明。\n", encoding="utf-8")
+        packet = self.get_packet()
+        self.assertEqual(0, self.record_answer(packet).returncode)
+        checked = self.run_tool("check-unit", "sample-case", "q-001", "--format", "json")
+        self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
+        report = json.loads(checked.stdout)
+        self.assertFalse(any("index.md" in item for item in report["warnings"]))
 
     def test_document_flow_does_not_require_a_run_or_run_integration(self) -> None:
         case = self.start()

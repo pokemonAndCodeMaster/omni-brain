@@ -1698,7 +1698,13 @@ def next_sources(args: argparse.Namespace) -> int:
     question = question_by_id(case, args.question_id)
     if question["active_packet"]:
         raise IngestionError("当前小批来源尚未 record；先写知识并登记结果")
-    terms = [item.strip() for item in args.query if item.strip()]
+    terms: list[str] = []
+    for raw_query in args.query:
+        query = raw_query.strip()
+        if not query:
+            continue
+        terms.extend([query, *default_query_terms(query)])
+    terms = list(dict.fromkeys(terms))
     if terms:
         manifest = read_manifest(root)
         ranked = import_neighbours(case, manifest, initial_rank(case, manifest, terms))
@@ -1951,6 +1957,12 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
         if not path.is_file():
             errors.append(f"知识单元尚未形成：{unit['path']}")
             continue
+        canonical_path = unit["path"].removeprefix("draft/")
+        original = baseline_paths(case).get(canonical_path)
+        if original is not None and digest_bytes(path.read_bytes()) == original["sha256"]:
+            errors.append(
+                f"计划更新的知识单元仍与正式知识完全相同：{unit['path']}"
+            )
         text = path.read_text(encoding="utf-8")
         if len(text.strip()) < 400:
             errors.append(f"知识单元内容过薄：{unit['path']}")
@@ -2008,7 +2020,15 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
             "知识结构：领域地图每项必须包含 id/title/parent/scope/excludes；"
             "可直接套用 .agents/skills/ingest-knowledge/assets/domain-overview.md 中的最小示例"
         )
-    warnings.extend(f"知识结构：{item}" for item in report.warnings)
+    expected_relative_paths = {
+        item["path"].removeprefix("draft/knowledge/")
+        for item in question["expected_units"]
+    }
+    warnings.extend(
+        f"知识结构：{item}"
+        for item in report.warnings
+        if any(item.startswith(path + ":") for path in expected_relative_paths)
+    )
     return {
         "question_id": question["id"],
         "ready": not errors,
