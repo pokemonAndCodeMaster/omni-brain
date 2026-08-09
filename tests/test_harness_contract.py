@@ -163,6 +163,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 待确认事项概览", open_questions)
         self.assertIn("优先级", open_questions)
         self.assertIn("责任方或下一动作", open_questions)
+        self.assertIn("<!--", open_questions)
         self.assertIn("不要求先出现第二个外部领域", shared_capability)
         self.assertIn("draft/knowledge/capabilities/", shared_capability)
         skill = (ROOT / ".agents/skills/ingest-knowledge/SKILL.md").read_text(
@@ -187,6 +188,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("## 6. 充分内化而不丢失信息", reader_first)
         self.assertIn("## 8. 用业务主线解释软件", reader_first)
         self.assertIn("## 9. 完成前的读者检查", reader_first)
+        self.assertIn("HTML 注释是写作说明", reader_first)
         root_entry = (assets / "root-entry.md").read_text(encoding="utf-8")
         self.assertIn("## 知识地图与默认阅读顺序", root_entry)
         self.assertIn("## 按工作目标快速进入", root_entry)
