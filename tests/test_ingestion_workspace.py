@@ -321,23 +321,57 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertEqual(1, blocked.returncode)
         self.assertIn("用户可见页面未审视", blocked.stdout)
 
-        case = json.loads((self.cases / "reader-case" / ".state" / "case.json").read_text())
-        arguments = ["audit-pages", "reader-case"]
-        for page in case["reader_audit"]["pages"]:
-            planned = self.run_tool(
-                "audit-plan", "reader-case", page["path"],
-                "--decision", "keep",
-                "--reader-question", "这页是否已经能直接支持目标读者？",
-                "--reason", "逐页核对后结构和信息已经满足当前读者结果",
-            )
-            self.assertEqual(0, planned.returncode, planned.stderr)
-            arguments.extend(["--kept", f"{page['path']}=逐页核对后无需修改"])
-        audited = self.run_tool(*arguments)
-        self.assertEqual(0, audited.returncode, audited.stderr)
+        inventory = json.loads(self.run_tool("audit-pages", "reader-case").stdout)
+        pages = inventory["pages"]
+        for start in range(0, len(pages), 3):
+            batch = pages[start:start + 3]
+            packet_args = ["audit-next", "reader-case", "q-001"]
+            for page in batch:
+                packet_args.extend(["--page", page["path"]])
+            packet = json.loads(self.run_tool(*packet_args).stdout)
+            decision_args = ["audit-pages", "reader-case"]
+            for page in batch:
+                planned = self.run_tool(
+                    "audit-plan", "reader-case", page["path"],
+                    "--decision", "keep",
+                    "--reason", "逐页核对后结构和信息已经满足当前读者结果",
+                )
+                self.assertEqual(0, planned.returncode, planned.stderr)
+                decision_args.extend(["--kept", f"{page['path']}=逐页核对后无需修改"])
+            audited = self.run_tool(*decision_args)
+            self.assertEqual(0, audited.returncode, audited.stderr)
+            record_args = [
+                "record", "reader-case", "q-001",
+                "--status", "answered",
+                "--summary", "本批页面已按同一读者结果完成审视",
+            ]
+            for page in packet["pages"]:
+                record_args.extend(["--source", page["ref"]])
+            recorded = self.run_tool(*record_args)
+            self.assertEqual(0, recorded.returncode, recorded.stderr)
+        checked = self.run_tool("check-unit", "reader-case", "q-001")
+        self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
+        extra = json.loads(self.run_tool(
+            "question-add", "reader-case", "--text", "误建且尚未执行的读者结果",
+        ).stdout)["added"]
+        inconsistent = self.run_tool("review", "reader-case")
+        self.assertEqual(1, inconsistent.returncode)
+        self.assertIn(f"{extra['id']}：尚未通过 audit-next", inconsistent.stdout)
+        dropped = self.run_tool(
+            "question-drop", "reader-case", extra["id"],
+            "--reason", "该问题与既有结果重复且尚未开始处理",
+        )
+        self.assertEqual(0, dropped.returncode, dropped.stderr)
         ready = self.run_tool("review", "reader-case")
         self.assertEqual(0, ready.returncode, ready.stdout + ready.stderr)
 
     def test_reader_audit_uses_public_small_page_packet_and_guidance(self) -> None:
+        contract_page = self.harness / "knowledge" / "systems" / "contract.md"
+        contract_page.write_text(
+            "---\ntype: Software System\ntitle: 合同页\ndescription: 用于验证机器结构。\n---\n\n"
+            "# 合同页\n\n正文。\n\n# Citations\n\n1. [来源](../sources/index.md)\n",
+            encoding="utf-8",
+        )
         result = self.run_tool(
             "start", "reader-packet",
             "--goal", "统一审视现有知识的阅读体验",
@@ -354,12 +388,25 @@ class IngestionWorkspaceTest(unittest.TestCase):
         page_packet = self.run_tool(
             "audit-next", "reader-packet", "q-001",
             "--page", "draft/knowledge/index.md",
+            "--page", "draft/knowledge/systems/contract.md",
         )
         self.assertEqual(0, page_packet.returncode, page_packet.stderr)
-        packet = json.loads(page_packet.stdout)["pages"][0]
+        pages = json.loads(page_packet.stdout)["pages"]
+        packet = pages[0]
         self.assertEqual("current-knowledge:index.md", packet["ref"])
         self.assertEqual(str(self.harness / "knowledge" / "index.md"), packet["absolute_path"])
         self.assertTrue(any(path.endswith("assets/root-entry.md") for path in packet["required_guidance"]))
+        self.assertIn("required_structure", packet)
+        self.assertIn("YAML frontmatter", " ".join(pages[1]["required_structure"]))
+        self.assertIn("# Citations", " ".join(pages[1]["required_structure"]))
+
+        duplicate_plan = self.run_tool(
+            "plan-unit", "reader-packet", "q-001", "root-entry",
+            "--title", "知识入口", "--kind", "other",
+            "--path", "draft/knowledge/views/root-entry.md",
+        )
+        self.assertNotEqual(0, duplicate_plan.returncode)
+        self.assertIn("不要再用 plan-unit", duplicate_plan.stderr)
 
         regular_next = self.run_tool(
             "next", "reader-packet", "q-001", "--source-ref", "current-knowledge:index.md",
@@ -377,6 +424,11 @@ class IngestionWorkspaceTest(unittest.TestCase):
             "--audit-all-user-pages",
         )
         self.assertEqual(0, result.returncode, result.stderr)
+        packet = self.run_tool(
+            "audit-next", "reader-outline", "q-001",
+            "--page", "draft/knowledge/index.md",
+        )
+        self.assertEqual(0, packet.returncode, packet.stderr)
         planned = self.run_tool(
             "audit-plan", "reader-outline", "draft/knowledge/index.md",
             "--decision", "change",
@@ -403,6 +455,32 @@ class IngestionWorkspaceTest(unittest.TestCase):
             "--changed", "draft/knowledge/index.md=补充范围和阅读顺序",
         )
         self.assertEqual(0, accepted.returncode, accepted.stderr)
+
+    def test_reader_audit_can_drop_empty_mistake_without_reusing_question_id(self) -> None:
+        result = self.run_tool(
+            "start", "reader-drop",
+            "--goal", "统一审视现有知识的阅读体验",
+            "--reader", "第一次接触项目的读者",
+            "--source", f"current-knowledge={self.harness / 'knowledge'}",
+            "--question", "知识入口能否建立清楚路线？",
+            "--audit-all-user-pages",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        added = json.loads(self.run_tool(
+            "question-add", "reader-drop", "--text", "与第一题重复的误建问题",
+        ).stdout)["added"]
+        dropped = self.run_tool(
+            "question-drop", "reader-drop", added["id"],
+            "--reason", "与第一题完全重复且尚未开始处理",
+        )
+        self.assertEqual(0, dropped.returncode, dropped.stderr)
+        status = json.loads(self.run_tool("status", "reader-drop").stdout)
+        self.assertEqual(["q-001"], [item["id"] for item in status["questions"]])
+
+        replacement = json.loads(self.run_tool(
+            "question-add", "reader-drop", "--text", "另一项尚未执行的读者结果",
+        ).stdout)["added"]
+        self.assertEqual("q-003", replacement["id"])
 
     def write_candidate(self, case: Path, *, stale: bool = False) -> None:
         knowledge = case / "draft" / "knowledge"

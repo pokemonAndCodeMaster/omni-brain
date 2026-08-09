@@ -26,7 +26,7 @@ from typing import Any
 from knowledge_check import validate_bundle
 
 
-SCHEMA_VERSION = "1.5"
+SCHEMA_VERSION = "1.6"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 QUESTION_ID_RE = re.compile(r"^q-[0-9]{3}$")
 UNIT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -892,6 +892,7 @@ def reader_visible_pages(root: Path) -> list[dict[str, Any]]:
                 "status": "pending",
                 "reason": "",
                 "plan": None,
+                "question_id": None,
             }
         )
     return sorted(pages, key=lambda item: reader_page_sort_key(item["path"]))
@@ -918,6 +919,7 @@ def start_case(args: argparse.Namespace) -> int:
         "sources": sources,
         "baseline": baseline,
         "questions": [new_question(index, text) for index, text in enumerate(questions, 1)],
+        "next_question_number": len(questions) + 1,
         "stage": "focused" if args.mode == "focused" else "mapping",
         "cursor": {"item_type": None, "item_id": None},
         "material_groups": [],
@@ -931,7 +933,11 @@ def start_case(args: argparse.Namespace) -> int:
         "created_at": now,
         "updated_at": now,
         "next_action": (
-            "为 q-001 规划一至三个知识单元，再取得第一小批直接来源"
+            (
+                "运行 audit-pages 查看页面清单，再用 audit-next 为 q-001 取得第一小批页面"
+                if args.audit_all_user_pages
+                else "为 q-001 规划一至三个知识单元，再取得第一小批直接来源"
+            )
             if args.mode == "focused"
             else "查看材料地图，再从第一个材料组开始读后发现"
         ),
@@ -971,13 +977,61 @@ def start_case(args: argparse.Namespace) -> int:
 
 def add_question(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
-    number = len(case["questions"]) + 1
+    number = case["next_question_number"]
+    case["next_question_number"] = number + 1
     question = new_question(number, args.text.strip())
     case["questions"].append(question)
     case["next_action"] = f"为 {question['id']} 规划知识单元或继续当前问题"
     save_case(root, case)
     generate_review(root, case)
     print(json.dumps({"added": question, "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def drop_question(args: argparse.Namespace) -> int:
+    """Remove a mistaken question only while it owns no evidence or work."""
+    root, case = load_case(args.cases_root, args.case_id)
+    question = question_by_id(case, args.question_id)
+    if len(case["questions"]) <= 1:
+        raise IngestionError("摄入案至少需要保留一个读者问题")
+    assigned_pages = [
+        item["path"]
+        for item in case.get("reader_audit", {}).get("pages", [])
+        if item.get("question_id") == question["id"]
+    ]
+    unsafe = []
+    if assigned_pages:
+        unsafe.append("已绑定页面：" + ", ".join(assigned_pages))
+    if question["active_packet"]:
+        unsafe.append("存在尚未登记的小批")
+    if question["evidence"]:
+        unsafe.append("已经登记直接证据")
+    if question["knowledge_paths"]:
+        unsafe.append("已经登记知识结果")
+    if question.get("run_ids") or question.get("pending_run_ids"):
+        unsafe.append("已经关联真实运行")
+    if question["candidate_queue"]:
+        unsafe.append("存在待处理来源候选")
+    if unsafe:
+        raise IngestionError(
+            "只能撤销尚未取得证据、绑定页面或产生结果的误建问题；" + "；".join(unsafe)
+        )
+    case["questions"] = [item for item in case["questions"] if item["id"] != question["id"]]
+    case["next_action"] = "继续当前读者问题或运行 audit-pages 选择下一小批页面"
+    save_case(root, case)
+    generate_review(root, case)
+    print(
+        json.dumps(
+            {
+                "dropped": question["id"],
+                "reason": args.reason.strip(),
+                "remaining_questions": [item["id"] for item in case["questions"]],
+                "next": case["next_action"],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 
@@ -998,6 +1052,11 @@ def normalize_knowledge_path(value: str) -> str:
 
 def plan_unit(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
+    if case.get("reader_audit", {}).get("required"):
+        raise IngestionError(
+            "整库阅读审视以 audit-next 绑定页面、audit-plan 规划页面；"
+            "不要再用 plan-unit 维护第二套页面计划"
+        )
     question = question_by_id(case, args.question_id)
     validate_id(args.unit_id, "unit id", UNIT_ID_RE)
     if any(item["id"] == args.unit_id for item in question["expected_units"]):
@@ -1105,6 +1164,14 @@ def audit_source_for_page(
     return ref, resolve_source(case, ref)
 
 
+def audit_pages_for_question(case: dict[str, Any], question_id: str) -> list[dict[str, Any]]:
+    return [
+        item
+        for item in case.get("reader_audit", {}).get("pages", [])
+        if item.get("question_id") == question_id
+    ]
+
+
 def plan_audit_page(args: argparse.Namespace) -> int:
     root, case = load_case(args.cases_root, args.case_id)
     audit = case.get("reader_audit", {})
@@ -1114,6 +1181,13 @@ def plan_audit_page(args: argparse.Namespace) -> int:
     page = audit_page_by_path(case, path)
     if page["status"] != "pending":
         raise IngestionError(f"页面已有最终决定，不能重新规划：{path}")
+    question_id = page.get("question_id")
+    if not question_id:
+        raise IngestionError(f"页面尚未通过 audit-next 分配给读者问题：{path}")
+    question = question_by_id(case, question_id)
+    page_ref, _ = audit_source_for_page(root, case, path)
+    if page_ref not in {item["ref"] for item in question["active_packet"]}:
+        raise IngestionError(f"页面不在 {question_id} 当前小批中：{path}")
     target_sections = list(dict.fromkeys(item.strip() for item in args.target_section if item.strip()))
     if args.decision == "change" and len(target_sections) < 2:
         raise IngestionError("计划修改的页面至少需要两个目标一级章节，先明确内容主线再写作")
@@ -1121,7 +1195,9 @@ def plan_audit_page(args: argparse.Namespace) -> int:
         raise IngestionError("计划保留的页面不应声明目标章节；请用 --reason 说明为何已经足够")
     page["plan"] = {
         "decision": args.decision,
-        "reader_question": args.reader_question.strip(),
+        "reader_question": (
+            args.reader_question.strip() if args.reader_question else question["text"]
+        ),
         "reason": args.reason.strip(),
         "target_sections": target_sections,
         "planned_at": utc_now(),
@@ -1166,8 +1242,20 @@ def audit_next(args: argparse.Namespace) -> int:
         page = audit_page_by_path(case, page_path)
         if page["status"] != "pending":
             raise IngestionError(f"页面已经完成审视：{page_path}")
+        owner = page.get("question_id")
+        if owner and owner != question["id"]:
+            raise IngestionError(f"页面已经分配给 {owner}：{page_path}")
         ref, absolute = audit_source_for_page(root, case, page_path)
+        page["question_id"] = question["id"]
         packet.append({"ref": ref, "score": 100, "reasons": ["整库审视显式页面小批"]})
+        source_text = absolute.read_text(encoding="utf-8")
+        required_structure = []
+        if source_text.startswith("---\n"):
+            required_structure.append("保留并更新已有 YAML frontmatter，不删除其必要字段")
+        if re.search(r"^# Citations\s*$", source_text, re.MULTILINE):
+            required_structure.append(
+                "保留一级标题 `# Citations` 及其有效引用；不要改名为其他标题"
+            )
         output_pages.append(
             {
                 "draft_path": page_path,
@@ -1177,6 +1265,7 @@ def audit_next(args: argparse.Namespace) -> int:
                 "required_guidance": [
                     str(project_root() / item) for item in writing_guidance_for(page_path)
                 ],
+                "required_structure": required_structure,
             }
         )
     question["active_packet"] = packet
@@ -1219,6 +1308,7 @@ def audit_pages(args: argparse.Namespace) -> int:
                             "path": item["path"],
                             "title": item.get("title", ""),
                             "status": item["status"],
+                            "question_id": item.get("question_id"),
                             "plan": item.get("plan"),
                         }
                         for item in audit.get("pages", [])
@@ -2176,7 +2266,31 @@ def record_result(args: argparse.Namespace) -> int:
         raise IngestionError("answered 不应同时登记 missing；应改为 partial")
     if args.status in {"partial", "external_missing", "conflict"} and not args.missing:
         raise IngestionError(f"{args.status} 必须说明缺失或冲突内容")
-    knowledge_paths = [normalize_knowledge_path(item) for item in args.knowledge]
+    explicit_knowledge_paths = [normalize_knowledge_path(item) for item in args.knowledge]
+    audit_batch_pages: list[dict[str, Any]] = []
+    if case.get("reader_audit", {}).get("required") and active:
+        active_refs = set(active)
+        for page in audit_pages_for_question(case, question["id"]):
+            ref, _ = audit_source_for_page(root, case, page["path"])
+            if ref in active_refs:
+                audit_batch_pages.append(page)
+        if len(audit_batch_pages) != len(active_refs):
+            raise IngestionError("当前整库审视小批没有完整绑定到读者问题")
+        unfinished_pages = [
+            item["path"]
+            for item in audit_batch_pages
+            if not item.get("plan") or item["status"] not in {"changed", "kept"}
+        ]
+        if unfinished_pages:
+            raise IngestionError(
+                "record 前必须先规划并登记本批每个页面的修改或保留决定："
+                + ", ".join(unfinished_pages)
+            )
+    knowledge_paths = list(
+        dict.fromkeys(
+            [*explicit_knowledge_paths, *[item["path"] for item in audit_batch_pages]]
+        )
+    )
     if metadata_only_update and not (knowledge_paths or question["knowledge_paths"]):
         raise IngestionError("完成状态更新必须指向已形成的规范知识")
     if used_runs and not knowledge_paths:
@@ -2325,7 +2439,104 @@ def view_targets(root: Path) -> set[Path]:
     return targets
 
 
+def check_audit_question(
+    root: Path, case: dict[str, Any], question: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate one reader outcome from its page assignments, not a second unit plan."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    pages = audit_pages_for_question(case, question["id"])
+    if not pages:
+        errors.append("尚未通过 audit-next 分配任何用户页面")
+    evidence_paths = {split_source_ref(item["ref"])[1] for item in question["evidence"]}
+    recorded_paths = set(question["knowledge_paths"])
+    for page in pages:
+        page_path = page["path"]
+        candidate = root / page_path
+        plan = page.get("plan")
+        if not plan:
+            errors.append(f"页面尚未形成读者计划：{page_path}")
+        if page["status"] not in {"changed", "kept"}:
+            errors.append(f"页面尚未登记修改或保留决定：{page_path}")
+        if page_path not in recorded_paths:
+            errors.append(f"record 尚未登记本问题页面：{page_path}")
+        if not candidate.is_file():
+            errors.append(f"候选页面不存在：{page_path}")
+            continue
+        text = candidate.read_text(encoding="utf-8")
+        placeholders = unresolved_template_placeholders(text)
+        if placeholders:
+            errors.append(
+                f"候选页面仍含模板占位符：{page_path}：{', '.join(placeholders[:3])}"
+            )
+        canonical_path = page_path.removeprefix("draft/")
+        original = baseline_paths(case).get(canonical_path)
+        unchanged = (
+            original is not None and digest_bytes(candidate.read_bytes()) == original["sha256"]
+        )
+        if page["status"] == "changed" and unchanged:
+            errors.append(f"登记为已改的页面仍与正式知识相同：{page_path}")
+        if page["status"] == "kept" and not unchanged:
+            errors.append(f"登记为保留的页面已经发生变化：{page_path}")
+        if plan and page["status"] == "changed":
+            headings = {
+                re.sub(r"[`*_~]", "", heading).strip().casefold()
+                for heading in re.findall(r"^##\s+(.+?)\s*$", text, re.MULTILINE)
+            }
+            missing_sections = [
+                item
+                for item in plan["target_sections"]
+                if re.sub(r"[`*_~]", "", item).strip().casefold() not in headings
+            ]
+            if missing_sections:
+                errors.append(
+                    f"页面没有兑现目标章节：{page_path}：" + "；".join(missing_sections)
+                )
+        relative = page_path.removeprefix("draft/knowledge/")
+        if relative not in evidence_paths and f"knowledge/{relative}" not in evidence_paths:
+            errors.append(f"页面没有读取同名直接来源：{page_path}")
+    if question["active_packet"]:
+        errors.append("当前小批页面尚未 record")
+    if question["candidate_queue"]:
+        errors.append(f"仍有 {len(question['candidate_queue'])} 项相关候选未处理")
+    if question["status"] == "working":
+        errors.append("问题仍处于处理中")
+    if question["status"] in {"answered", "partial", "conflict"} and not question["evidence"]:
+        errors.append("问题没有直接来源证据")
+    if question["status"] in {"partial", "external_missing", "conflict"}:
+        if not question["missing"]:
+            errors.append("未说明缺失或冲突内容")
+        if not question["next_action"]:
+            errors.append("未说明下一补充动作")
+    pending_runs = question.get("pending_run_ids", [])
+    if pending_runs:
+        errors.append(
+            "以下运行结果尚未写回规范知识并登记：" + ", ".join(pending_runs)
+        )
+    report = validate_bundle(
+        root / "draft" / "knowledge", root / "draft" / "config" / "knowledge-domains.yaml"
+    )
+    errors.extend(f"知识结构：{item}" for item in report.errors)
+    relative_paths = {
+        item["path"].removeprefix("draft/knowledge/") for item in pages
+    }
+    warnings.extend(
+        f"知识结构：{item}"
+        for item in report.warnings
+        if any(item.startswith(path + ":") for path in relative_paths)
+    )
+    return {
+        "question_id": question["id"],
+        "ready": not errors,
+        "status": question["status"],
+        "errors": list(dict.fromkeys(errors)),
+        "warnings": list(dict.fromkeys(warnings)),
+    }
+
+
 def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -> dict[str, Any]:
+    if case.get("reader_audit", {}).get("required"):
+        return check_audit_question(root, case, question)
     errors: list[str] = []
     warnings: list[str] = []
     if not question["expected_units"]:
@@ -3077,11 +3288,20 @@ def review_case(args: argparse.Namespace) -> int:
     audit = case.get("reader_audit", {})
     pending = [item["path"] for item in audit.get("pages", []) if item["status"] == "pending"]
     generate_review(root, case)
+    errors: list[str] = []
     if audit.get("required") and pending:
+        errors.append(f"仍有 {len(pending)} 个用户可见页面未审视")
+    if audit.get("required") and not pending:
+        for question in case["questions"]:
+            report = check_question(root, case, question)
+            errors.extend(
+                f"{question['id']}：{item}" for item in report["errors"]
+            )
+    if errors:
         print(json.dumps({
             "review": str(root / "review.md"),
             "ready": False,
-            "errors": [f"仍有 {len(pending)} 个用户可见页面未审视"],
+            "errors": errors,
             "next_pending": pending[:12],
         }, ensure_ascii=False, indent=2))
         return 1
@@ -3165,6 +3385,14 @@ def status_case(args: argparse.Namespace) -> int:
                     }
                     for unit in item["expected_units"]
                 ],
+                "audit_pages": [
+                    {
+                        "path": page["path"],
+                        "status": page["status"],
+                        "decision": (page.get("plan") or {}).get("decision"),
+                    }
+                    for page in audit_pages_for_question(case, item["id"])
+                ],
                 "run_ids": item["run_ids"],
                 "pending_run_ids": item.get("pending_run_ids", []),
                 "next": item["next_action"],
@@ -3223,6 +3451,14 @@ def build_parser() -> argparse.ArgumentParser:
     question.add_argument("--text", required=True)
     question.set_defaults(func=add_question)
 
+    question_drop = subparsers.add_parser(
+        "question-drop", help="撤销一个尚未取得证据、绑定页面或产生结果的误建问题"
+    )
+    question_drop.add_argument("case_id")
+    question_drop.add_argument("question_id")
+    question_drop.add_argument("--reason", required=True)
+    question_drop.set_defaults(func=drop_question)
+
     unit = subparsers.add_parser("plan-unit", help="为一个读者问题规划规范知识落点")
     unit.add_argument("case_id")
     unit.add_argument("question_id")
@@ -3246,7 +3482,10 @@ def build_parser() -> argparse.ArgumentParser:
     page_plan.add_argument("case_id")
     page_plan.add_argument("path")
     page_plan.add_argument("--decision", choices=("change", "keep"), required=True)
-    page_plan.add_argument("--reader-question", required=True)
+    page_plan.add_argument(
+        "--reader-question",
+        help="兼容旧调用；默认直接使用页面所属读者问题，不需要重复填写",
+    )
     page_plan.add_argument("--reason", required=True)
     page_plan.add_argument("--target-section", action="append", default=[])
     page_plan.set_defaults(func=plan_audit_page)
@@ -3395,7 +3634,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action in {
-            "question-add", "plan-unit", "keep-unit", "audit-plan", "audit-next", "audit-pages", "next", "finding-add", "record-material", "material-reopen", "plan-reopen",
+            "question-add", "question-drop", "plan-unit", "keep-unit", "audit-plan", "audit-next", "audit-pages", "next", "finding-add", "record-material", "material-reopen", "plan-reopen",
             "topic-add", "plan-review", "record-topic", "record", "stop-search",
             "check-unit", "run", "review",
         }:

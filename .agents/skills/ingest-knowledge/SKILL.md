@@ -234,7 +234,9 @@ python scripts/ingestion_workspace.py start <case-id> \
 python scripts/ingestion_workspace.py audit-pages <case-id>
 ```
 
-按**同一个读者结果、一次最多三个页面**拆成小组；不得先用“了解全貌”之类宽泛目标通读整库，也不得读取 `.state/` 或工作台源码来盘点页面或猜命令。现有问题不够时先用 `question-add` 新增明确读者问题，再让工作台取得本组同名正式页和所需写作指导：
+按**同一个读者结果、一次最多三个页面**拆成小组；一个读者问题可以连续处理多组页面，不受普通聚焦模式“三个规范落点”的限制。不得先用“了解全貌”之类宽泛目标通读整库，也不得读取 `.state/` 或工作台源码来盘点页面或猜命令。只有下一组页面确实服务于另一种独立理解或行动结果时，才用 `question-add` 新增问题；不要预先建一批重叠问题。
+
+让工作台把本组页面绑定到读者问题，并返回同名正式页、写作指导和必须保留的机器结构：
 
 ```bash
 python scripts/ingestion_workspace.py audit-next <case-id> <question-id> \
@@ -242,13 +244,12 @@ python scripts/ingestion_workspace.py audit-next <case-id> <question-id> \
   [--page 'draft/knowledge/<second-page.md>']
 ```
 
-只读取 `audit-next` 返回的 `absolute_path` 和 `required_guidance`。对每页完整执行[读者优先的知识表达](references/reader-first-writing.md)中的完成前检查，然后**先计划，后写作**：
+只读取 `audit-next` 返回的 `absolute_path`、`required_guidance` 和 `required_structure`。`required_structure`（例如已有 frontmatter 和一级标题 `# Citations`）是可重建知识结构所需的外壳；保留它不妨碍正文使用自然、直观的中文标题。对每页完整执行[读者优先的知识表达](references/reader-first-writing.md)中的完成前检查，然后**先计划，后写作**：
 
 ```bash
 python scripts/ingestion_workspace.py audit-plan <case-id> \
   'draft/knowledge/<page.md>' \
   --decision change \
-  --reader-question '<这页独立回答哪个读者问题>' \
   --reason '<当前结构为何妨碍理解，需要怎样调整>' \
   --target-section '<目标一级章节>' \
   --target-section '<下一目标一级章节>'
@@ -256,31 +257,16 @@ python scripts/ingestion_workspace.py audit-plan <case-id> \
 
 目标章节是页面内容主线，不是为了通过检查而复制模板。整改不能退化为只清理批次术语、增加导航或给旧句加粗；只要页面责任、概览、主线、同维度比较、重点层次、图文互补、现实边界或软件讲解仍不能支持目标读者，就应重组相应内容并保留全部有效细节。特别是软件页要从真实业务动作解释结构、对象、调用和数据转换，不因原文已经有 4+1、分层或设计模式名称就判定合格。
 
-如果逐项检查后页面已经满足目标，不要为了通过工具制造差异。先登记保留计划；规范正文仍需 `plan-unit` 后再登记保持不变：
+如果逐项检查后页面已经满足目标，不要为了通过工具制造差异。直接登记保留计划：
 
 ```bash
 python scripts/ingestion_workspace.py audit-plan <case-id> \
   'draft/knowledge/<page.md>' \
   --decision keep \
-  --reader-question '<这页独立回答哪个读者问题>' \
   --reason '<对照哪些读者结果后确认结构与细节已经足够>'
-
-python scripts/ingestion_workspace.py keep-unit <case-id> <question-id> <unit-id> \
-  --reason '<对照哪些读者结果后确认无需修改>'
 ```
 
-`index.md` 只负责导航，不作为 `plan-unit` 的规范正文；其他规范页按当前问题规划一至三个 `plan-unit`。形成候选后，`record` 原样登记 `audit-next` 返回的本批 `ref`，并为本问题的每个计划页重复传入 `--knowledge`：
-
-```bash
-python scripts/ingestion_workspace.py record <case-id> <question-id> \
-  --status answered \
-  --summary '<本组页面现在让读者理解或完成什么>' \
-  --source '<first-ref>' [--source '<second-ref>'] \
-  --knowledge 'draft/knowledge/<first-canonical-page.md>' \
-  [--knowledge 'draft/knowledge/<second-canonical-page.md>']
-```
-
-每完成一小组，把真实决定写入整库清单；计划修改的页面必须真实出现声明的目标章节。理由说明读者结果或实际改进，不写“为了通过检查”：
+整库模式中，`audit-plan` 是唯一页面计划；**不要再运行 `plan-unit` 或 `keep-unit`**。形成候选后，先把本组每页的真实决定写入整库清单；计划修改的页面必须真实出现声明的目标章节。理由说明读者结果或实际改进，不写“为了通过检查”：
 
 ```bash
 python scripts/ingestion_workspace.py audit-pages <case-id> \
@@ -288,7 +274,23 @@ python scripts/ingestion_workspace.py audit-pages <case-id> \
   --kept 'draft/knowledge/<other.md>=<为何现状已经足够>'
 ```
 
-长入口页和各级 `index.md` 也在清单中；它们可以随正文和具名产品视图同步调整，不作为 `plan-unit` 的规范正文。运行 `status` 可直接查看每个问题的计划页、修改/保留状态和最多三个下一待审页面，不读取内部状态。完成标准是待审页面为 0、每个读者问题通过 `check-unit`、`review` 返回 `ready: true`，并从根入口实际走通默认学习路线和任务入口。
+随后用 `record` 原样登记 `audit-next` 返回的本批 `ref`。工作台根据页面绑定自动登记本批入口、正文和视图；不要重复传 `--knowledge`：
+
+```bash
+python scripts/ingestion_workspace.py record <case-id> <question-id> \
+  --status answered \
+  --summary '<本组页面现在让读者理解或完成什么>' \
+  --source '<first-ref>' [--source '<second-ref>']
+```
+
+误建的问题只有在**尚未绑定页面、取得证据或产生结果**时才能安全撤销：
+
+```bash
+python scripts/ingestion_workspace.py question-drop <case-id> <question-id> \
+  --reason '<为何它与现有读者结果重复或不再需要>'
+```
+
+长入口页和各级 `index.md` 也使用同一页面小批，不需要伪装成规范知识单元。运行 `status` 可直接查看每个问题绑定的页面、修改/保留状态和最多三个下一待审页面，不读取内部状态。一个读者问题的相关页面全部处理后运行 `check-unit`。整库完成标准是待审页面为 0、每个保留的问题都通过 `check-unit`、`review` 返回 `ready: true`，并从根入口实际走通默认学习路线和任务入口。
 
 ### 3.2 有界问题与代码整理
 
