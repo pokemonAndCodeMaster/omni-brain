@@ -181,12 +181,13 @@ python scripts/ingestion_workspace.py plan-reopen <case-id> \
 - 知识总入口：[root-entry.md](assets/root-entry.md)；
 - 通用规范页：[knowledge-page.md](assets/knowledge-page.md)；
 - 领域全貌：[domain-overview.md](assets/domain-overview.md)；
+- 未知与冲突：[open-questions.md](assets/open-questions.md)；
 - 软件结构：[software-architecture.md](assets/software-architecture.md)；
 - 产品视图：[product-view.md](assets/product-view.md)；
 - 来源记录：[source-record.md](assets/source-record.md)；
 - 公共能力抽取审查：[shared-capability-review.md](assets/shared-capability-review.md)。
 
-模板选择不是自由抽样：总入口必须读 `root-entry.md`，领域 `overview.md` 必须读 `domain-overview.md`，`plan-unit --kind software` 必须读 `software-architecture.md`，其他规范正文读 `knowledge-page.md`，具名视图读 `product-view.md`。同一页面只加载与其责任直接相关的模板，不因一次任务有三类页面就把所有模板预读一遍。
+模板选择不是自由抽样：总入口必须读 `root-entry.md`，领域 `overview.md` 必须读 `domain-overview.md`，用途是集中管理未知、冲突和补知责任的页面必须读 `open-questions.md`，`plan-unit --kind software` 必须读 `software-architecture.md`，其他规范正文读 `knowledge-page.md`，具名视图读 `product-view.md`。同一页面只加载与其责任直接相关的模板，不因一次任务有三类页面就把所有模板预读一遍。
 
 先逐项比较 `next` 返回的核心结论、关键细节、定位和边界，再组织正文。正文必须充分内化输入、转换、输出、条件、边界、失败方式和继续工作入口；不能只保留发现的概括句而丢掉机制、字段变化、算法步骤、类函数或责任。引用只负责追溯，不能替代内容。章节先说明作用或核心判断；只加粗决定理解或行动的关键词、关系和限制。图表回答一个主要问题，并在邻近表格或段落补足图上没有的输入输出、约束和异常。
 
