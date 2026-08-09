@@ -55,10 +55,11 @@ class HarnessContractTest(unittest.TestCase):
 
     def test_root_contract_keeps_ingestion_source_reads_in_current_packet(self) -> None:
         contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        self.assertIn("第一次来源操作必须是按 Skill 直接运行 `start`", contract)
-        self.assertIn("不得在 `start/next` 之前", contract)
-        self.assertIn("先用工作台 `next` 取得当前材料单元、主题或聚焦小批", contract)
-        self.assertIn("不得绕过它递归搜索", contract)
+        self.assertIn("第一次来源操作必须直接运行 `start`", contract)
+        self.assertIn("整库阅读审视使用 `audit-pages → audit-next`", contract)
+        self.assertIn("不得在相应工作台命令返回路径前", contract)
+        self.assertIn("只读取当前分支返回的精确路径", contract)
+        self.assertIn("不得绕过工作台递归搜索", contract)
         self.assertIn("临时 Git worktree", contract)
 
     def test_existing_knowledge_queries_do_not_trigger_ingestion(self) -> None:
@@ -190,6 +191,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("`required_structure`", skill)
         self.assertIn("question-drop", skill)
         self.assertIn("不要再运行 `plan-unit` 或 `keep-unit`", skill)
+        self.assertIn("## 0. 第一个来源动作", skill)
+        self.assertIn("正式 `knowledge/` 虽然是直接事实源", skill)
         reader_first = (references / "reader-first-writing.md").read_text(encoding="utf-8")
         self.assertIn("## 2. 使用自顶向下的页面主线", reader_first)
         self.assertIn("## 4. 让表达形式匹配信息关系", reader_first)

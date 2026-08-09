@@ -14,6 +14,18 @@ description: >
 
 机器状态只保存在 `.state/case.json` 和 `.state/source-manifest.jsonl`。使用工作台命令读写状态，不手工编辑这两个文件，也不把它们交给用户维护。
 
+## 0. 第一个来源动作
+
+先选模式，再执行对应的唯一入口。**在工作台返回精确路径前，不读取、列举或搜索来源和 `knowledge/`，也不查看 `workspaces/` 猜测状态。**
+
+| 任务形态 | 唯一首轮 | 首次允许读取的内容 |
+|---|---|---|
+| 从一批新材料建立或增量融合知识 | `start --mode complete → survey → next` | `next` 返回的当前材料组成员 |
+| 围绕明确问题或代码动作整理 | `start --mode focused → plan-unit → next` | `next` 返回的当前来源小批 |
+| 整体整改已有知识的阅读体验 | `start --mode focused --audit-all-user-pages → audit-pages → audit-next` | `audit-next` 返回的 `absolute_path` 与写作指导 |
+
+整库模式中，正式 `knowledge/` 虽然是直接事实源，也只能通过 `audit-next` 按一至三个页面读取；`audit-pages` 的公开清单已经足够选择第一组，不需要先通读正文。选定模式后不要混用另一模式的命令。
+
 ## 1. 选择最低充分模式
 
 - **宽范围完整整理（`complete`）**：用户交来一个领域、模块或混合材料包，希望从零建立知识，或需要从新增材料中发现应怎样有机融入现有知识。先审视本次材料地图和读后发现，再对照已有知识规划目录。不要在读材料前猜主题或现实身份。
