@@ -312,7 +312,7 @@ class IngestionWorkspaceTest(unittest.TestCase):
             "start", "reader-case",
             "--goal", "统一审视现有知识的阅读体验",
             "--reader", "第一次接触项目的读者",
-            "--source", f"app={self.source}",
+            "--source", f"current-knowledge={self.harness / 'knowledge'}",
             "--question", "现有知识是否可以直接阅读？",
             "--audit-all-user-pages",
         )
@@ -324,11 +324,85 @@ class IngestionWorkspaceTest(unittest.TestCase):
         case = json.loads((self.cases / "reader-case" / ".state" / "case.json").read_text())
         arguments = ["audit-pages", "reader-case"]
         for page in case["reader_audit"]["pages"]:
+            planned = self.run_tool(
+                "audit-plan", "reader-case", page["path"],
+                "--decision", "keep",
+                "--reader-question", "这页是否已经能直接支持目标读者？",
+                "--reason", "逐页核对后结构和信息已经满足当前读者结果",
+            )
+            self.assertEqual(0, planned.returncode, planned.stderr)
             arguments.extend(["--kept", f"{page['path']}=逐页核对后无需修改"])
         audited = self.run_tool(*arguments)
         self.assertEqual(0, audited.returncode, audited.stderr)
         ready = self.run_tool("review", "reader-case")
         self.assertEqual(0, ready.returncode, ready.stdout + ready.stderr)
+
+    def test_reader_audit_uses_public_small_page_packet_and_guidance(self) -> None:
+        result = self.run_tool(
+            "start", "reader-packet",
+            "--goal", "统一审视现有知识的阅读体验",
+            "--reader", "第一次接触项目的读者",
+            "--source", f"current-knowledge={self.harness / 'knowledge'}",
+            "--question", "知识入口能否建立清楚的第一条路线？",
+            "--audit-all-user-pages",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        inventory = self.run_tool("audit-pages", "reader-packet")
+        self.assertEqual(0, inventory.returncode, inventory.stderr)
+        payload = json.loads(inventory.stdout)
+        self.assertEqual("draft/knowledge/index.md", payload["pages"][0]["path"])
+        page_packet = self.run_tool(
+            "audit-next", "reader-packet", "q-001",
+            "--page", "draft/knowledge/index.md",
+        )
+        self.assertEqual(0, page_packet.returncode, page_packet.stderr)
+        packet = json.loads(page_packet.stdout)["pages"][0]
+        self.assertEqual("current-knowledge:index.md", packet["ref"])
+        self.assertEqual(str(self.harness / "knowledge" / "index.md"), packet["absolute_path"])
+        self.assertTrue(any(path.endswith("assets/root-entry.md") for path in packet["required_guidance"]))
+
+        regular_next = self.run_tool(
+            "next", "reader-packet", "q-001", "--source-ref", "current-knowledge:index.md",
+        )
+        self.assertNotEqual(0, regular_next.returncode)
+        self.assertIn("audit-next", regular_next.stderr)
+
+    def test_changed_audit_page_must_realize_planned_sections(self) -> None:
+        result = self.run_tool(
+            "start", "reader-outline",
+            "--goal", "让知识入口具有清楚主线",
+            "--reader", "第一次接触项目的读者",
+            "--source", f"current-knowledge={self.harness / 'knowledge'}",
+            "--question", "知识入口能否说明范围和阅读顺序？",
+            "--audit-all-user-pages",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        planned = self.run_tool(
+            "audit-plan", "reader-outline", "draft/knowledge/index.md",
+            "--decision", "change",
+            "--reader-question", "这套知识覆盖什么以及从哪里开始？",
+            "--reason", "现有入口只有链接，没有范围和阅读主线",
+            "--target-section", "知识范围",
+            "--target-section", "阅读顺序",
+        )
+        self.assertEqual(0, planned.returncode, planned.stderr)
+        candidate = self.cases / "reader-outline" / "draft" / "knowledge" / "index.md"
+        candidate.write_text("# 知识入口\n\n## 知识范围\n\n当前范围。\n", encoding="utf-8")
+        missing = self.run_tool(
+            "audit-pages", "reader-outline",
+            "--changed", "draft/knowledge/index.md=补充范围和阅读顺序",
+        )
+        self.assertNotEqual(0, missing.returncode)
+        self.assertIn("阅读顺序", missing.stderr)
+        candidate.write_text(
+            "# 知识入口\n\n## 知识范围\n\n当前范围。\n\n## 阅读顺序\n\n从这里开始。\n",
+            encoding="utf-8",
+        )
+        accepted = self.run_tool(
+            "audit-pages", "reader-outline",
+            "--changed", "draft/knowledge/index.md=补充范围和阅读顺序",
+        )
+        self.assertEqual(0, accepted.returncode, accepted.stderr)
 
     def write_candidate(self, case: Path, *, stale: bool = False) -> None:
         knowledge = case / "draft" / "knowledge"
