@@ -7,13 +7,27 @@ tags: [manual-qc, acceptance, prototype, code]
 
 # 人工质检验收当前仓库原型
 
-## 当前原型只走到 Ratio 数量预览
+## 本页导航
 
-固定提交 `3cf393479d59dae57280df3c80a1ff213a936909` 实现了任务查询、日期展开和 Ratio 数量预览，前端、API、Service、纯算法、Repository 和数据库公共组件都有对应代码。
+- [原型能力概览](#原型能力概览)
+- [能力边界](#能力边界)
+- [API 入口](#api-入口)
+- [前端交互](#前端交互)
+- [Python 代码结构](#python-代码结构)
+- [预览持久化](#预览持久化)
+- [数据库迁移与查询缺口](#数据库迁移与查询缺口)
+- [测试证据](#测试证据)
+- [设计评价](#设计评价)
 
-这条链路没有选择具体 task、正式分配、形成结论、通过/打回、调用外部系统或跟踪返工。代码与测试存在只能证明固定提交中的局部行为，不能证明服务已经部署或真实数据库 Schema 兼容。
+## 原型能力概览
+
+**已实现范围：** 固定提交 `3cf393479d59dae57280df3c80a1ff213a936909` 实现了任务查询、日期展开和 Ratio 数量预览，前端、API、Service、纯算法、Repository 和数据库公共组件都有对应代码。
+
+**未实现范围：** 这条链路没有选择具体 task、正式分配、形成结论、通过/打回、调用外部系统或跟踪返工。代码与测试存在只能证明固定提交中的局部行为，不能证明服务已经部署或真实数据库 Schema 兼容。
 
 ## 能力边界
+
+**能力位置：** 下图按业务推进顺序区分当前已实现和后续未实现环节，表格补充每一阶段可以证明的结果。
 
 ```mermaid
 flowchart LR
@@ -36,6 +50,8 @@ flowchart LR
 
 ## API 入口
 
+**接口范围：** 当前 API 只提供查询、日期下钻、能力声明和数量预览的创建与读取。
+
 | 方法与路径 | 当前行为 |
 |---|---|
 | `POST /api/v1/manual-qc/acceptance/tasks/query` | 按 name、topic、priority、status 过滤，分页和排序 |
@@ -46,7 +62,7 @@ flowchart LR
 
 ## 前端交互
 
-`AcceptanceQueueView.vue` 已经把当前后端能力接成一条可读界面链：
+**交互主线：** `AcceptanceQueueView.vue` 已经把当前后端能力接成一条可读界面链：
 
 ```mermaid
 flowchart LR
@@ -70,6 +86,8 @@ flowchart LR
 
 ## Python 代码结构
 
+**代码地图：** 下表从接口入口向算法和数据访问列出当前链路的实际文件职责。
+
 | 文件 | 当前实际职责 |
 |---|---|
 | `src/manual_qc/acceptance/router.py` | FastAPI 路由、操作者请求头和错误映射 |
@@ -88,6 +106,8 @@ flowchart LR
 
 ## 预览持久化
 
+**持久化目的：** 预览表保存一次数量计算的请求、结果、来源版本和有效期，但不冻结具体执行任务。
+
 `t_qc_operation_preview` 保存：
 
 - `preview_id`、操作类型、创建人、状态和有效期；
@@ -100,6 +120,8 @@ flowchart LR
 
 ## 数据库迁移与查询缺口
 
+**核心缺口：** 当前迁移没有创建 Repository 查询依赖的日快照表，代码与目标材料的字段版本也不完全一致。
+
 迁移 `20260705_acceptance_vertical_slice.sql` 创建：
 
 - `t_qc_delivery_task`；
@@ -109,6 +131,8 @@ flowchart LR
 Repository 查询依赖 `t_qc_daily_snapshot`，该迁移没有创建此表。代码和目标材料对 `acceptance_submitted/completed` 等字段也存在版本差异。因此当前提交不能证明空库初始化后端到端查询可运行。
 
 ## 测试证据
+
+**证据范围：** 当前测试验证局部 Python 行为和接口组装，不验证真实数据库、生产字段或完整用户路径。
 
 7 项聚焦测试覆盖：
 
@@ -123,6 +147,8 @@ Repository 查询依赖 `t_qc_daily_snapshot`，该迁移没有创建此表。�
 这些测试使用 `FakePostgres` 或小型内存 Repository。它们可以证明局部 Python 行为，不证明真实 PostgreSQL SQL、生产字段、外部任务状态或完整用户路径。
 
 ## 设计评价
+
+**评价范围：** 下面只评价当前纵向切片怎样组织代码，以及继续扩展时最可能受影响的边界。
 
 | 判断 | 当前结论 | 影响 |
 |---|---|---|

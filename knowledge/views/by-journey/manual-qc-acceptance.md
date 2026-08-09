@@ -1,25 +1,33 @@
 ---
 type: Navigation View
 title: 人工质检验收学习与任务旅程
-description: 按先业务、再数据与规则、最后软件和代码的顺序学习当前候选知识。
+description: 按先业务、再数据与规则、最后软件和代码的顺序学习人工质检验收，并按任务快速进入相关知识。
 tags: [view, journey, learning, manual-qc, acceptance]
 ---
 
 # 人工质检验收学习与任务旅程
 
-## 业务全貌与继续工作的入口
+## 本页导航
 
-[质检领域](../../domains/quality/overview.md) → [人工质检总览](../../domains/quality/manual/overview.md) → [交付与行动项](../../domains/quality/manual/delivery-management.md) → [人员与权限](../../domains/quality/manual/personnel-and-permissions.md) → [统一数据工作台](../../capabilities/quality-data-workbench.md)
+- [学习目标与边界](#学习目标与边界)
+- [学习层次](#学习层次)
+- [完整学习路线](#完整学习路线)
+- [业务动作路径](#业务动作路径)
+- [按问题快速进入](#按问题快速进入)
+- [继续核验](#继续核验)
 
-[平台与模块地图](../../domains/quality/manual/platform-and-module-map.md) · [业务到组件、代码与证据地图](../../domains/quality/manual/acceptance/implementation-map.md) · [前端状态与验收工作台](../../domains/quality/manual/acceptance/python-architecture-and-implementation.md)
+## 学习目标与边界
 
-## 学完这条路线应当获得什么
+**本页用途：** 把同一套规范知识组织成完整学习、业务动作追踪和问题直达三种用法。完成学习后，读者应能说明验收是什么、历史流程怎样运行、目标平台怎样分层、当前代码走到了哪里，以及哪些生产问题仍不能可靠回答。
 
-这条路线把同一套知识组织成完整学习、业务动作追踪和问题直达三种用法。完成学习后，读者应能说明验收是什么、历史流程怎样运行、目标平台怎样分层、当前代码走到了哪里，以及哪些生产问题仍不能可靠回答。
+**领域入口：** [质检领域](../../domains/quality/overview.md) → [人工质检全貌](../../domains/quality/manual/overview.md) → [人工质检验收总览](../../domains/quality/manual/acceptance/overview.md)。交付、人员和统一工作台是人工质检全貌中的相邻主题，不替代验收学习主线。
 
-当前候选不能充当当前生产操作手册或完整交付管理手册；它已提供交付、人员权限和共享工作台的目标边界，但真实操作和开发任务仍需进入相应规范页与直接事实源核验。
+**使用边界：** 这条路线不能充当当前生产操作手册或完整交付管理手册。交付、人员权限和共享工作台页面主要说明业务与目标边界；真实操作和开发任务仍需进入相应规范页与直接事实源核验。
+
 
 ## 学习层次
+
+**组织顺序：** 先定位验收在业务中的位置，再理解业务闭环、规则与数据，最后进入系统、代码和现实核验。
 
 ```mermaid
 flowchart LR
@@ -41,6 +49,8 @@ flowchart LR
 
 ## 完整学习路线
 
+**默认顺序：** 下列页面按依赖关系排列。已有背景时可以从中间进入，但软件细节不能替代前面的业务与数据语义。
+
 1. [领域位置](../by-domain/quality.md)
 2. [验收总览](../../domains/quality/manual/acceptance/overview.md)
 3. [验收生命周期](../../domains/quality/manual/acceptance/lifecycle.md)
@@ -54,6 +64,8 @@ flowchart LR
 
 ## 业务动作路径
 
+**流程用途：** 沿一次验收从已有标注结果走到最终状态，定位当前知识和代码分别覆盖哪一步。
+
 ```text
 已有标注结果
 → 选择验收范围
@@ -65,9 +77,11 @@ flowchart LR
 → 回查最终状态
 ```
 
-固定提交当前仍只覆盖这条链中的“查询范围 → Ratio 数量预览 → 保存/读取预览”；候选新增的交付、人员权限和工作台内容是业务/目标设计知识，不改变这一固定代码事实，其他验收步骤要么只有历史记录，要么只有目标方案。
+当前代码仍只覆盖这条链中的“查询范围 → Ratio 数量预览 → 保存/读取预览”；交付、人员权限和工作台内容是业务或目标设计知识，不改变这一代码事实，其他验收步骤要么只有历史记录，要么只有目标方案。
 
-## 问题捷径
+## 按问题快速进入
+
+**使用方法：** 问题明确时直接进入最小充分页面；需要完整背景时回到上面的学习路线。
 
 | 问题 | 先读 |
 |---|---|
@@ -78,6 +92,6 @@ flowchart LR
 | 代码怎样完成一次分配预览 | [Python 软件结构](../../domains/quality/manual/acceptance/python-architecture-and-implementation.md) |
 | 哪些内容仍不可信 | [未知与冲突](../../domains/quality/manual/acceptance/open-questions.md) |
 
-## 旅程边界与继续核验
+## 继续核验
 
-交付任务、行动项、人员权限和统一数据工作台已作为长期主题接入这条路线；它们描述业务边界与目标设计，不证明对应页面、API、SSO 或端到端执行已经部署。需要继续工作时，应从交付任务、人员模型、数据契约和直接源码/Schema 证据分别核验，不能把产品视图或材料中的完成声明当作实现事实。
+**核验原则：** 交付任务、行动项、人员权限和统一数据工作台描述业务边界与目标设计，不证明对应页面、API、SSO 或端到端执行已经部署。继续工作时，应从交付任务、人员模型、数据契约和直接源码/Schema 证据分别核验，不能把产品视图或材料中的完成声明当作实现事实。

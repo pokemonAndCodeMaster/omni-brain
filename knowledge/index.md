@@ -1,87 +1,109 @@
-# 人工质检与验收知识入口
+# 质检知识入口
 
-这套候选知识帮助没有背景的读者理解人工质检如何从需求登记、交付任务和行动项，经过数据准备、标注、验收、结论执行与返工，走到可交付结果；同时说明人员与权限、平台模块、统一数据工作台和当前仓库原型分别处于什么现实状态。
+## 本页导航
 
-内容按长期维护主题组织，融合了既有历史、目标设计、人工决定和当前原型证据。新增的交付、人员、平台共享能力和前端状态材料已经归入相应主题，但目标设计或材料中的完成声明不等于页面、API、SSO、生产数据库或端到端闭环已经部署。
+- [知识库定位](#知识库定位)
+- [知识地图与默认阅读顺序](#知识地图与默认阅读顺序)
+- [按工作目标快速进入](#按工作目标快速进入)
+- [知识覆盖与待确认事项](#知识覆盖与待确认事项)
+- [来源与维护信息](#来源与维护信息)
 
-## 第一次学习，从这条主线开始
+## 知识库定位
 
-1. [质检领域位置](views/by-domain/quality.md)：先分清质检、人工质检与验收的上下级关系，以及当前知识能讲到的深度。
-2. [人工质检全貌](domains/quality/manual/overview.md)：理解交付任务、规则与数据准备、标注、验收、结论执行、返工和交付确认之间的业务链。
-3. [交付与行动项](domains/quality/manual/delivery-management.md)：理解任务字段、四类状态轴、风险和非标准事项怎样支持持续推进。
-4. [验收总览](domains/quality/manual/acceptance/overview.md)：建立验收业务、数据、算法和软件的整体地图。
-5. [验收学习与任务旅程](views/by-journey/manual-qc-acceptance.md)：按“业务机制 → 数据与规则 → 软件实现 → 可信边界”继续深入。
+**本页用途：** 这里是质检知识的统一入口。读者可以先建立质检领域全貌，再逐层进入人工质检、验收、数据规则和软件实现，也可以根据当前工作直接进入相关主题。
 
-读完这条路线，应该能够解释交付完成为什么不等于标注任务创建、验收样本为什么不等于执行全集、PASS 为什么不等于交付完成，以及遇到生产问题时还缺哪些直接证据。
-
-## 已经知道问题时，直接进入对应主题
-
-| 想解决的问题 | 入口 | 继续下钻 |
+| 知识层级 | 主要内容 | 当前深度 |
 |---|---|---|
-| 人工质检和验收处于什么位置 | [领域视图](views/by-domain/quality.md) | [人工质检平台与模块](domains/quality/manual/platform-and-module-map.md) |
-| 一个交付任务怎样推进到可交付结果 | [交付与行动项](domains/quality/manual/delivery-management.md) | [人工质检全貌](domains/quality/manual/overview.md) |
-| 标注、验收、结论和执行有什么区别 | [验收生命周期](domains/quality/manual/acceptance/lifecycle.md) | [结论与执行](domains/quality/manual/acceptance/conclusion-and-execution.md) |
-| 人员、分组、SCD2 和权限怎样定义 | [人员与权限](domains/quality/manual/personnel-and-permissions.md) | [数据流与状态](domains/quality/manual/acceptance/data-flow-and-state.md) |
-| 统一数据工作台共享什么契约 | [统一数据工作台](capabilities/quality-data-workbench.md) | [平台与模块地图](domains/quality/manual/platform-and-module-map.md) |
-| 历史上怎样抽样和分配 | [采样与分配](domains/quality/manual/acceptance/sampling-and-assignment.md) | [历史来源](sources/historical-pipeline.md) |
-| task、scene、快照和预览怎样连接 | [数据流与状态](domains/quality/manual/acceptance/data-flow-and-state.md) | [当前原型](systems/manual-qc-acceptance-prototype.md) |
-| 一次分配预览怎样落到代码 | [Python 软件结构](domains/quality/manual/acceptance/python-architecture-and-implementation.md) | [业务到代码地图](domains/quality/manual/acceptance/implementation-map.md) |
-| 系统分层和调用顺序是什么 | [系统架构](domains/quality/manual/acceptance/system-architecture.md) | [数据库公共能力](capabilities/database-access.md) |
-| 当前到底实现了什么 | [当前原型](systems/manual-qc-acceptance-prototype.md) | [当前代码来源](sources/current-prototype.md) |
-| 哪些还不能回答 | [未知与冲突](domains/quality/manual/acceptance/open-questions.md) | [来源记录](sources/index.md) |
+| **质检领域** | • 四个业务模块<br>• 模块之间的基本关系<br>• 共享平台能力 | 已建立领域框架；除人工质检外的模块仍待补充 |
+| **人工质检** | • 需求与交付<br>• 数据、规则和人员准备<br>• 标注、验收、执行、返工和交付 | 已有目标业务链和部分现状；完整现实流程仍待补充 |
+| **人工质检验收** | • 验收流程<br>• 采样与分配<br>• 数据状态和结论执行<br>• 软件架构与当前代码 | 当前知识最深入，可支持学习和局部开发定位 |
 
-## 按知识主题浏览
+**使用边界：** 当前知识对人工质检验收最为完整，对大模型质检、自动化质检和专题数据质量只确认了领域位置，尚不足以解释其内部流程。规划方案、过去做法和当前代码会分别说明，不能相互替代。
 
-- 领域与业务全貌
-  - [质检领域位置](domains/quality/overview.md)
-  - [人工质检](domains/quality/manual/overview.md)
-  - [交付与行动项](domains/quality/manual/delivery-management.md)
-  - [人工质检平台与模块](domains/quality/manual/platform-and-module-map.md)
-  - [人工质检验收](domains/quality/manual/acceptance/overview.md)
-- 验收业务、规则与数据
-  - [生命周期](domains/quality/manual/acceptance/lifecycle.md)
-  - [采样与分配](domains/quality/manual/acceptance/sampling-and-assignment.md)
-  - [结论与执行](domains/quality/manual/acceptance/conclusion-and-execution.md)
-  - [数据流与状态](domains/quality/manual/acceptance/data-flow-and-state.md)
-- 人员与平台共享能力
-  - [人员与权限](domains/quality/manual/personnel-and-permissions.md)
-  - [统一数据工作台](capabilities/quality-data-workbench.md)
-- 软件与实现
-  - [系统架构](domains/quality/manual/acceptance/system-architecture.md)
-  - [Python 软件结构](domains/quality/manual/acceptance/python-architecture-and-implementation.md)
-  - [业务到代码地图](domains/quality/manual/acceptance/implementation-map.md)
-  - [当前仓库原型](systems/manual-qc-acceptance-prototype.md)
-  - [数据库访问](capabilities/database-access.md)
-  - [对象存储（当前仅能确认预留目录）](capabilities/object-storage.md)
-- 可信边界与追溯
-  - [来源记录](sources/index.md)
-  - [未知与冲突](domains/quality/manual/acceptance/open-questions.md)
+## 知识地图与默认阅读顺序
 
-## 当前知识能确认什么
+**组织逻辑：** 知识按“质检领域 → 人工质检 → 验收 → 业务、数据和软件专题”逐层展开。这个层级既是知识目录，也是默认阅读顺序；读者不需要在“大纲”“学习路线”和“主题浏览”之间反复选择。
 
-| 信息性质 | 当前候选能确认的内容 |
+~~~mermaid
+flowchart TD
+    Q[质检领域全貌]
+    Q --> H[人工质检]
+    Q --> L[大模型质检]
+    Q --> A[自动化质检]
+    Q --> D[专题数据质量]
+
+    H --> DM[需求与交付管理]
+    H --> RP[数据、规则与人员准备]
+    H --> AN[标注作业]
+    H --> AC[验收]
+    H --> EX[结论执行、返工与交付]
+
+    AC --> LC[生命周期]
+    AC --> SA[采样与分配]
+    AC --> DS[数据流与状态]
+    AC --> CE[结论与执行]
+    AC --> SW[软件架构与代码实现]
+~~~
+
+| 阅读层级 | 入口 | 主要回答 |
+|---:|---|---|
+| 1 | [质检领域全貌](domains/quality/overview.md) | 质检包含哪些业务模块，各模块是什么关系 |
+| 2 | [人工质检全貌](domains/quality/manual/overview.md) | 人工质检如何从需求和准备走到交付 |
+| 3 | [人工质检验收总览](domains/quality/manual/acceptance/overview.md) | 验收在人工质检中的位置、内部组成和完整闭环 |
+| 4 | [验收生命周期](domains/quality/manual/acceptance/lifecycle.md) · [采样与分配](domains/quality/manual/acceptance/sampling-and-assignment.md) · [数据流与状态](domains/quality/manual/acceptance/data-flow-and-state.md) · [结论与执行](domains/quality/manual/acceptance/conclusion-and-execution.md) | 按业务主线深入理解验收规则和数据 |
+| 5 | [系统架构](domains/quality/manual/acceptance/system-architecture.md) · [Python 软件结构](domains/quality/manual/acceptance/python-architecture-and-implementation.md) · [业务到代码地图](domains/quality/manual/acceptance/implementation-map.md) | 从业务进入组件、调用链、代码和修改入口 |
+
+## 按工作目标快速进入
+
+**使用方法：** 下列入口用于缩短查找路径，不是另一套知识分类。遇到复杂问题时，先读对应总览，再按需要进入一至三个专题。
+
+### 建立业务全貌
+
+| 当前目标 | 建议入口 |
 |---|---|
-| 业务与人工决定 | 交付任务主线、行动项、四类状态轴、验收边界、返工和可交付结果的定义线索 |
-| 历史做法 | 旧抽样、阈值、通过打回、状态刷新和中间表链路 |
-| 目标设计 | 交付中心、人员与权限、平台分层、统一数据工作台、快照、采样、规则、外部系统和 Repository 方案 |
-| 当前仓库原型 | 查询、按日展开、Ratio 数量规划、预览保存及对应前端边界 |
-| 当前生产 | 没有运行系统、生产 Schema、真实接口、SSO 和端到端执行证据，不能确认已部署或已闭环 |
+| 了解质检由哪些业务模块组成 | [质检领域全貌](domains/quality/overview.md) |
+| 了解人工质检的完整业务链 | [人工质检全貌](domains/quality/manual/overview.md) |
+| 了解验收为什么存在、怎样闭环 | [人工质检验收总览](domains/quality/manual/acceptance/overview.md) |
+| 了解需求怎样持续推进到交付 | [交付与行动项](domains/quality/manual/delivery-management.md) |
 
-正文区分 current_decision、target_design、historical、conflict 和 unknown；来源记录只用于追溯，不能替代正文中的业务机制、算法和软件结构说明。
+### 理解规则、数据与人员
 
-## 仍需补充或人工决定
+| 当前目标 | 建议入口 |
+|---|---|
+| 区分标注、验收、结论和执行 | [验收生命周期](domains/quality/manual/acceptance/lifecycle.md) |
+| 理解抽样数量、样本选择和任务分配 | [采样与分配](domains/quality/manual/acceptance/sampling-and-assignment.md) |
+| 理解任务、场景、快照、预览和状态 | [数据流与状态](domains/quality/manual/acceptance/data-flow-and-state.md) |
+| 理解人员变化、角色和权限边界 | [人员与权限](domains/quality/manual/personnel-and-permissions.md) |
 
-- 交付时间预测、留存率、验收通过率分母、Bad/打回原因和盖章完成条件等业务口径仍有未知或冲突，需由业务负责人裁决。
-- 人员 SCD2 与操作日志事务、真实 SSO 参数、权限接入、人员服务和前端字段适配仍缺直接实现证据。
-- API 状态码与批量上限、Delta 外部契约、Repository 事务、快照字段版本（旧标量或 JSONB）、DAG 和端到端刷新结果仍需源码、Schema、迁移或运行结果核验。
-- 真实交付中心、验收监控、返工跟踪、人员工作台和统一数据工作台的页面/API 是否部署，不能由目标设计或 Demo 描述推出。
-- 大模型质检、自动化质检和专题数据质量只保留领域位置，尚未形成同等深度的规范知识。
+### 开发、调试与方案设计
 
-## 管理导航
+| 当前目标 | 建议入口 |
+|---|---|
+| 理解当前系统分层和跨层调用 | [验收系统架构](domains/quality/manual/acceptance/system-architecture.md) |
+| 理解 Python 包、对象协作和一次真实调用 | [Python 软件结构与实现](domains/quality/manual/acceptance/python-architecture-and-implementation.md) |
+| 从业务能力定位到组件、代码和证据 | [业务到代码地图](domains/quality/manual/acceptance/implementation-map.md) |
+| 了解数据库连接、事务和领域 SQL 的分工 | [数据库访问公共能力](capabilities/database-access.md) |
+| 核对当前代码到底实现到哪里 | [当前验收原型](systems/manual-qc-acceptance-prototype.md) |
 
-- [产品视图](views/index.md)
+## 知识覆盖与待确认事项
+
+**判断原则：** “有设计材料”不等于“已经上线”，“代码存在”也不等于“生产环境已经运行”。同一张表中列出各层知识的覆盖、缺口和影响。
+
+| 知识层级 | 已经覆盖 | 仍需补充 | 缺口影响 |
+|---|---|---|---|
+| **质检领域** | • 四个业务模块的顶层位置<br>• 业务模块与共享能力的基本分工 | • 其他质检模块的目标、输入、输出和流程<br>• 四个模块的真实协作和运行现状 | 暂时不能完整解释一站式质检平台怎样运作 |
+| **人工质检** | • 从需求准备到标注、验收、执行、返工和交付的目标业务链<br>• 交付、人员、平台和验收的基本职责 | • 当前需求管理、标注作业和过程监控<br>• 当前负责人、数据来源、返工和交付条件 | 重构或新增复杂需求前仍需补齐现状 |
+| **人工质检验收** | • 验收业务闭环<br>• 采样、数据状态和结论执行<br>• 查询、按日展开和数量预览代码链路 | • 当前规则、指标公式和人员责任<br>• 真实数据库、接口、部署和端到端运行结果 | 可以学习和定位局部开发，不能作为生产操作手册 |
+| **软件与公共能力** | • 当前原型的前端、接口、服务、算法和数据访问入口<br>• 数据库访问与统一工作台的目标职责 | • 对象存储、权限接入和公共组件的现实实现<br>• 当前原型与真实数据库、生产环境的兼容情况 | 精确开发和运行仍需核对源码、数据库与现场结果 |
+
+更细的问题、影响和补充责任见[验收待确认事项](domains/quality/manual/acceptance/open-questions.md)。
+
+## 来源与维护信息
+
+这些页面用于追溯知识依据和变化过程，不是第一次学习的必读内容：
+
+- [来源记录](sources/index.md)
+- [知识变更日志](log.md)
+- [领域目录](domains/index.md)
 - [系统与实现](systems/index.md)
 - [公共能力](capabilities/index.md)
-- [领域目录](domains/index.md)
-- [来源](sources/index.md)
-- [变更日志](log.md)

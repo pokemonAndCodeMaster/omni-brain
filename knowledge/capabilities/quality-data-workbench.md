@@ -1,17 +1,21 @@
 ---
 type: Shared Capability
 title: 质检统一数据工作台
-description: 跨人工质检页面复用的表格、卡片、选择、预览和反馈契约候选。
+description: 说明跨人工质检页面复用的表格、卡片、选择、预览和反馈边界，以及公共交互与业务规则怎样分责。
 tags: [quality, shared, workbench]
 ---
 
 # 质检统一数据工作台
 
-## 共享边界
+## 工作台能力概览
 
-只有至少两个模块复用、或平台级交互必须一致的能力才上提为公共工作台；人工质检特有的采样、通过规则和交付语义留在业务模块。候选组件包括 AppShell、FilterBar、DataTable、DetailDrawer、StatusBadge、AsyncActionPanel、ConfirmDialog、CardShell 和 DashboardLayout。
+**能力定位：** 统一数据工作台为多个质检页面提供一致的数据浏览、选择、预览、执行反馈和布局能力，不拥有采样、结论或交付等业务规则。
+
+**抽取边界：** 只有至少两个模块复用、或平台级交互必须一致的能力才上提为公共工作台；人工质检特有的采样、通过规则和交付语义留在业务模块。目标组件包括 AppShell、FilterBar、DataTable、DetailDrawer、StatusBadge、AsyncActionPanel、ConfirmDialog、CardShell 和 DashboardLayout。
 
 ## 共同交互契约
+
+**交互主线：** 用户先确定范围并查看预览，系统在确认和执行前复核范围与版本，执行后区分即时结果与最终刷新状态。
 
 ```text
 筛选/选择 → 预览（冻结范围与时间）→ 确认 → 执行 → 刷新 → 显示成功、跳过、失败、未知
@@ -23,12 +27,10 @@ tags: [quality, shared, workbench]
 
 ## 安全边界
 
+**安全原则：** 布局配置只能控制呈现，不能隐藏或改变危险动作的权限、确认与审计语义。
+
 卡片只回答一个问题，布局可按权限、版本和用户保存；危险动作不能藏在布局配置中。加载、空态、部分失败、重复提交和重试都必须有明确反馈。数据工作台统一视觉和交互，不拥有各模块的业务规则。
 
 # Citations
 
 - [来源记录](../sources/index.md)
-
-## 来源
-
-直接材料：`batch-2:quality_check/质检一站式平台顶层架构.txt`、`batch-2:quality_check/质检平台可配置卡片布局组件设计.txt`、`batch-2:quality_check/质检平台开源数据工作台实现设计.txt`、`batch-2:quality_check/质检平台统一数据工作台组件设计.txt`、`batch-2:quality_check/质检平台-人工质检验收中心前端设计.txt`。
