@@ -1768,6 +1768,13 @@ def record_result(args: argparse.Namespace) -> int:
     active = {item["ref"]: item for item in question["active_packet"]}
     used = list(dict.fromkeys(args.source))
     used_runs = list(dict.fromkeys(args.run_id))
+    metadata_only_update = (
+        not active
+        and not used
+        and not used_runs
+        and bool(question["evidence"])
+        and not question["candidate_queue"]
+    )
     runs_by_id = {item["id"]: item for item in case.get("runs", [])}
     unknown_runs = [item for item in used_runs if item not in runs_by_id]
     if unknown_runs:
@@ -1790,13 +1797,20 @@ def record_result(args: argparse.Namespace) -> int:
     unused = [item for item in active if item not in used]
     if unused and not args.dismiss_unused:
         raise IngestionError("当前小批仍有未使用来源；提供 --dismiss-unused 说明整批剩余项为何不改变答案")
-    if not used and not used_runs and args.status in {"answered", "partial", "conflict"}:
+    if (
+        not used
+        and not used_runs
+        and args.status in {"answered", "partial", "conflict"}
+        and not metadata_only_update
+    ):
         raise IngestionError(f"{args.status} 至少需要一项当前直接来源或运行证据")
     if args.status == "answered" and args.missing:
         raise IngestionError("answered 不应同时登记 missing；应改为 partial")
     if args.status in {"partial", "external_missing", "conflict"} and not args.missing:
         raise IngestionError(f"{args.status} 必须说明缺失或冲突内容")
     knowledge_paths = [normalize_knowledge_path(item) for item in args.knowledge]
+    if metadata_only_update and not (knowledge_paths or question["knowledge_paths"]):
+        raise IngestionError("完成状态更新必须指向已形成的规范知识")
     if used_runs and not knowledge_paths:
         raise IngestionError("登记运行证据时必须用 --knowledge 指明已经写回的规范知识")
     for path in knowledge_paths:

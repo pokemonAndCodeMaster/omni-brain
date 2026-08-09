@@ -996,6 +996,44 @@ class IngestionWorkspaceTest(unittest.TestCase):
         self.assertIn("仍需补充或人工决定", review)
         self.assertIn("真实接口返回需要隔离运行验证", review)
 
+    def test_record_can_finalize_a_partial_answer_after_search_is_closed(self) -> None:
+        case = self.start()
+        self.plan()
+        self.write_candidate(case)
+        packet = self.get_packet()
+        refs = [item["ref"] for item in packet["packet"]]
+        arguments = [
+            "record", "sample-case", "q-001",
+            "--status", "partial",
+            "--summary", "来源已读，正文仍需完成",
+            "--source", refs[0],
+            "--knowledge", "draft/knowledge/systems/metric-flow.md",
+            "--missing", "正文仍需完成",
+        ]
+        if len(refs) > 1:
+            arguments.extend(["--dismiss-unused", "其余来源不改变当前结论"])
+        self.assertEqual(0, self.run_tool(*arguments).returncode)
+        self.assertEqual(
+            0,
+            self.run_tool(
+                "stop-search", "sample-case", "q-001",
+                "--reason", "直接来源已经充分",
+            ).returncode,
+        )
+
+        finalized = self.run_tool(
+            "record", "sample-case", "q-001",
+            "--status", "answered",
+            "--summary", "正文已经完成并保留先前直接证据",
+            "--knowledge", "draft/knowledge/systems/metric-flow.md",
+        )
+        self.assertEqual(0, finalized.returncode, finalized.stderr)
+        status = json.loads(self.run_tool("status", "sample-case").stdout)
+        self.assertEqual("answered", status["questions"][0]["status"])
+        review = (case / "review.md").read_text(encoding="utf-8")
+        self.assertIn("正文已经完成并保留先前直接证据", review)
+        self.assertNotIn("正文仍需完成", review)
+
     def test_stop_search_rejects_an_unrecorded_active_packet(self) -> None:
         self.start()
         self.get_packet()
