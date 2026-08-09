@@ -177,6 +177,24 @@ class IngestionWorkspaceTest(unittest.TestCase):
         result = self.run_tool(*arguments)
         self.assertEqual(0, result.returncode, result.stderr)
 
+    def test_focused_unit_rejects_index_with_navigation_recovery(self) -> None:
+        self.start()
+        result = self.run_tool(
+            "plan-unit",
+            "sample-case",
+            "q-001",
+            "root-entry",
+            "--title",
+            "知识总入口",
+            "--kind",
+            "other",
+            "--path",
+            "draft/knowledge/index.md",
+        )
+        self.assertEqual(2, result.returncode)
+        self.assertIn("index.md 是导航", result.stderr)
+        self.assertIn("配套入口同步更新", result.stderr)
+
     def write_candidate(self, case: Path, *, stale: bool = False) -> None:
         knowledge = case / "draft" / "knowledge"
         source_record = knowledge / "sources" / "app.md"

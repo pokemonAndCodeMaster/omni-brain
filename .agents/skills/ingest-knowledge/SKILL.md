@@ -177,6 +177,8 @@ python scripts/ingestion_workspace.py plan-reopen <case-id> \
 
 根据内容按需读取模板，不在开始时加载全部资产：
 
+- 形成或重构任何用户可见页面前，先读[读者优先的知识表达](references/reader-first-writing.md)；
+- 知识总入口：[root-entry.md](assets/root-entry.md)；
 - 通用规范页：[knowledge-page.md](assets/knowledge-page.md)；
 - 领域全貌：[domain-overview.md](assets/domain-overview.md)；
 - 软件结构：[software-architecture.md](assets/software-architecture.md)；
@@ -205,6 +207,8 @@ python scripts/ingestion_workspace.py record-topic <case-id> <topic-id> \
 聚焦模式保留已经验证的“小问题、小批来源、立即写知识”路径：
 
 启动前做一次简短的**目标覆盖**检查：用户承诺的每项结果都应由一个具体读者问题负责；不要让一两个局部问题悄悄替代完整请求。每题规划一至三个能够独立阅读和维护的规范落点；一个问题需要超过三篇正文时，先收束问题或调整知识地图，不用堆页面掩盖边界不清。
+
+聚焦任务需要新建或重构用户可见页面时，同样先读[读者优先的知识表达](references/reader-first-writing.md)，再按页面责任选择模板。`index.md` 是导航而非规范知识单元，不能作为 `plan-unit` 的实质落点；在正文和具名产品视图形成后同步更新相关 `index.md`，由知识结构检查验证链接。只调整导航时，不伪造新的业务来源或知识单元。
 
 ```bash
 python scripts/ingestion_workspace.py start <case-id> \

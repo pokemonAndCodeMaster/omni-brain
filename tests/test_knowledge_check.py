@@ -141,6 +141,23 @@ class KnowledgeCheckTest(unittest.TestCase):
             backlinks["domains/quality/policy.md"],
         )
 
+    def test_reader_facing_process_terms_warn_but_do_not_fail(self) -> None:
+        self.make_valid_slice()
+        page = self.knowledge / "domains/quality/policy.md"
+        page.write_text(
+            page.read_text(encoding="utf-8").replace(
+                "## 规则", "## 规则\n\n当前候选补充了 Batch 2，但 K0 仍沿用父版本。"
+            ),
+            encoding="utf-8",
+        )
+        result, report = self.run_check()
+        self.assertEqual(0, result.returncode, report)
+        warnings = "\n".join(report["warnings"])
+        self.assertIn("reader-facing page may expose ingestion process term", warnings)
+        self.assertIn("Batch 2", warnings)
+        self.assertIn("K0", warnings)
+        self.assertIn("父版本", warnings)
+
     def test_obsidian_link_and_broken_link_fail(self) -> None:
         (self.knowledge / "index.md").write_text(
             "# Knowledge\n\n[[Hidden]]\n\n[Missing](missing.md)\n",

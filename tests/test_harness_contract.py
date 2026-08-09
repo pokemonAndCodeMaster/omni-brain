@@ -140,6 +140,7 @@ class HarnessContractTest(unittest.TestCase):
 
     def test_ingestion_assets_drive_questions_sources_and_reading_routes(self) -> None:
         assets = ROOT / ".agents/skills/ingest-knowledge/assets"
+        references = ROOT / ".agents/skills/ingest-knowledge/references"
         product_view = (assets / "product-view.md").read_text(encoding="utf-8")
         software_architecture = (assets / "software-architecture.md").read_text(
             encoding="utf-8"
@@ -147,12 +148,12 @@ class HarnessContractTest(unittest.TestCase):
         shared_capability = (assets / "shared-capability-review.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("## 推荐路线：从全貌到细节", product_view)
-        self.assertIn("## 按问题查找", product_view)
+        self.assertIn("## 默认阅读顺序", product_view)
+        self.assertIn("## 按工作目标快速进入", product_view)
         self.assertIn("最小充分路线", product_view)
         self.assertIn("draft/knowledge/views/by-domain/<slug>.md", product_view)
         self.assertIn("不要另建 `draft/views/`", product_view)
-        self.assertIn("## 代码地图与职责", software_architecture)
+        self.assertIn("## 软件结构与职责", software_architecture)
         self.assertIn("## 核心对象和数据变化", software_architecture)
         self.assertIn("## 一次具体修改路径", software_architecture)
         self.assertIn("不要求先出现第二个外部领域", shared_capability)
@@ -166,6 +167,17 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不恢复逐文件 `mark`", skill)
         self.assertIn("目标覆盖", skill)
         self.assertIn("stop-search", skill)
+        self.assertIn("references/reader-first-writing.md", skill)
+        self.assertIn("assets/root-entry.md", skill)
+        reader_first = (references / "reader-first-writing.md").read_text(encoding="utf-8")
+        self.assertIn("## 2. 使用自顶向下的页面主线", reader_first)
+        self.assertIn("## 4. 让表达形式匹配信息关系", reader_first)
+        self.assertIn("## 6. 充分内化而不丢失信息", reader_first)
+        self.assertIn("## 8. 完成前的读者检查", reader_first)
+        root_entry = (assets / "root-entry.md").read_text(encoding="utf-8")
+        self.assertIn("## 知识地图与默认阅读顺序", root_entry)
+        self.assertIn("## 按工作目标快速进入", root_entry)
+        self.assertIn("## 知识覆盖与待确认事项", root_entry)
         self.assertIn("id/title/parent/scope/excludes", (assets / "domain-overview.md").read_text(encoding="utf-8"))
         retired_assets = (
             "brief.md", "completion.yaml", "inventory.md", "questions.md",

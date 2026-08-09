@@ -910,7 +910,10 @@ def normalize_knowledge_path(value: str) -> str:
     if not normalized.startswith("draft/knowledge/") or not normalized.endswith(".md"):
         raise IngestionError("知识路径必须位于 draft/knowledge/ 且使用 .md")
     if Path(normalized).name == "index.md":
-        raise IngestionError("知识单元不能以 index.md 作为实质落点")
+        raise IngestionError(
+            "知识单元不能以 index.md 作为实质落点；index.md 是导航，"
+            "请先规划规范正文或具名产品视图，再把它作为配套入口同步更新"
+        )
     return normalized
 
 

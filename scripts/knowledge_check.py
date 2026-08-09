@@ -28,6 +28,9 @@ HTML_ANCHOR_RE = re.compile(r"<a\s+(?:name|id)=[\"']([^\"']+)[\"']\s*></a>", re.
 FORBIDDEN_EXTENSION_KEYS = {"stable_id", "home", "applies_to", "relations"}
 TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
 TABLE_SEPARATOR_RE = re.compile(r"^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$")
+READER_PROCESS_TERM_RE = re.compile(
+    r"\bBatch\s*\d+\b|\bK\d+\b|父版本|当前候选|本批(?:材料|摄入|来源)"
+)
 
 
 class UniqueKeyLoader(yaml.SafeLoader):
@@ -129,6 +132,28 @@ def markdown_table_errors(paths: list[Path], root: Path) -> list[str]:
                 if table_columns(line) != expected:
                     errors.append(f"{label}:{number} Markdown table width differs from its header")
     return errors
+
+
+def reader_process_term_warnings(paths: list[Path], root: Path) -> list[str]:
+    """Flag likely ingestion-internal labels in reader-facing knowledge.
+
+    These are warnings because a term can be legitimate in a specialized domain. Source
+    records and the append-only log intentionally retain provenance vocabulary.
+    """
+    warnings: list[str] = []
+    for path in sorted(paths):
+        rel = relative(path, root)
+        if rel == "log.md" or rel.startswith("sources/"):
+            continue
+        text = strip_code(path.read_text(encoding="utf-8"))
+        for number, line in enumerate(text.splitlines(), 1):
+            matches = sorted(set(READER_PROCESS_TERM_RE.findall(line)))
+            if matches:
+                warnings.append(
+                    f"{rel}:{number} reader-facing page may expose ingestion process term(s): "
+                    + ", ".join(matches)
+                )
+    return warnings
 
 
 def normalized_markdown_body(text: str) -> str:
@@ -296,6 +321,7 @@ def validate_bundle(knowledge_root: Path, domain_map: Path) -> Report:
             frontmatter[path.resolve()] = parsed
 
     report.errors.extend(markdown_table_errors(markdown_files, root))
+    report.warnings.extend(reader_process_term_warnings(markdown_files, root))
 
     duplicate_view_bodies: dict[str, list[str]] = defaultdict(list)
     for path, text in contents.items():
