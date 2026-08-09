@@ -179,6 +179,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("assets/open-questions.md", skill)
         self.assertIn("模板选择不是自由抽样", skill)
         self.assertIn("按**读者目的和直接证据集合**拆题", skill)
+        self.assertIn("明确指定少量既有知识页进行阅读重构", skill)
         self.assertIn("不要为了聚焦任务再次运行全库", skill)
         reader_first = (references / "reader-first-writing.md").read_text(encoding="utf-8")
         self.assertIn("## 2. 使用自顶向下的页面主线", reader_first)
