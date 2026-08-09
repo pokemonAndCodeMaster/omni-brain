@@ -11,7 +11,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "ingestion_workspace.py"
 sys.path.insert(0, str(ROOT / "scripts"))
-from ingestion_workspace import incremental_entrypoint_errors, parent_content_regressions
+from ingestion_workspace import (
+    incremental_entrypoint_errors,
+    parent_content_regressions,
+    unresolved_template_placeholders,
+)
 
 
 class IngestionWorkspaceTest(unittest.TestCase):
@@ -203,6 +207,128 @@ class IngestionWorkspaceTest(unittest.TestCase):
         checked = self.run_tool("check-unit", "sample-case", "q-001", "--format", "json")
         self.assertEqual(1, checked.returncode)
         self.assertIn("仍与正式知识完全相同", checked.stdout)
+
+    def test_exact_source_refs_do_not_expand_to_ranked_candidates(self) -> None:
+        self.start()
+        self.plan()
+        result = self.run_tool(
+            "next",
+            "sample-case",
+            "q-001",
+            "--source-ref",
+            "app:README.md",
+            "--source-ref",
+            "app:api.ts",
+            "--limit",
+            "8",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(
+            ["app:README.md", "app:api.ts"],
+            [item["ref"] for item in payload["packet"]],
+        )
+        self.assertEqual(0, payload["remaining_relevant_candidates"])
+
+    def test_kept_existing_unit_can_pass_without_artificial_change(self) -> None:
+        page = self.harness / "knowledge" / "systems" / "metric-flow.md"
+        page.write_text(
+            "---\n"
+            "type: Software Architecture\n"
+            "title: 既有指标页\n"
+            "description: 解释指标入口、转换、边界和验证方式。\n"
+            "tags: [metric]\n"
+            "---\n\n"
+            "# 既有指标页\n\n" + "这页已经完整解释指标入口、转换、边界和验证方式。" * 40
+            + "\n\n# Citations\n\n1. [指标来源](../sources/metric.md)\n",
+            encoding="utf-8",
+        )
+        source_record = self.harness / "knowledge" / "sources" / "metric.md"
+        source_record.write_text(
+            "---\n"
+            "type: Source Record\n"
+            "title: 指标来源\n"
+            "description: 记录指标页采用的直接材料。\n"
+            "tags: [source, metric]\n"
+            "---\n\n"
+            "# 指标来源\n\n## 来源范围\n\n- `README.md`\n",
+            encoding="utf-8",
+        )
+        view = self.harness / "knowledge" / "views" / "by-domain" / "metric-flow.md"
+        view.write_text(
+            "---\n"
+            "type: Navigation View\n"
+            "title: 指标视图\n"
+            "description: 从领域入口进入既有指标页。\n"
+            "tags: [view, metric]\n"
+            "---\n\n"
+            "# 指标视图\n\n- [既有指标页](../../systems/metric-flow.md)\n",
+            encoding="utf-8",
+        )
+        journey = self.harness / "knowledge" / "views" / "by-journey" / "metric-flow.md"
+        journey.write_text(
+            "---\n"
+            "type: Navigation View\n"
+            "title: 指标旅程\n"
+            "description: 按开发旅程进入既有指标页。\n"
+            "tags: [view, metric]\n"
+            "---\n\n"
+            "# 指标旅程\n\n- [既有指标页](../../systems/metric-flow.md)\n",
+            encoding="utf-8",
+        )
+        (self.harness / "knowledge" / "index.md").write_text(
+            "# 知识入口\n\n"
+            "- [指标领域视图](views/by-domain/metric-flow.md)\n"
+            "- [指标旅程](views/by-journey/metric-flow.md)\n",
+            encoding="utf-8",
+        )
+        self.start()
+        self.plan()
+        packet = json.loads(self.run_tool(
+            "next", "sample-case", "q-001", "--source-ref", "app:README.md",
+        ).stdout)
+        recorded = self.run_tool(
+            "record", "sample-case", "q-001",
+            "--status", "answered",
+            "--summary", "既有页面已经满足当前读者问题",
+            "--source", packet["packet"][0]["ref"],
+            "--knowledge", "draft/knowledge/systems/metric-flow.md",
+        )
+        self.assertEqual(0, recorded.returncode, recorded.stderr)
+        kept = self.run_tool(
+            "keep-unit", "sample-case", "q-001", "metric-flow",
+            "--reason", "已按读者检查逐项核对，结构和细节无需改动",
+        )
+        self.assertEqual(0, kept.returncode, kept.stderr)
+        checked = self.run_tool("check-unit", "sample-case", "q-001")
+        self.assertEqual(0, checked.returncode, checked.stdout + checked.stderr)
+
+    def test_template_placeholder_check_does_not_reject_domain_angle_syntax(self) -> None:
+        self.assertEqual([], unresolved_template_placeholders("编号格式是 <任务ID>-date。"))
+        self.assertIn("<标题>", unresolved_template_placeholders("# <标题>\n"))
+
+    def test_full_reader_audit_blocks_review_until_every_page_has_a_decision(self) -> None:
+        result = self.run_tool(
+            "start", "reader-case",
+            "--goal", "统一审视现有知识的阅读体验",
+            "--reader", "第一次接触项目的读者",
+            "--source", f"app={self.source}",
+            "--question", "现有知识是否可以直接阅读？",
+            "--audit-all-user-pages",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        blocked = self.run_tool("review", "reader-case")
+        self.assertEqual(1, blocked.returncode)
+        self.assertIn("用户可见页面未审视", blocked.stdout)
+
+        case = json.loads((self.cases / "reader-case" / ".state" / "case.json").read_text())
+        arguments = ["audit-pages", "reader-case"]
+        for page in case["reader_audit"]["pages"]:
+            arguments.extend(["--kept", f"{page['path']}=逐页核对后无需修改"])
+        audited = self.run_tool(*arguments)
+        self.assertEqual(0, audited.returncode, audited.stderr)
+        ready = self.run_tool("review", "reader-case")
+        self.assertEqual(0, ready.returncode, ready.stdout + ready.stderr)
 
     def write_candidate(self, case: Path, *, stale: bool = False) -> None:
         knowledge = case / "draft" / "knowledge"

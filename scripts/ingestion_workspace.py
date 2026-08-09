@@ -26,7 +26,7 @@ from typing import Any
 from knowledge_check import validate_bundle
 
 
-SCHEMA_VERSION = "1.3"
+SCHEMA_VERSION = "1.4"
 CASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 QUESTION_ID_RE = re.compile(r"^q-[0-9]{3}$")
 UNIT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -41,10 +41,7 @@ PYTHON_FROM_RE = re.compile(r"^\s*from\s+(?P<module>\.*[A-Za-z_][\w.]*)\s+import
 PYTHON_IMPORT_RE = re.compile(r"^\s*import\s+(?P<module>[A-Za-z_][\w.]*)", re.MULTILINE)
 PATH_LITERAL_RE = re.compile(r"['\"](?P<path>/(?:api/)?[A-Za-z0-9_./{}:-]{4,})['\"]")
 STALE_MARKERS = ("待核实", "待补充", "TODO", "TBD")
-PLACEHOLDER_RE = re.compile(
-    r"<(?:case-id|question-id|source-id|unit-id|area|page|path|slug|"
-    r"[^>\n]*[\u4e00-\u9fff][^>\n]*)>"
-)
+ANGLE_TOKEN_RE = re.compile(r"<[^>\n]+>")
 TEXT_SUFFIXES = {
     ".c", ".cc", ".cfg", ".conf", ".cpp", ".css", ".csv", ".go",
     ".h", ".hpp", ".html", ".ini", ".java", ".js", ".json", ".jsx",
@@ -103,6 +100,24 @@ def utc_now() -> str:
 
 def project_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def unresolved_template_placeholders(text: str) -> list[str]:
+    """Return exact author placeholders copied from the shipped page templates.
+
+    Generic Chinese angle-bracket expressions such as ``<任务ID>`` can be real
+    domain syntax.  Only tokens that actually occur in Harness templates are
+    treated as unresolved author instructions.
+    """
+    assets = project_root() / ".agents" / "skills" / "ingest-knowledge" / "assets"
+    placeholders: set[str] = set()
+    if assets.is_dir():
+        for path in assets.glob("*.md"):
+            for token in ANGLE_TOKEN_RE.findall(path.read_text(encoding="utf-8")):
+                if token.casefold() == "<br>" or token.startswith("<!--"):
+                    continue
+                placeholders.add(token)
+    return sorted(token for token in placeholders if token in text)
 
 
 def default_cases_root() -> Path:
@@ -823,6 +838,17 @@ def new_question(number: int, text: str) -> dict[str, Any]:
     }
 
 
+def reader_visible_pages(root: Path) -> list[dict[str, str]]:
+    pages: list[dict[str, str]] = []
+    knowledge = root / "draft" / "knowledge"
+    for path in sorted(knowledge.rglob("*.md")):
+        relative = path.relative_to(root / "draft").as_posix()
+        if relative == "knowledge/log.md" or relative.startswith("knowledge/sources/"):
+            continue
+        pages.append({"path": f"draft/{relative}", "status": "pending", "reason": ""})
+    return pages
+
+
 def start_case(args: argparse.Namespace) -> int:
     root = case_root(args.cases_root, args.case_id, must_exist=False)
     if root.exists() and any(root.iterdir()):
@@ -850,6 +876,10 @@ def start_case(args: argparse.Namespace) -> int:
         "findings": [],
         "topics": [],
         "plan_review": {"passed": False, "lenses": {}, "not_applicable": {}, "issues": []},
+        "reader_audit": {
+            "required": bool(args.audit_all_user_pages),
+            "pages": reader_visible_pages(root) if args.audit_all_user_pages else [],
+        },
         "created_at": now,
         "updated_at": now,
         "next_action": (
@@ -879,6 +909,7 @@ def start_case(args: argparse.Namespace) -> int:
                 },
                 "source_files": len(manifest),
                 "material_groups": len(case["material_groups"]),
+                "reader_audit_pages": len(case["reader_audit"]["pages"]),
                 "user_visible": ["draft/knowledge/", "review.md"],
                 "internal_state": [".state/case.json", ".state/source-manifest.jsonl"],
                 "next": case["next_action"],
@@ -942,6 +973,87 @@ def plan_unit(args: argparse.Namespace) -> int:
     case["next_action"] = f"运行 next 为 {question['id']} 取得直接来源"
     save_case(root, case)
     print(json.dumps({"unit": unit, "requires_run": question["requires_run"], "next": case["next_action"]}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def keep_unit(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    question = question_by_id(case, args.question_id)
+    unit = next(
+        (item for item in question["expected_units"] if item["id"] == args.unit_id),
+        None,
+    )
+    if unit is None:
+        raise IngestionError(f"知识单元不存在：{args.unit_id}")
+    path = root / unit["path"]
+    canonical_path = unit["path"].removeprefix("draft/")
+    original = baseline_paths(case).get(canonical_path)
+    if original is None or not path.is_file():
+        raise IngestionError("keep-unit 只适用于候选继承的既有知识页")
+    if digest_bytes(path.read_bytes()) != original["sha256"]:
+        raise IngestionError("页面已经修改，不能登记为保持不变")
+    unit["status"] = "kept"
+    unit["keep_reason"] = args.reason.strip()
+    question["updated_at"] = utc_now()
+    save_case(root, case)
+    generate_review(root, case)
+    print(json.dumps({"unit": unit, "next": question["next_action"]}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def parse_page_decision(value: str) -> tuple[str, str]:
+    path, separator, reason = value.partition("=")
+    if not separator or not path.strip() or not reason.strip():
+        raise IngestionError("页面审视决定必须使用 <draft/knowledge/path.md>=<理由>")
+    normalized = PurePosixPath(path.strip()).as_posix()
+    if not normalized.startswith("draft/knowledge/") or not normalized.endswith(".md"):
+        raise IngestionError(f"页面审视路径无效：{path}")
+    return normalized, reason.strip()
+
+
+def audit_pages(args: argparse.Namespace) -> int:
+    root, case = load_case(args.cases_root, args.case_id)
+    audit = case.get("reader_audit", {})
+    if not audit.get("required"):
+        raise IngestionError("本摄入案没有启用整库用户页面审视")
+    pages = {item["path"]: item for item in audit.get("pages", [])}
+    decisions = [("changed", *parse_page_decision(item)) for item in args.changed]
+    decisions += [("kept", *parse_page_decision(item)) for item in args.kept]
+    if not decisions:
+        raise IngestionError("至少提供一个 --changed 或 --kept 页面决定")
+    for status, path_value, reason in decisions:
+        page = pages.get(path_value)
+        if page is None:
+            raise IngestionError(f"页面不属于本次用户可见知识范围：{path_value}")
+        path = root / path_value
+        canonical_path = path_value.removeprefix("draft/")
+        original = baseline_paths(case).get(canonical_path)
+        is_changed = (
+            original is None
+            or not path.is_file()
+            or digest_bytes(path.read_bytes()) != original["sha256"]
+        )
+        if status == "changed" and not is_changed:
+            raise IngestionError(f"页面仍与正式知识相同，不能登记为已改：{path_value}")
+        if status == "kept" and is_changed:
+            raise IngestionError(f"页面已经变化，不能登记为保留：{path_value}")
+        page["status"] = status
+        page["reason"] = reason
+        page["updated_at"] = utc_now()
+    pending = [item["path"] for item in audit["pages"] if item["status"] == "pending"]
+    case["next_action"] = (
+        f"继续审视剩余 {len(pending)} 个用户可见页面"
+        if pending
+        else "运行 review 重建人工审查入口"
+    )
+    save_case(root, case)
+    generate_review(root, case)
+    print(json.dumps({
+        "recorded": len(decisions),
+        "pending_count": len(pending),
+        "next_pending": pending[:8],
+        "next": case["next_action"],
+    }, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -1692,12 +1804,16 @@ def next_sources(args: argparse.Namespace) -> int:
             raise IngestionError("宽范围完整整理的 next 不接收 question id")
         if args.query:
             raise IngestionError("宽范围完整整理按当前材料组推进，next 不接收 --query")
+        if args.source_ref:
+            raise IngestionError("宽范围完整整理按当前材料组推进，next 不接收 --source-ref")
         return next_complete_item(root, case)
     if not args.question_id:
         raise IngestionError("聚焦整理的 next 需要 question id")
     question = question_by_id(case, args.question_id)
     if question["active_packet"]:
         raise IngestionError("当前小批来源尚未 record；先写知识并登记结果")
+    if args.query and args.source_ref:
+        raise IngestionError("--query 与 --source-ref 不能同时使用")
     terms: list[str] = []
     for raw_query in args.query:
         query = raw_query.strip()
@@ -1705,7 +1821,24 @@ def next_sources(args: argparse.Namespace) -> int:
             continue
         terms.extend([query, *default_query_terms(query)])
     terms = list(dict.fromkeys(terms))
-    if terms:
+    if args.source_ref:
+        manifest = read_manifest(root)
+        manifest_refs = {source_ref(item["source_id"], item["path"]) for item in manifest}
+        requested = list(dict.fromkeys(args.source_ref))
+        unknown = [item for item in requested if item not in manifest_refs]
+        if unknown:
+            raise IngestionError("以下精确来源不存在：" + ", ".join(unknown))
+        seen = {item["ref"] for item in question["evidence"]}
+        for packet in question["dismissed_packets"]:
+            seen.update(packet.get("refs", []))
+        question["candidate_queue"] = [
+            {"ref": item, "score": 100, "reasons": ["计划指定的直接来源"]}
+            for item in requested
+            if item not in seen
+        ]
+        question["query_terms"] = []
+        question["candidate_closure"] = None
+    elif terms:
         manifest = read_manifest(root)
         ranked = import_neighbours(case, manifest, initial_rank(case, manifest, terms))
         seen = {item["ref"] for item in question["evidence"]}
@@ -1973,15 +2106,22 @@ def check_question(root: Path, case: dict[str, Any], question: dict[str, Any]) -
             continue
         canonical_path = unit["path"].removeprefix("draft/")
         original = baseline_paths(case).get(canonical_path)
-        if original is not None and digest_bytes(path.read_bytes()) == original["sha256"]:
-            errors.append(
-                f"计划更新的知识单元仍与正式知识完全相同：{unit['path']}"
-            )
+        unchanged = original is not None and digest_bytes(path.read_bytes()) == original["sha256"]
+        if unit.get("status") == "kept":
+            if not unit.get("keep_reason"):
+                errors.append(f"保持不变的知识单元没有说明理由：{unit['path']}")
+            if not unchanged:
+                errors.append(f"登记为保持不变的知识单元已经发生变化：{unit['path']}")
+        elif unchanged:
+            errors.append(f"计划更新的知识单元仍与正式知识完全相同：{unit['path']}")
         text = path.read_text(encoding="utf-8")
         if len(text.strip()) < 400:
             errors.append(f"知识单元内容过薄：{unit['path']}")
-        if PLACEHOLDER_RE.search(text):
-            errors.append(f"知识单元仍含模板占位符：{unit['path']}")
+        placeholders = unresolved_template_placeholders(text)
+        if placeholders:
+            errors.append(
+                f"知识单元仍含模板占位符：{unit['path']}：{', '.join(placeholders[:3])}"
+            )
         if path.resolve() not in linked:
             errors.append(f"产品视图尚未链接知识单元：{unit['path']}")
         if question["status"] == "answered":
@@ -2058,7 +2198,8 @@ def check_unit(args: argparse.Namespace) -> int:
     report = check_question(root, case, question)
     if report["ready"]:
         for unit in question["expected_units"]:
-            unit["status"] = "ready"
+            if unit.get("status") != "kept":
+                unit["status"] = "ready"
         question["next_action"] = "进入人工审查，或继续下一个读者问题"
         case["next_action"] = question["next_action"]
         save_case(root, case)
@@ -2559,6 +2700,15 @@ def generate_review(root: Path, case: dict[str, Any]) -> None:
             )
         )
     lines.extend(["", "## 直接依据与真实运行", ""])
+    audit = case.get("reader_audit", {})
+    if audit.get("required"):
+        counts = Counter(item["status"] for item in audit.get("pages", []))
+        lines.append(
+            "- 整库用户页面审视："
+            f"已改 {counts.get('changed', 0)} 页，"
+            f"有理由保留 {counts.get('kept', 0)} 页，"
+            f"待审 {counts.get('pending', 0)} 页。"
+        )
     evidence_refs = {
         evidence["ref"]
         for question in case["questions"]
@@ -2676,8 +2826,18 @@ def review_case(args: argparse.Namespace) -> int:
         generate_review(root, case)
         print(json.dumps({"review": str(root / "review.md"), "ready": not errors, "errors": errors, "next": case["next_action"]}, ensure_ascii=False, indent=2))
         return 0 if not errors else 1
+    audit = case.get("reader_audit", {})
+    pending = [item["path"] for item in audit.get("pages", []) if item["status"] == "pending"]
     generate_review(root, case)
-    print(str(root / "review.md"))
+    if audit.get("required") and pending:
+        print(json.dumps({
+            "review": str(root / "review.md"),
+            "ready": False,
+            "errors": [f"仍有 {len(pending)} 个用户可见页面未审视"],
+            "next_pending": pending[:12],
+        }, ensure_ascii=False, indent=2))
+        return 1
+    print(json.dumps({"review": str(root / "review.md"), "ready": True, "errors": []}, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -2752,6 +2912,16 @@ def status_case(args: argparse.Namespace) -> int:
             }
             for item in case["questions"]
         ],
+        "reader_audit": {
+            "required": bool(case.get("reader_audit", {}).get("required")),
+            "counts": dict(Counter(
+                item["status"] for item in case.get("reader_audit", {}).get("pages", [])
+            )),
+            "next_pending": [
+                item["path"] for item in case.get("reader_audit", {}).get("pages", [])
+                if item["status"] == "pending"
+            ][:8],
+        },
         "review": str(root / "review.md"),
         "next": case["next_action"],
     }
@@ -2772,6 +2942,11 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--source", action="append", default=[])
     start.add_argument("--question", action="append", default=[])
     start.add_argument("--boundary", action="append", default=[])
+    start.add_argument(
+        "--audit-all-user-pages",
+        action="store_true",
+        help="整库阅读整改时要求逐页登记已改或有理由保留",
+    )
     start.set_defaults(func=start_case)
 
     survey = subparsers.add_parser("survey", help="查看完整整理的客观材料地图")
@@ -2794,10 +2969,24 @@ def build_parser() -> argparse.ArgumentParser:
     unit.add_argument("--require-run", action="store_true")
     unit.set_defaults(func=plan_unit)
 
+    keep = subparsers.add_parser("keep-unit", help="确认既有知识页经过审视后无需修改")
+    keep.add_argument("case_id")
+    keep.add_argument("question_id")
+    keep.add_argument("unit_id")
+    keep.add_argument("--reason", required=True)
+    keep.set_defaults(func=keep_unit)
+
+    page_audit = subparsers.add_parser("audit-pages", help="登记整库用户页面的已改或保留决定")
+    page_audit.add_argument("case_id")
+    page_audit.add_argument("--changed", action="append", default=[])
+    page_audit.add_argument("--kept", action="append", default=[])
+    page_audit.set_defaults(func=audit_pages)
+
     next_command = subparsers.add_parser("next", help="取得当前材料组、知识主题或聚焦问题的小批来源")
     next_command.add_argument("case_id")
     next_command.add_argument("question_id", nargs="?")
     next_command.add_argument("--query", action="append", default=[])
+    next_command.add_argument("--source-ref", action="append", default=[])
     next_command.add_argument("--limit", type=int, choices=range(1, 9), default=6)
     next_command.set_defaults(func=next_sources)
 
@@ -2921,7 +3110,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         if args.action in {
-            "question-add", "plan-unit", "next", "finding-add", "record-material", "material-reopen", "plan-reopen",
+            "question-add", "plan-unit", "keep-unit", "audit-pages", "next", "finding-add", "record-material", "material-reopen", "plan-reopen",
             "topic-add", "plan-review", "record-topic", "record", "stop-search",
             "check-unit", "run", "review",
         }:
