@@ -119,7 +119,7 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["knowledge_guided_development"]
         self.assertEqual(
-            "verified_at_three_manual_qc_development_and_one_trusted_context_composite_slice",
+            "verified_at_four_manual_qc_development_and_one_trusted_context_composite_slice",
             capability["adoption"],
         )
         self.assertEqual(

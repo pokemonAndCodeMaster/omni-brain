@@ -85,6 +85,8 @@ python .agents/skills/answer-from-knowledge/scripts/knowledge_route.py \
 
 实际产物首先是**用户要求的代码/SQL/配置和真实运行结果**。知识变化候选默认只写在交付说明中；只有用户要求正式回写时，才进入下面的 `writeback` 工作台。
 
+该 Skill 已在同一人工质检系统的页面、SQL 性能、跨层算法和详情交互四类真实开发中取得证据，并覆盖两种宿主/模型组合。最新详情对照在相同模型与任务下补齐了焦点进入、Tab/Shift+Tab 环绕、关闭恢复和逐项证据声明；这些规则没有写入题目公式、固定数字或页面名称。当前结论仍不能外推到第二领域或任意软件项目。
+
 ### 4. `ingest-knowledge`：知识摄入和代码变化回写
 
 入口：[`SKILL.md`](.agents/skills/ingest-knowledge/SKILL.md)；确定性状态工具是 [`ingestion_workspace.py`](scripts/ingestion_workspace.py)。

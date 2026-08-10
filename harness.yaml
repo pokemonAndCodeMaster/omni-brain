@@ -73,17 +73,19 @@ capabilities:
       - 确定性路由在十个质检问法上主入口通过；固定较弱模型在新的人员权限与交付状态问题上实际调用路由、零宽泛搜索并取得完整内容结果
       - 证据限于当前中文 Markdown、单一宿主/模型、单一质检领域和最多三篇规范页；第二领域、OpenCode、大规模知识与精确源码联查仍未验证
   knowledge_guided_development:
-    adoption: verified_at_three_manual_qc_development_and_one_trusted_context_composite_slice
+    adoption: verified_at_four_manual_qc_development_and_one_trusted_context_composite_slice
     dependencies:
       - knowledge_query_and_context
     entrypoints:
       - .agents/skills/develop-with-knowledge/SKILL.md
       - .agents/skills/answer-from-knowledge/scripts/knowledge_route.py
     limits:
-      - 已在验收配额页面、问题选项只读 SQL 性能和验收分配缺口跨层算法三类用例上完成成功重放；证据仍限于同一质检领域、宿主和模型
+      - 已在验收配额页面、问题选项只读 SQL 性能、验收分配缺口算法和缺口详情交互四类用例上完成成功重放；证据覆盖两种宿主/模型组合，领域仍限于同一人工质检系统
       - 分配缺口用例中盲测候选反证并纠正了首轮参考口径；这证明参考可被运行和领域语义推翻，不证明任意业务规则都能自动裁决
       - 本地 CSV 单事务写库取得正向证据，但仍存在不完整指标输入问题，不计入已验证切片
       - 真实页面出现与页面交互必须分别取证；最终知识变化交接仍有被弱模型跳过的记录
+      - 缺口详情同题对照中，修订后的来源追踪、短运行探针、完整键盘焦点证据和逐项交付映射补齐了全部固定检查；本结论不包含题目公式或固定数值
+      - 详情 Trial 的工具调用仍偏多；可复用浏览器证据工具只有在另一交互任务复现该成本后才进入实现
       - 不包含自动上下文组装、环境管理或正式知识自动发布
       - 确定性知识入口路由已经接入开发 Skill；“验收未完成量”复合 Trial 中较弱模型只读两篇正式知识后停止，并完成真实代码、最大组合与超限拒绝、API 与 Edge 用户旅程
       - 复合 Trial 的模型页面验证曾使用默认两日 Scope，四级固定值由独立评测补齐；当前规则已要求 API、SQL 与页面显式使用同一 Scope
