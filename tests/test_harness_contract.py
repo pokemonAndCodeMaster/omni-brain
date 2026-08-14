@@ -176,11 +176,11 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("跨系统", limits)
         self.assertIn("第二领域", limits)
 
-    def test_local_work_review_is_implemented_but_not_overclaimed(self) -> None:
+    def test_local_work_review_declares_only_scoped_verification(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["local_work_review"]
         self.assertEqual(
-            "implemented_awaiting_cross_model_validation",
+            "verified_at_deepseek_positive_negative_no_trigger_slice_awaiting_human_use_review",
             capability["adoption"],
         )
         self.assertEqual([], capability["dependencies"])
