@@ -92,14 +92,14 @@ capabilities:
       - 复合 Trial 的知识变化候选仍缺精确正式 owner；代码到规范知识发布仍属于 human-review-required
       - 低风险局部修改不应被机械升级为完整流程
   local_work_review:
-    adoption: verified_at_deepseek_positive_negative_no_trigger_slice_awaiting_human_use_review
+    adoption: implemented_tuning_against_certified_review_reference
     dependencies: []
     entrypoints:
       - .agents/skills/review-work/SKILL.md
       - .agents/skills/review-work/references/software-development.md
     limits:
-      - 当前只验证本地 Markdown 审查的软件开发分支；知识摄入、方案和 Harness 修改的专属内容尚未验证
-      - OpenCode DeepSeek 正向用例能形成完整待审报告，任务错位负向能在 R1 停止，简单只读问题不会生成审查单；正向内容仍待用户实际逐阶段审查
+      - 当前只实现本地 Markdown 审查的软件开发分支；知识摄入、方案和 Harness 修改的专属内容尚未验证
+      - OpenCode DeepSeek 已通过任务错位停止与简单任务不触发，但首轮正向报告尚未达到用户审定参考的内容质量；当前继续以认证真值调优
       - 不调用模型 API，不自动收集证据，不替代需求澄清或方案形成；原始任务、Diff 和验证记录仍由宿主会话定向读取
       - 简单问答和局部低风险修改不创建持久审查单
   knowledge_writeback:

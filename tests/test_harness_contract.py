@@ -180,7 +180,7 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["local_work_review"]
         self.assertEqual(
-            "verified_at_deepseek_positive_negative_no_trigger_slice_awaiting_human_use_review",
+            "implemented_tuning_against_certified_review_reference",
             capability["adoption"],
         )
         self.assertEqual([], capability["dependencies"])
@@ -210,6 +210,14 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("前端相关模块", software)
         self.assertIn("不要用抽象的“结构化需求理解”表", software)
         self.assertIn("只开放第一个尚未确认的 `R`", software)
+        self.assertIn("怎样使用", software)
+        self.assertIn("内容导航", software)
+        self.assertIn("至少用一张 Mermaid", software)
+        self.assertIn("审查目的", software)
+        self.assertIn("当前待审内容", software)
+        self.assertIn("处理结果", software)
+        self.assertIn("你的反馈", software)
+        self.assertIn("不要为了“发现问题”制造低价值待决点", software)
         self.assertFalse((ROOT / ".agents/skills/review-work/scripts").exists())
 
     def test_knowledge_bundle_matches_declared_adoption(self) -> None:
