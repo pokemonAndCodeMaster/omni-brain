@@ -16,6 +16,8 @@ harness.yaml                           各能力入口、依赖、成熟度和�
 ├─ develop-with-knowledge/SKILL.md     带知识完成真实软件修改与验证
 ├─ ingest-knowledge/SKILL.md           完整整理、聚焦整理和代码变化回写
 │  └─ assets/*.md                      知识页、产品视图、软件架构等写作骨架
+├─ review-work/SKILL.md                把复杂成果组织成本地逐阶段审查单
+│  └─ references/software-development.md 软件开发审查的按需说明
 └─ task-knowledge-prep/SKILL.md        模糊或高风险任务的知识准备
 
 scripts/
@@ -42,6 +44,7 @@ tests/                                 组件、路由、工作台和知识结�
 | “整理/摄入/归并这些材料” | `ingest-knowledge` |
 | “根据现有知识回答、学习、判断缺口” | `answer-from-knowledge` |
 | “开发、修复、重构并真实验证” | `develop-with-knowledge` |
+| “审查这项工作、生成本地 MR 说明” | `review-work` |
 | “恢复某个任务案” | 直接读取任务案状态；需要继续复杂准备时再加载 `task-knowledge-prep` |
 | 明确、局部、低风险任务 | 不加载完整 Skill，直接执行 |
 
@@ -87,7 +90,21 @@ python .agents/skills/answer-from-knowledge/scripts/knowledge_route.py \
 
 该 Skill 已在同一人工质检系统的页面、SQL 性能、跨层算法和详情交互四类真实开发中取得证据，并覆盖两种宿主/模型组合。最新详情对照在相同模型与任务下补齐了焦点进入、Tab/Shift+Tab 环绕、关闭恢复和逐项证据声明；这些规则没有写入题目公式、固定数字或页面名称。当前结论仍不能外推到第二领域或任意软件项目。
 
-### 4. `ingest-knowledge`：知识摄入和代码变化回写
+### 4. `review-work`：本地 AI 工作审查
+
+入口：[`SKILL.md`](.agents/skills/review-work/SKILL.md)；软件开发分支按需读取 [`software-development.md`](.agents/skills/review-work/references/software-development.md)。
+
+它不重新实现开发或需求设计，而是把已经发生的复杂工作变成一张 `workspaces/reviews/<task-id>/review.md`：
+
+1. 固定原始任务、实际执行对象、修改前后版本、Diff 和运行证据；
+2. 先判断原始问题、实际任务和最终产物是否对齐；错位时停止下游批准；
+3. 对齐时先讲完整工作全貌，再按需求、方案、实现、验证和总体决定组织内容；
+4. 软件方案先从产品、业务模块、页面和前后端层级定位，再下钻到类、函数和文件；
+5. 用户可用 `R1`、`R2` 等编号审工作，用 `D1` 单独评价报告体验；反馈持续更新同一张审查单。
+
+当前能力只到 **implemented**：信息顺序经过一次人工使用反馈修订，但尚未完成较弱模型的正向、任务错位负向和不触发重放。它不为简单任务创建报告，也没有新增事实采集脚本或 YAML 工作台。
+
+### 5. `ingest-knowledge`：知识摄入和代码变化回写
 
 入口：[`SKILL.md`](.agents/skills/ingest-knowledge/SKILL.md)；确定性状态工具是 [`ingestion_workspace.py`](scripts/ingestion_workspace.py)。
 
@@ -122,7 +139,7 @@ workspaces/knowledge-ingestion/<case-id>/
 python scripts/ingestion_workspace.py --help
 ```
 
-### 5. `knowledge_check.py`：知识结构检查器
+### 6. `knowledge_check.py`：知识结构检查器
 
 入口：[`knowledge_check.py`](scripts/knowledge_check.py)。它只读检查：
 
@@ -140,7 +157,7 @@ python scripts/knowledge_check.py
 
 通过只代表结构和声明关系成立，不能证明内容正确或充分。
 
-### 6. `task-knowledge-prep` + `task_case.py`：复杂任务知识准备
+### 7. `task-knowledge-prep` + `task_case.py`：复杂任务知识准备
 
 入口：[`SKILL.md`](.agents/skills/task-knowledge-prep/SKILL.md) 和 [`task_case.py`](scripts/task_case.py)。
 
@@ -159,7 +176,7 @@ workspaces/task-cases/<case-id>/
 
 脚本支持创建、恢复、追加事件/证据、原子回答关键问题、重算决策准备度和知识交接准备度、重建视图及关闭任务案。机械检查只检查显式状态和引用，不评价方案质量。
 
-### 7. `source_run.py`：本地 Git 来源快照
+### 8. `source_run.py`：本地 Git 来源快照
 
 入口：[`source_run.py`](scripts/source_run.py)。它挂在任务案下，对用户明确授权的本地 Git 路径执行：
 
@@ -171,7 +188,7 @@ workspaces/task-cases/<case-id>/
 
 它只回答“指定来源版本和范围发生了什么变化”，不解释变化的业务含义，也不会自动触发知识摄入。
 
-### 8. 空知识骨架、模板和测试
+### 9. 空知识骨架、模板和测试
 
 - [`knowledge/index.md`](knowledge/index.md) 及其 `domains/`、`systems/`、`capabilities/`、`sources/`、`views/` 入口，是空 Harness 的知识落点；本体不预装质检答案。
 - [`config/knowledge-domains.yaml`](config/knowledge-domains.yaml) 保存明确领域层级；目录约定与 OKF frontmatter 兼容，但不是把领域分类伪装成 OKF 标准。
@@ -192,6 +209,10 @@ workspaces/task-cases/<case-id>/
 
 ```text
 实现 <软件需求>，使用现有领域知识和真实项目环境验证，并说明知识需要怎样更新。
+```
+
+```text
+审查刚才完成的复杂工作，把原始需求、方案、实现、真实证据和待决定项整理成一张本地审查单。
 ```
 
 ```text

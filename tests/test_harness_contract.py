@@ -92,7 +92,7 @@ class HarnessContractTest(unittest.TestCase):
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in (
             "task-knowledge-prep", "ingest-knowledge", "answer-from-knowledge",
-            "develop-with-knowledge",
+            "develop-with-knowledge", "review-work",
         ):
             path = ROOT / f".agents/skills/{name}/SKILL.md"
             match = re.match(r"\A---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.DOTALL)
@@ -175,6 +175,39 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("人工审查", limits)
         self.assertIn("跨系统", limits)
         self.assertIn("第二领域", limits)
+
+    def test_local_work_review_is_implemented_but_not_overclaimed(self) -> None:
+        manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
+        capability = manifest["capabilities"]["local_work_review"]
+        self.assertEqual(
+            "implemented_awaiting_cross_model_validation",
+            capability["adoption"],
+        )
+        self.assertEqual([], capability["dependencies"])
+        self.assertEqual(
+            [
+                ".agents/skills/review-work/SKILL.md",
+                ".agents/skills/review-work/references/software-development.md",
+            ],
+            capability["entrypoints"],
+        )
+
+        contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        skill = (ROOT / capability["entrypoints"][0]).read_text(encoding="utf-8")
+        software = (ROOT / capability["entrypoints"][1]).read_text(encoding="utf-8")
+        self.assertIn("加载 `review-work`", contract)
+        self.assertIn("简单问答", contract)
+        self.assertIn("workspaces/reviews/<task-id>/review.md", skill)
+        self.assertIn("先核对任务对象", skill)
+        self.assertIn("错位", skill)
+        self.assertIn("停止要求用户继续批准", skill)
+        self.assertIn("不代替模糊需求的方案形成", skill)
+        self.assertIn("报告体验单独用 `D1`", skill)
+        self.assertIn("产品", software)
+        self.assertIn("业务模块", software)
+        self.assertIn("前端相关模块", software)
+        self.assertIn("不要用抽象的“结构化需求理解”表", software)
+        self.assertFalse((ROOT / ".agents/skills/review-work/scripts").exists())
 
     def test_knowledge_bundle_matches_declared_adoption(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))

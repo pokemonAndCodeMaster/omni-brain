@@ -1,0 +1,4 @@
+interface:
+  display_name: "本地 AI 工作审查"
+  short_description: "把复杂 AI 工作整理成可逐阶段审阅和反馈的本地审查单"
+  default_prompt: "Use $review-work to turn this completed work into a fact-grounded local review and accept staged feedback."
