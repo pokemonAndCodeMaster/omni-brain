@@ -208,6 +208,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("访问产品或知识产物目录，运行 Git", skill)
         self.assertIn("阶段 A 就是终点", skill)
         self.assertIn("不得自行扩展文件数、实现细节或验证结论", skill)
+        self.assertIn("批准状态优先于 Agent", skill)
+        self.assertIn("不得用这种可能性反复重开对齐判断", skill)
         self.assertIn("只有任务对象确认对齐后", skill)
         self.assertIn("错位报告不加载该参考", skill)
         self.assertIn("不代替模糊需求的方案形成", skill)
