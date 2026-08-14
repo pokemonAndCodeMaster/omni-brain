@@ -180,7 +180,7 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["local_work_review"]
         self.assertEqual(
-            "implemented_tuning_against_certified_review_reference",
+            "verified_at_deepseek_software_review_positive_mismatch_no_trigger_slice",
             capability["adoption"],
         )
         self.assertEqual([], capability["dependencies"])
