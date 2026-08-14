@@ -201,12 +201,15 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("先核对任务对象", skill)
         self.assertIn("错位", skill)
         self.assertIn("停止要求用户继续批准", skill)
+        self.assertIn("立即停止继续读取 Diff、源码、运行历史", skill)
         self.assertIn("不代替模糊需求的方案形成", skill)
         self.assertIn("报告体验单独用 `D1`", skill)
+        self.assertIn("不得建议跳到 `R5`", skill)
         self.assertIn("产品", software)
         self.assertIn("业务模块", software)
         self.assertIn("前端相关模块", software)
         self.assertIn("不要用抽象的“结构化需求理解”表", software)
+        self.assertIn("只开放第一个尚未确认的 `R`", software)
         self.assertFalse((ROOT / ".agents/skills/review-work/scripts").exists())
 
     def test_knowledge_bundle_matches_declared_adoption(self) -> None:
