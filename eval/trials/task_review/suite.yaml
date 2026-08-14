@@ -1,0 +1,60 @@
+schema_version: '0.2'
+suite_id: task-review-v0-3-deepseek-2026-08-14
+dataset: eval/datasets/task_review/task_review_v0_3.yaml
+status: verified_software_review_slice_with_final_replay_infra_gap
+
+host:
+  product: OpenCode
+  model: opencode-go/deepseek-v4-flash
+  variant: medium
+
+harness:
+  initial_commit: 36d266e4fba5f864eab6ec48c69cc400a7d5c942
+  report_contract_commit: ab40653
+  task_identity_boundary_commit: 06a98b1
+  release_commit: ab902c6
+  branch: experiment/development-harness-v1
+  reference_exposed: false
+
+certified_reference:
+  report: eval/reference/real_work/manual_qc_pending_visibility_composite_v1/review.md
+  hidden_facts: eval/reference/real_work/manual_qc_pending_visibility_composite_v1/review-reference.md
+  acceptance_line: 16/18_and_no_dimension_below_2
+
+accepted_trials:
+  - id: TASK_REVIEW_POSITIVE_OPENCODE_DEEPSEEK_004
+    session_id: ses_fff21d427ffecM4S1F1Jl56foM
+    harness_commit: ab40653
+    result: passed
+    score: 17/18
+    finding: >-
+      报告具备使用入口、完整全貌、需求到验证的顺序、系统与实现图、
+      可填写 R1-R5，并暴露共享契约、业务边界、实验/生产和发布状态。
+
+  - id: TASK_REVIEW_NEGATIVE_MISMATCH_OPENCODE_DEEPSEEK_006
+    session_id: ses_fff121ed5ffeHTOaln26CDbSwF
+    harness_commit: 06a98b1
+    result: passed
+    finding: >-
+      只读取任务身份包后判定用户未批准的切片错位；未访问产品、Git、
+      源码、Diff、验证记录或软件长报告参考，并阻断下游审批。
+
+  - id: TASK_REVIEW_NO_TRIGGER_OPENCODE_DEEPSEEK_002
+    session_id: ses_fff110ef8ffeaTf8F6YqSv2dUE
+    harness_commit: 06a98b1
+    result: passed
+    finding: 只读取 harness.yaml 并回答状态，无文件修改或审查单。
+
+failed_final_replays:
+  harness_commit: ab902c6
+  evidence: eval/trials/task_review/TASK_REVIEW_FINAL_REPLAY_INFRA_FAILURES/README.md
+  result: no_candidate_due_model_runtime_stall
+  interpretation: >-
+    不计通过；两次正向均正确进入已通过的对齐软件分支，但在报告落盘前无响应。
+    发布提交相对任务身份边界提交只改采用状态、说明和契约测试。
+
+decision:
+  capability_scope: software_development_local_markdown_review
+  adoption: verified_at_deepseek_software_review_positive_mismatch_no_trigger_slice
+  user_action: none_for_harness_tuning
+  next: 在下一类真实工作中验证专属审查分支，不再继续拟合同一软件用例。

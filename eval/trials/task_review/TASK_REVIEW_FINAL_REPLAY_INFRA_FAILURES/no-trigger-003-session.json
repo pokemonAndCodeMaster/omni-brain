@@ -1,0 +1,153 @@
+{
+  "info": {
+    "id": "ses_fff02bd10ffe1nwZXOuIRWBT8V",
+    "slug": "shiny-harbor",
+    "projectID": "c7809a5023756ba13a74b8937b016a933ea04772",
+    "directory": "/home/yyh/project/.omni-brain-runs/TASK_REVIEW_NO_TRIGGER_OPENCODE_DEEPSEEK_003/harness",
+    "path": "",
+    "title": "TASK_REVIEW_NO_TRIGGER_OPENCODE_DEEPSEEK_003",
+    "agent": "build",
+    "model": {
+      "id": "deepseek-v4-flash",
+      "providerID": "opencode-go",
+      "variant": "medium"
+    },
+    "version": "1.18.10",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 0,
+      "output": 0,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1786722992880,
+      "updated": 1786723034082
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1786722993026
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "opencode-go",
+          "modelID": "deepseek-v4-flash",
+          "variant": "medium"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_000fd4382001p7kPf8NGL3lcaG",
+        "sessionID": "ses_fff02bd10ffe1nwZXOuIRWBT8V"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"只读回答一个状态问题：当前仓库 harness.yaml 中 local_work_review 的 adoption 值是什么？不要修改任何文件，也不要创建审查单。\"",
+          "id": "prt_000fd438e0012MxW2vye1GI3rN",
+          "sessionID": "ses_fff02bd10ffe1nwZXOuIRWBT8V",
+          "messageID": "msg_000fd4382001p7kPf8NGL3lcaG"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_000fd4382001p7kPf8NGL3lcaG",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "variant": "medium",
+        "path": {
+          "cwd": "/home/yyh/project/.omni-brain-runs/TASK_REVIEW_NO_TRIGGER_OPENCODE_DEEPSEEK_003/harness",
+          "root": "/home/yyh/project/.omni-brain-runs/TASK_REVIEW_NO_TRIGGER_OPENCODE_DEEPSEEK_003/harness"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "deepseek-v4-flash",
+        "providerID": "opencode-go",
+        "time": {
+          "created": 1786722993571,
+          "completed": 1786723034072
+        },
+        "finish": "unknown",
+        "id": "msg_000fd45a2001e4PIp36JQU1Q3m",
+        "sessionID": "ses_fff02bd10ffe1nwZXOuIRWBT8V"
+      },
+      "parts": [
+        {
+          "snapshot": "9387ecc35e6ed2cb21d881aef2b4b545d159dada",
+          "type": "step-start",
+          "id": "prt_000fd5c63001Xdbhl4f7KkXFkJ",
+          "sessionID": "ses_fff02bd10ffe1nwZXOuIRWBT8V",
+          "messageID": "msg_000fd45a2001e4PIp36JQU1Q3m"
+        },
+        {
+          "type": "reasoning",
+          "text": "The user wants a read",
+          "time": {
+            "start": 1786722999402,
+            "end": 1786723033991
+          },
+          "id": "prt_000fd5c6a001286r25i7K0xRpW",
+          "sessionID": "ses_fff02bd10ffe1nwZXOuIRWBT8V",
+          "messageID": "msg_000fd45a2001e4PIp36JQU1Q3m"
+        },
+        {
+          "reason": "unknown",
+          "snapshot": "9387ecc35e6ed2cb21d881aef2b4b545d159dada",
+          "type": "step-finish",
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_000fde3b0001Fl06WKy3j55G6c",
+          "sessionID": "ses_fff02bd10ffe1nwZXOuIRWBT8V",
+          "messageID": "msg_000fd45a2001e4PIp36JQU1Q3m"
+        }
+      ]
+    }
+  ]
+}

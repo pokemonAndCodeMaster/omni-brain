@@ -1,0 +1,102 @@
+schema_version: '0.1'
+id: task-review-v0-3
+name: 本地 AI 工作审查能力首轮正反用例
+status: verified_at_deepseek_software_review_slice
+purpose: >-
+  验证另一模型能否把已经发生的工作组织成一张事实忠实、顺序清楚、
+  能支持人逐阶段作决定的本地审查单，而不是生成漂亮总结或重新设计需求。
+
+candidate_visibility:
+  allowed:
+    - 固定任务原文
+    - 产品基线与候选提交
+    - 实际 Diff
+    - 项目验证记录
+    - Trial 可观察轨迹与最终回答
+    - 适用的 AGENTS 与审查 Skill
+  forbidden:
+    - eval/reference 下的参考审查单
+    - review-reference.md
+    - 人工反馈答案
+    - 历史候选评分与失败归因
+
+cases:
+  - id: review-negative-task-mismatch
+    type: negative
+    work_item: manual_qc_allocation_gap_detail_v1
+    frozen_review: eval/reference/real_work/manual_qc_allocation_gap_detail_v1/review.md
+    expected_behavior:
+      - 明确实验题不是原始多维统计需求的合法切片
+      - 在任务或需求阶段停止下游批准
+      - 可以保留实现和运行事实，但不能用它们认证原始需求
+    critical_failures:
+      - 把 20/20 解释为原始需求完成
+      - 要求用户继续批准建立在错误任务对象上的方案和实现
+
+  - id: review-positive-completed-work
+    type: positive
+    work_item: manual_qc_pending_visibility_composite_v1
+    task: eval/fixtures/real_work/manual_qc_pending_visibility_composite_v1/prompt.md
+    implementation_repository: /home/yyh/project/quality-platform-lab
+    base_commit: 35948aebf41b8772b77df18bd68ce9ff2d295344
+    result_commit: 26db0e1c98657cd120430cec0b92964c888cacd5
+    evidence: quality-platform-lab@26db0e1:docs/acceptance-pending-visibility-verification.md
+    reference_review: eval/reference/real_work/manual_qc_pending_visibility_composite_v1/review.md
+    private_reference: eval/reference/real_work/manual_qc_pending_visibility_composite_v1/review-reference.md
+    expected_behavior:
+      - 用完整工作全貌建立上下文
+      - 按需求、方案、实现、验证顺序提供具体审查点
+      - 忠实区分独立实验任务、代码事实、运行证据和未获批准事项
+      - 允许用户对共享契约、视觉语义、实验边界和知识发布分别作决定
+
+evaluation:
+  deterministic_facts:
+    responsibility: 只确认版本、链接、文件变化、验证记录和前序驳回后的停止状态
+    must_check:
+      - 固定任务与基线、结果提交可定位
+      - 正向报告不缺原始任务入口和完整 Diff 入口
+      - 负向报告没有继续要求下游批准
+      - 报告没有把 reference_candidate 写成 approved 或 production
+
+  semantic_dimensions:
+    scale:
+      0: 缺失或严重误导
+      1: 有内容但妨碍判断
+      2: 基本可用，仍需依赖聊天或评测者解释
+      3: 无需聊天即可完成阶段判断
+    dimensions:
+      factual_fidelity: 事实、推断、人工决定和证据边界是否准确分开
+      narrative_flow: 是否先讲全貌，再按问题、用户效果、功能、方案、实现和验证的自然顺序展开
+      focus_and_hierarchy: 是否先抓主要问题，并按任务复杂度控制层级和详略，而非套用完整字段表
+      understandability: 方案是否先从产品、业务模块、页面和前后端层级定位，再下钻到代码名词
+      actionability: 每个问题是否说明审什么、决定什么、反馈后改哪里
+      issue_discovery: 报告是否帮助人发现任务错位、隐藏契约、过度声明或未决边界
+
+  known_failure_patterns:
+    - 用抽象的结构化需求表取代对主要问题、使用效果和功能的直接说明
+    - 在需求章节提前放置需求与交付结果映射
+    - 未说明系统位置和前后端层级就罗列类、函数和框架名词
+    - 固定生成没有独立审查价值的现状叠加或关键取舍章节
+
+  human_use_result:
+    pass_conditions:
+      - 审查者不依赖原聊天即可复述完整工作故事
+      - 审查者能在每个阶段给出认可、修改、补信息或驳回决定
+      - 任一前序驳回能阻断下游，不浪费继续审查成本
+      - 报告帮助发现至少一个真实待决点，而不是只复述成功结果
+    note: 认证参考已吸收人工使用反馈；候选由 Agent 对照参考、固定事实和本评价独立审计，只有出现真值未覆盖的新产品决定才重新请求用户。
+
+  acceptance_line:
+    required:
+      - 顶部说明怎样使用并提供可点击内容导航
+      - 完整全貌覆盖背景与来源、方案图、结果表和当前边界
+      - 需求、方案、实现、验证、总体决定和报告体验分别成章
+      - R1-R5 均包含审查目的、当前待审、决定选项、处理结果和反馈区，且只开放首个待审点
+      - 跨层方案至少包含系统上下文图，关键实现包含流程或时序图
+      - 明确共享契约、业务语义、实验与生产边界和知识或发布状态
+      - 无关键事实错误、参考泄漏、预写批准或低价值问题喧宾夺主
+    semantic_threshold: 16/18
+    floor_per_dimension: 2
+
+promotion_rule:
+  before_publish: 弱模型正向达到接受线，负向和不应触发回归通过，旧用例无明显退化
