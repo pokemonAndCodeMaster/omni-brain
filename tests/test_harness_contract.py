@@ -223,6 +223,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不能用“例如某某查询”", skill)
         self.assertIn("接口表是方案的完整施工清单", skill)
         self.assertIn("也包含客户端聚合、指标计算、导出", skill)
+        self.assertIn("它的消费者只能是尚未迁移的旧调用方", skill)
+        self.assertIn("视为责任冲突，R2 不可交接", skill)
         self.assertIn("动作极性必须一致", skill)
         self.assertIn("不是把变长记录作为额外行混进同一张", skill)
         self.assertIn("一对多或变长数据放入可关联的独立", skill)
