@@ -222,6 +222,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("不再叫“仍需用户决定”", skill)
         self.assertIn("不能用“例如某某查询”", skill)
         self.assertIn("接口表是方案的完整施工清单", skill)
+        self.assertIn("也包含客户端聚合、指标计算、导出", skill)
+        self.assertIn("动作极性必须一致", skill)
         self.assertIn("不是把变长记录作为额外行混进同一张", skill)
         self.assertIn("一对多或变长数据放入可关联的独立", skill)
         self.assertIn("每个待决项都能说明为何只能由", skill)
@@ -243,6 +245,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("无新增后端接口", reference)
         self.assertIn("当前兼容入口", reference)
         self.assertIn("目标业务用例", reference)
+        self.assertIn("目标链路的消费者不得继续把泛化兼容入口", reference)
+        self.assertIn("重叠的用户页面或工作流也属于两套职责", reference)
         self.assertIn("可追溯的底层明细", reference)
         self.assertIn("如果它只影响内部技术实现", reference)
 
