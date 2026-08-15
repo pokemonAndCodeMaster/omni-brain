@@ -201,8 +201,19 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("此时在 `review.md` 中只开放 `R1`", skill)
         self.assertIn("连续两次读取没有改变", skill)
         self.assertIn("不要凭经验硬编码分页量", skill)
+        self.assertIn("当前实现只证明“现在怎样做”", skill)
+        self.assertIn("不因“风险低”默认让新旧两套职责长期并存", skill)
+        self.assertIn("集合不自动变成有序列表", skill)
+        self.assertIn("由提供方保证完整或整体失败", skill)
+        self.assertIn("不要机械默认 CSV", skill)
+        self.assertIn("已经收敛的选择换个说法再次提问", skill)
+        self.assertIn("同一完整任务的实现顺序", skill)
         self.assertIn("交给 `develop-with-knowledge`", skill)
         self.assertIn("需求尚未确认时只写 R1", reference)
+        self.assertIn("迁移后退出", reference)
+        self.assertIn("无序选择使用集合语义", reference)
+        self.assertIn("业务对象和责任 owner", reference)
+        self.assertIn("目标软件真实打开", reference)
 
     def test_solution_skill_has_no_quality_check_answer_leakage(self) -> None:
         content = "\n".join(
