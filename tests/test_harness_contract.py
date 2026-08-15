@@ -93,7 +93,7 @@ class HarnessContractTest(unittest.TestCase):
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in (
             "task-knowledge-prep", "ingest-knowledge", "answer-from-knowledge",
-            "develop-with-knowledge", "review-work",
+            "form-solution", "develop-with-knowledge", "review-work",
         ):
             path = ROOT / f".agents/skills/{name}/SKILL.md"
             match = re.match(r"\A---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.DOTALL)
@@ -140,7 +140,16 @@ class HarnessContractTest(unittest.TestCase):
         contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         skill = (ROOT / capability["entrypoints"][0]).read_text(encoding="utf-8")
         self.assertIn("加载 `develop-with-knowledge`", contract)
+        self.assertIn("用户仅声称“方案已批准”不等于存在批准证据", contract)
+        self.assertIn("没有用户路径时只检查该目录一次", contract)
+        self.assertIn("不得遍历产品树、Git 历史、运行产物", contract)
         self.assertIn("最低充分上下文", skill)
+        self.assertIn("## 0. 核对实施依据", skill)
+        self.assertIn("用户口头声称“已经批准”是查找线索，不是批准证据", skill)
+        self.assertIn("只检查一次当前 Harness", skill)
+        self.assertIn("不得为找方案遍历产品树、Git 历史、运行产物", skill)
+        self.assertIn("不得自行新建方案后把它标为已批准", skill)
+        self.assertIn("实施依据：", skill)
         self.assertIn("用**原始用户请求**调用知识入口路由", skill)
         self.assertIn("knowledge_route.py", skill)
         self.assertIn("只读 `PRIMARY`", skill)
@@ -178,6 +187,91 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("人工审查", limits)
         self.assertIn("跨系统", limits)
         self.assertIn("第二领域", limits)
+
+    def test_solution_formation_is_routed_before_complex_development(self) -> None:
+        manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
+        capability = manifest["capabilities"]["solution_formation"]
+        self.assertEqual("verified_at_deepseek_complex_solution_and_routing_slice", capability["adoption"])
+        self.assertEqual([], capability["dependencies"])
+        self.assertTrue(any("两个独立重放" in item for item in capability["limits"]))
+        self.assertTrue(any("25–40" in item for item in capability["limits"]))
+        self.assertEqual(
+            [
+                ".agents/skills/form-solution/SKILL.md",
+                ".agents/skills/form-solution/references/software-solution.md",
+            ],
+            capability["entrypoints"],
+        )
+
+        contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        skill = (ROOT / capability["entrypoints"][0]).read_text(encoding="utf-8")
+        reference = (ROOT / capability["entrypoints"][1]).read_text(encoding="utf-8")
+        self.assertLess(contract.index("加载 `form-solution`"), contract.index("加载 `develop-with-knowledge`"))
+        self.assertIn("先形成并确认 R1 需求", contract)
+        self.assertIn("方案获批前不修改产品代码", skill)
+        self.assertIn("此时在 `review.md` 中只开放 `R1`", skill)
+        self.assertIn("连续两次读取没有改变", skill)
+        self.assertIn("不要凭经验硬编码分页量", skill)
+        self.assertIn("当前实现只证明“现在怎样做”", skill)
+        self.assertIn("不因“风险低”默认让新旧两套职责长期并存", skill)
+        self.assertIn("集合不自动变成有序列表", skill)
+        self.assertIn("由提供方保证完整或整体失败", skill)
+        self.assertIn("不要机械默认 CSV", skill)
+        self.assertIn("“存在多个技术选项”本身不构成人工待决", skill)
+        self.assertIn("R2 是可施工方案，不是方向清单", skill)
+        self.assertIn("R2 不能悄悄削弱已经确认的 R1", skill)
+        self.assertIn("一边声称“无需新增查询/已有数据直接生成”", skill)
+        self.assertIn("不再叫“仍需用户决定”", skill)
+        self.assertIn("不能用“例如某某查询”", skill)
+        self.assertIn("接口表是方案的完整施工清单", skill)
+        self.assertIn("也包含客户端聚合、指标计算、导出", skill)
+        self.assertIn("它的消费者只能是尚未迁移的旧调用方", skill)
+        self.assertIn("视为责任冲突，R2 不可交接", skill)
+        self.assertIn("动作极性必须一致", skill)
+        self.assertIn("不是把变长记录作为额外行混进同一张", skill)
+        self.assertIn("一对多或变长数据放入可关联的独立", skill)
+        self.assertIn("每个待决项都能说明为何只能由", skill)
+        self.assertIn("已经收敛的选择换个说法再次提问", skill)
+        self.assertIn("其他方案基本合理", skill)
+        self.assertIn("R2 待整体确认，当前", skill)
+        self.assertIn("待决项数量必须相同", skill)
+        self.assertIn("同一完整任务的实现顺序", skill)
+        self.assertIn("交给 `develop-with-knowledge`", skill)
+        self.assertIn("需求尚未确认时只写 R1", reference)
+        self.assertIn("迁移后退出", reference)
+        self.assertIn("无序选择使用集合语义", reference)
+        self.assertIn("不能把“每次操作分别查询、各自复用结果”写成一次取数", reference)
+        self.assertIn("业务对象和责任 owner", reference)
+        self.assertIn("目标软件真实打开", reference)
+        self.assertIn("把本轮确定会建设的接口列成表", reference)
+        self.assertIn("不要在表外说“另有独立用例”", reference)
+        self.assertIn("在基础明细中追加另一类行", reference)
+        self.assertIn("无新增后端接口", reference)
+        self.assertIn("当前兼容入口", reference)
+        self.assertIn("目标业务用例", reference)
+        self.assertIn("目标链路的消费者不得继续把泛化兼容入口", reference)
+        self.assertIn("重叠的用户页面或工作流也属于两套职责", reference)
+        self.assertIn("可追溯的底层明细", reference)
+        self.assertIn("如果它只影响内部技术实现", reference)
+
+    def test_solution_skill_has_no_quality_check_answer_leakage(self) -> None:
+        content = "\n".join(
+            (ROOT / path).read_text(encoding="utf-8")
+            for path in (
+                ".agents/skills/form-solution/SKILL.md",
+                ".agents/skills/form-solution/references/software-solution.md",
+                ".agents/skills/form-solution/agents/openai.yaml",
+            )
+        )
+        for leaked_term in (
+            "Good通过率",
+            "Bad通过率",
+            "1000 行",
+            "10000 行",
+            "manual_qc/snapshot",
+            "人工质检标注验收",
+        ):
+            self.assertNotIn(leaked_term, content)
 
     def test_local_work_review_declares_only_scoped_verification(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
