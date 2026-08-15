@@ -103,6 +103,17 @@ capabilities:
       - OpenCode DeepSeek 正向报告已达到人工反馈收敛的认证参考接受线；任务错位在身份阶段停止且不读取产品实现，简单状态查询不触发审查单
       - 不调用模型 API，不自动收集证据，不替代需求澄清或方案形成；原始任务、Diff 和验证记录仍由宿主会话定向读取
       - 简单问答和局部低风险修改不创建持久审查单
+  solution_formation:
+    adoption: implemented_pending_replay
+    dependencies: []
+    entrypoints:
+      - .agents/skills/form-solution/SKILL.md
+      - .agents/skills/form-solution/references/software-solution.md
+    limits:
+      - 当前只实现复杂软件开发诉求的 R1 需求与 R2 方案形成，方案批准前不实施代码
+      - R1 优先使用用户输入和最低产品入口，R1 通过后才按方案问题定向读取当前实现
+      - 需求语义、方案质量和人工批准仍由模型与用户判断，没有确定性评分器代替内容审查
+      - 尚未完成固定较弱模型正向重放、简单任务不触发和缺少批准时停止三类验证
   knowledge_writeback:
     adoption: verified_at_manual_qc_same_system_adjacent_writeback_slice
     dependencies:

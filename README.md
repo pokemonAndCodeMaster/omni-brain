@@ -2,7 +2,7 @@
 
 这不是一个独立 AI 运行平台，而是一套放进项目根目录后由 **Codex 或 OpenCode 原生会话直接使用**的项目能力包。AI 会话负责理解、判断、写作和开发；本仓库提供任务路由、专项 Skill、确定性脚本、状态工作区、知识结构和回归测试。
 
-正式消费入口是长期分支 **`release/harness`**。知识摄入、可信查询、知识驱动开发、代码知识回写和本地软件审查只有在各自声明的验证范围内才进入该分支；具体采用范围以 [`harness.yaml`](harness.yaml) 为准。
+正式消费入口是长期分支 **`release/harness`**。知识摄入、可信查询、方案形成、知识驱动开发、代码知识回写和本地软件审查只有在各自声明的验证范围内才进入该分支；具体采用范围以 [`harness.yaml`](harness.yaml) 为准。
 
 ## 发布分支怎样使用
 
@@ -36,6 +36,8 @@ harness.yaml                           各能力入口、依赖、成熟度和�
 ├─ answer-from-knowledge/SKILL.md      从正式知识回答问题
 │  └─ scripts/knowledge_route.py       只读知识入口排序器
 ├─ develop-with-knowledge/SKILL.md     带知识完成真实软件修改与验证
+├─ form-solution/SKILL.md              复杂开发诉求的 R1 需求与 R2 方案形成
+│  └─ references/software-solution.md  跨模块软件方案的按需审查结构
 ├─ ingest-knowledge/SKILL.md           完整整理、聚焦整理和代码变化回写
 │  └─ assets/*.md                      知识页、产品视图、软件架构等写作骨架
 ├─ review-work/SKILL.md                把复杂成果组织成本地逐阶段审查单
@@ -65,6 +67,7 @@ tests/                                 组件、路由、工作台和知识结�
 |---|---|
 | “整理/摄入/归并这些材料” | `ingest-knowledge` |
 | “根据现有知识回答、学习、判断缺口” | `answer-from-knowledge` |
+| “先讨论/设计复杂开发需求和方案” | `form-solution` |
 | “开发、修复、重构并真实验证” | `develop-with-knowledge` |
 | “审查这项工作、生成本地 MR 说明” | `review-work` |
 | “恢复某个任务案” | 直接读取任务案状态；需要继续复杂准备时再加载 `task-knowledge-prep` |
@@ -95,7 +98,21 @@ python .agents/skills/answer-from-knowledge/scripts/knowledge_route.py \
   --format json
 ```
 
-### 3. `develop-with-knowledge`：带知识开发
+### 3. `form-solution`：形成可审需求与方案
+
+入口：[`SKILL.md`](.agents/skills/form-solution/SKILL.md)；复杂软件方案按需读取 [`software-solution.md`](.agents/skills/form-solution/references/software-solution.md)。
+
+它用于尚未定清、会影响多个模块或公共能力的软件诉求，并持续更新唯一的 `workspaces/reviews/<task-id>/review.md`：
+
+1. 先只根据用户输入和最低产品入口形成 R1，说明主要问题、用户结果、功能规则、边界与完成标准；
+2. R1 未通过时不通读源码、不提前写技术方案；
+3. R1 通过后，把方案问题映射到当前组件、源码、Schema 或运行事实，沿用户入口到数据 owner 定向下钻；
+4. 形成从系统位置、总体通路到模块责任、关键数据/交互和验证方式的 R2；
+5. R2 通过后才交给 `develop-with-knowledge` 实施，实现完成后由 `review-work` 续接实现和验证审查。
+
+Skill 不含任何质检指标、目录、接口或数值答案，也不创建需求 YAML 或方案账本。当前状态为已实现待固定模型重放；正式采用范围见 `harness.yaml`。
+
+### 4. `develop-with-knowledge`：带知识开发
 
 入口：[`SKILL.md`](.agents/skills/develop-with-knowledge/SKILL.md)，并复用 `knowledge_route.py`。
 
@@ -112,7 +129,7 @@ python .agents/skills/answer-from-knowledge/scripts/knowledge_route.py \
 
 该 Skill 已在同一人工质检系统的页面、SQL 性能、跨层算法和详情交互四类真实开发中取得证据，并覆盖两种宿主/模型组合。最新详情对照在相同模型与任务下补齐了焦点进入、Tab/Shift+Tab 环绕、关闭恢复和逐项证据声明；这些规则没有写入题目公式、固定数字或页面名称。当前结论仍不能外推到第二领域或任意软件项目。
 
-### 4. `review-work`：本地 AI 工作审查
+### 5. `review-work`：本地 AI 工作审查
 
 入口：[`SKILL.md`](.agents/skills/review-work/SKILL.md)；软件开发分支按需读取 [`software-development.md`](.agents/skills/review-work/references/software-development.md)。
 
@@ -126,7 +143,7 @@ python .agents/skills/answer-from-knowledge/scripts/knowledge_route.py \
 
 当前软件开发审查切片已由 OpenCode DeepSeek 通过三类验证：正向报告按人工反馈收敛的认证参考独立评分为 17/18；任务对象错位时只读取任务身份包并停止下游审批；简单只读状态问题不会生成审查单。正向改进集中在报告入口、阶段顺序、跨层图示、可填写审查点和高价值待决项；负向加入“先核对身份、对齐后才读实现”的工具边界，避免过读引入错误事实。知识摄入、方案和 Harness 修改的专属审查尚未验证。该能力没有新增事实采集脚本或 YAML 工作台。
 
-### 5. `ingest-knowledge`：知识摄入和代码变化回写
+### 6. `ingest-knowledge`：知识摄入和代码变化回写
 
 入口：[`SKILL.md`](.agents/skills/ingest-knowledge/SKILL.md)；确定性状态工具是 [`ingestion_workspace.py`](scripts/ingestion_workspace.py)。
 
@@ -161,7 +178,7 @@ workspaces/knowledge-ingestion/<case-id>/
 python scripts/ingestion_workspace.py --help
 ```
 
-### 6. `knowledge_check.py`：知识结构检查器
+### 7. `knowledge_check.py`：知识结构检查器
 
 入口：[`knowledge_check.py`](scripts/knowledge_check.py)。它只读检查：
 
@@ -179,7 +196,7 @@ python scripts/knowledge_check.py
 
 通过只代表结构和声明关系成立，不能证明内容正确或充分。
 
-### 7. `task-knowledge-prep` + `task_case.py`：复杂任务知识准备
+### 8. `task-knowledge-prep` + `task_case.py`：复杂任务知识准备
 
 入口：[`SKILL.md`](.agents/skills/task-knowledge-prep/SKILL.md) 和 [`task_case.py`](scripts/task_case.py)。
 
@@ -198,7 +215,7 @@ workspaces/task-cases/<case-id>/
 
 脚本支持创建、恢复、追加事件/证据、原子回答关键问题、重算决策准备度和知识交接准备度、重建视图及关闭任务案。机械检查只检查显式状态和引用，不评价方案质量。
 
-### 8. `source_run.py`：本地 Git 来源快照
+### 9. `source_run.py`：本地 Git 来源快照
 
 入口：[`source_run.py`](scripts/source_run.py)。它挂在任务案下，对用户明确授权的本地 Git 路径执行：
 
@@ -210,7 +227,7 @@ workspaces/task-cases/<case-id>/
 
 它只回答“指定来源版本和范围发生了什么变化”，不解释变化的业务含义，也不会自动触发知识摄入。
 
-### 9. 空知识骨架、模板和测试
+### 10. 空知识骨架、模板和测试
 
 - [`knowledge/index.md`](knowledge/index.md) 及其 `domains/`、`systems/`、`capabilities/`、`sources/`、`views/` 入口，是空 Harness 的知识落点；本体不预装质检答案。
 - [`config/knowledge-domains.yaml`](config/knowledge-domains.yaml) 保存明确领域层级；目录约定与 OKF frontmatter 兼容，但不是把领域分类伪装成 OKF 标准。
@@ -227,6 +244,10 @@ workspaces/task-cases/<case-id>/
 
 ```text
 根据现有知识告诉我 <问题>，明确哪些已确认、哪些未知或冲突。
+```
+
+```text
+请先结合当前项目把 <复杂开发诉求> 的需求和技术方案整理到一张可逐步审查的 review.md，方案批准前不要实施。
 ```
 
 ```text

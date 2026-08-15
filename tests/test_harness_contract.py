@@ -93,7 +93,7 @@ class HarnessContractTest(unittest.TestCase):
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in (
             "task-knowledge-prep", "ingest-knowledge", "answer-from-knowledge",
-            "develop-with-knowledge", "review-work",
+            "form-solution", "develop-with-knowledge", "review-work",
         ):
             path = ROOT / f".agents/skills/{name}/SKILL.md"
             match = re.match(r"\A---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.DOTALL)
@@ -178,6 +178,50 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("人工审查", limits)
         self.assertIn("跨系统", limits)
         self.assertIn("第二领域", limits)
+
+    def test_solution_formation_is_routed_before_complex_development(self) -> None:
+        manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
+        capability = manifest["capabilities"]["solution_formation"]
+        self.assertEqual("implemented_pending_replay", capability["adoption"])
+        self.assertEqual([], capability["dependencies"])
+        self.assertEqual(
+            [
+                ".agents/skills/form-solution/SKILL.md",
+                ".agents/skills/form-solution/references/software-solution.md",
+            ],
+            capability["entrypoints"],
+        )
+
+        contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        skill = (ROOT / capability["entrypoints"][0]).read_text(encoding="utf-8")
+        reference = (ROOT / capability["entrypoints"][1]).read_text(encoding="utf-8")
+        self.assertLess(contract.index("加载 `form-solution`"), contract.index("加载 `develop-with-knowledge`"))
+        self.assertIn("先形成并确认 R1 需求", contract)
+        self.assertIn("方案获批前不修改产品代码", skill)
+        self.assertIn("此时在 `review.md` 中只开放 `R1`", skill)
+        self.assertIn("连续两次读取没有改变", skill)
+        self.assertIn("不要凭经验硬编码分页量", skill)
+        self.assertIn("交给 `develop-with-knowledge`", skill)
+        self.assertIn("需求尚未确认时只写 R1", reference)
+
+    def test_solution_skill_has_no_quality_check_answer_leakage(self) -> None:
+        content = "\n".join(
+            (ROOT / path).read_text(encoding="utf-8")
+            for path in (
+                ".agents/skills/form-solution/SKILL.md",
+                ".agents/skills/form-solution/references/software-solution.md",
+                ".agents/skills/form-solution/agents/openai.yaml",
+            )
+        )
+        for leaked_term in (
+            "Good通过率",
+            "Bad通过率",
+            "1000 行",
+            "10000 行",
+            "manual_qc/snapshot",
+            "人工质检标注验收",
+        ):
+            self.assertNotIn(leaked_term, content)
 
     def test_local_work_review_declares_only_scoped_verification(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
