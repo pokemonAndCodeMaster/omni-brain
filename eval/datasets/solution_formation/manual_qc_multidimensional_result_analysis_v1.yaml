@@ -1,0 +1,92 @@
+schema_version: '0.1'
+id: manual-qc-multidimensional-result-analysis-solution-v1
+name: 模糊开发需求到可审需求与方案
+status: verified_at_deepseek_complex_solution_and_routing_slice
+purpose: >-
+  验证较弱模型能否在没有历史聊天和参考答案时，从一个复杂模糊诉求出发，
+  经过真实代码取证和分阶段人工反馈，形成忠实、可理解、可实施且不过度设计的需求与方案。
+
+candidate_visibility:
+  initial:
+    - 初始用户请求
+    - 待测 Harness
+    - quality-platform-lab@89e48d9 产品工程
+  progressive_feedback:
+    - feedback-r1.md 只在首轮 R1 完成后提供
+    - R1 通过只在修订后提供
+    - feedback-r2-round-1.md 只在首轮 R2 完成后提供
+    - feedback-r2-round-2.md 只在第二轮 R2 完成后提供
+  forbidden:
+    - workspaces/reviews/manual-qc-multidimensional-result-analysis/review.md
+    - 本文件的评分项与关键失败
+    - 历史聊天、历史候选、评分与失败归因
+
+reference:
+  review: workspaces/reviews/manual-qc-multidimensional-result-analysis/review.md
+  version: v0.7
+  status: certified_by_user
+
+semantic_dimensions:
+  scale:
+    0: 缺失、严重误解或会把工作带向错误方向
+    1: 提到但层级、事实或操作方式明显妨碍决策
+    2: 基本可用，仍有重要缺口需要评测者补充解释
+    3: 无需历史聊天即可完成该维度的阶段判断
+  dimensions:
+    requirement_fidelity:
+      description: 抓住主要问题、用户工作过程、产品能力、业务规则、范围和完成标准，不把实验便利或实现结果冒充需求
+      max_points: 3
+    information_and_source_discipline:
+      description: 只读取会改变需求或方案的当前知识与代码，区分用户决定、当前实现、历史和候选设计
+      max_points: 3
+    solution_architecture:
+      description: 从产品位置和数据流形成公共能力、模块、接口、数据正确性、导出和验证方案，责任边界高内聚且与现有工程相容
+      max_points: 3
+    decision_hygiene:
+      description: 只把真正会改变方向的问题交给人，未知不擅自决定，收到反馈后删除被否定设计而不是叠加补丁
+      max_points: 3
+    readability_and_reviewability:
+      description: 需求与方案按自然顺序、自顶向下、图表和分层组织，R1/R2 能直接反馈且前序失败阻断后序
+      max_points: 3
+    execution_boundary:
+      description: R1 未通过不定稿 R2，R2 未通过不实施；最终明确已批准方案不等于产品已经完成
+      max_points: 3
+
+acceptance:
+  semantic_threshold: 16/18
+  floor_per_dimension: 2
+  critical_requirements:
+    - 最终需求保留默认项目任务视图、按需聚合、无固定顺序的整列/单行展开、全列筛选、公共表格与公共图表、统一数据复用、详情和导出
+    - 最终方案不把 1000/10000 固化为业务上限，完整结果成功即取齐且没有 complete 或局部备用路径
+    - 最终后端只保留 manual_qc/snapshot 领域模块，不使用泛化 AnalysisService、AnalysisRepository 或平行 snapshot_statistics 目录
+    - 最终接口分别表达完整快照结果、统计指标定义和聚合统计，不保留万能 query
+    - 最终默认导出结构化 XLSX，JSON 按稳定列和变长明细表拆分，不预建异步导出
+    - 整个 Trial 未修改产品代码，未读取认证参考或提前提供后续反馈
+
+process_checks:
+  initial_round:
+    - 先形成需求主线和少量会改变方向的问题，不把整个开发任务压缩成实验切片
+    - 定向读取当前页面、快照数据链、公共表格、图表和后端边界，不无界通读
+    - 不提前编造默认维度、详情形式、导出动作或数据上限
+  revision_rounds:
+    - 每轮原位重构同一 review.md
+    - 被否决的设计从当前方案删除，只在必要的历史说明中保留
+    - 不用新增术语、状态文件或技术层掩盖反馈
+  final_round:
+    - R1 与 R2 各自有明确结论、依据、待确认项和批准状态
+    - 不进入 R3 实现或声称产品功能完成
+
+regression_cases:
+  - id: simple-local-change-no-heavy-solution
+    input: 把一个已定位按钮的文案从“导出”改为“导出数据”，验收就是页面显示新文案。
+    expected: 直接执行或给最小说明，不创建需求方案审查工作区。
+  - id: claimed-approved-solution-missing
+    input: 按已经批准的方案直接开发，但当前工作区没有该方案或批准证据。
+    expected: 定向查找权威批准入口；找不到时停止并索取，不自行补一份方案后冒充已批准。
+
+promotion_rule:
+  before_publish:
+    - 冻结评分后不得为提高分数改变参考或接受线
+    - 同一较弱模型至少两次独立目标 Trial 达到接受线且无关键失败
+    - 两个回归用例、既有本地审查回归和 Harness 全量测试通过
+    - AGENTS 与 Skill 不包含质检字段名、固定数字、参考目录或本用例答案

@@ -1,7 +1,7 @@
 # Omni-Brain 实验与评测总账
 
 > **作用**：这是“有哪些用例、输入是什么、参考成果在哪里、跑过哪些模型、结果如何、下一步做什么”的唯一状态入口。
-> **更新时间**：2026-08-14。
+> **更新时间**：2026-08-16。
 > **边界**：Blueprint 说明系统由什么组件构成；路线图说明能力怎样递进；本页只管理实际用例、参考成果和 Trial 状态。
 
 > **历史工作区**：2026-08-09 起，已完成 Trial 的顶层候选/参考目录不再长期保留。历史 manifest 中的绝对执行路径可能已经清理；对应 Git 树统一归档在本设计仓 `refs/eval/workspaces/<原工作区目录名>`，Prompt、轨迹、最终回答和审计仍保存在 `eval/trials/`。新的现场统一创建在 `/home/yyh/project/.omni-brain-runs/` 并在封存后回收。
@@ -9,7 +9,7 @@
 ## 1. 当前结论
 
 - M1“知识整理与摄入”已经完成首个质检增量文档切片闭环：内容通过、用户批准、正式发布、干净消费、86 项回归和跨模型重放均有证据。成熟度为 **Verified@quality-check-incremental-slice**，不是跨领域或全宿主 Verified。
-- 当前独立 Harness Release 位于 `/home/yyh/project/omni-brain-harness`，远端为 `github.com/pokemonAndCodeMaster/omni-brain` 的 `release/m1-ingestion-harness-v1@7e3034c`，标签为 `harness-m1-ingestion-v1`；公开单分支重克隆后的空知识检查和 86 项回归通过，不预装质检答案。
+- 当前统一 Harness Release 位于 `/home/yyh/project/omni-brain-harness`，远端为 `github.com/pokemonAndCodeMaster/omni-brain` 的 `release/harness`；它连续集成已达到各自采用门槛的 M1 摄入、M2 查询、M3 开发、M4 回写、本地软件审查和分阶段方案形成，不预装质检答案。方案形成发布候选 `f3a0d11` 的 112 项回归、Skill 快速校验、知识检查和格式检查已通过；最终远端提交以本轮发布记录为准。
 - 质检知识集成版位于 `/home/yyh/project/omni-brain-harness-quality-check-v1` 的 `release/m1-quality-knowledge-v1` 分支，提交 `900cf85`；包含 33 个 Markdown、24 个概念和两种产品视图，是 M1 产物与 M2 查询输入，不是通用 Harness 本体。
 - Luna Trial 002 是获批正式内容：25 个材料组、90 项发现、15 个主题、内容 `24/24`。Terra Trial 003 在同一 Harness 与输入上通过 6 个可恢复会话形成另一份 `24/24` 候选，证明结果不只依赖 Luna 单次长会话。
 - 固定 Luna 内容 Trial 的模型提交 `ed93abe` 为 `20/24`、无核心题为 0，首次达到当前基础文档内容线。审计发现模型手写来源索引存在路径错误，未直接发布；通用修复后可审阅候选为 `0225003`，候选领域地图下的知识检查通过。
@@ -23,10 +23,9 @@
 - “代码变化到知识回写”首题形成 `24/24` 强参考，第四轮 Luna 为 `22/24`；随后在“验收未完成量”相邻增量上继续盲测，最终候选 `a8ea723` 达到 `24/24` 且全部关键题通过。来源身份、父知识原位融合、业务公式、前后端责任、旧列配置兼容、公共能力和产品视图均可从候选直接回答。能力升级为 `Verified@manual-qc-same-system-adjacent-writeback-slice`，仍须人工审查，不自动发布。
 - “本地快照导入代码回写”作为不同变化类型的保留集完成第三轮。结果由 `17/24 → 20/24 → 21/24`，数据库公共能力、当前态和可运行入口已修复；精确校验边界、代表性人工状态值与固定日期夹具边界仍遗漏，三个关键题失败。该保留集不接受，说明外部契约和数据库状态密集型回写仍是 `implemented / human review required`；不再通过追加 Skill 文案拟合同题。
 - M2“可信查询与任务上下文”已完成首个限定范围闭环。四类基础问答为 `22/24`；确定性知识入口路由器在 10 条真实质检问法上为 `10/10`；路由集成后的人员权限与交付多状态两条盲问答均为 `5/5`，实际只读主入口和一个候补，无宽泛搜索、失败命令或文件修改。M2 当前为 `Verified@quality-check-trusted-query-slices`，只覆盖中文 Markdown、单一质检领域和最多三篇规范页。
-- 干净 Harness 候选已发布到远端 `release/development-writeback-harness-v1@a5104ec`，标签 `harness-development-writeback-v1-rc1`。它汇集 M1 摄入、M3 开发和 M4 回写能力，不预装领域答案；M4 明确标为已实现并真实试用、尚未 verified。
-- 当前实验 Harness 位于 `experiment/development-harness-v1@ab902c6`。它保留 M3/M4 已有切片，并新增已验证的软件开发本地审查能力；该提交尚未推送远端，也不等同于已有正式 Release。
-- 质检知识阅读体验用例已收口：用户审查后的认证参考为 `experiment/reader-first-knowledge-v1@fa8438b`。OpenCode + DeepSeek V4 Flash 的 007 Trial 在隔离仓库中审视 27 个用户页面，修改 22 页、保留 5 页，7 个读者问题均完成，内容 `93/100`且无关键失败。具有三种模式入口、单一页面规划源和小批页面任务包的 Harness 已发布到 `release/reader-first-ingestion-harness-v1@ab0c7a3`，标签 `harness-reader-first-ingestion-v1`。该验证只覆盖质检整库阅读整改，未外推到跨领域或任意规模。
-- “人工质检统计与详情”开发准备已经完成现状审计：`quality-platform-lab@89e48d9` 已覆盖原计划中的只读总览、图表、任务汇总、四级下钻、指标详情和公共表格主体，不应从零重做。本轮 PostgreSQL 自检、真实 HTTP、Python `16/16`、Vue `29/29`、类型检查和生产构建通过；新鲜浏览器操作仍待人工完成。该场景尚未升级为正式 Trial，下一步先由用户认证现有工作台，再确认“验收覆盖与配额缺口”等真正未满足的业务结果。
+- 历史 `release/*-v1` 和 `experiment/*` 只保留为旧快照或实验轨迹，不再作为普通使用者入口。后续实验通过目标用例、既有回归和过拟合检查后，统一晋升到 `release/harness`。
+- 质检知识阅读体验用例已收口：用户审查后的认证参考为 `experiment/reader-first-knowledge-v1@fa8438b`。OpenCode + DeepSeek V4 Flash 的 007 Trial 在隔离仓库中审视 27 个用户页面，修改 22 页、保留 5 页，7 个读者问题均完成，内容 `93/100`且无关键失败。该能力最初发布在历史分支 `release/reader-first-ingestion-harness-v1@ab0c7a3`，现已随摄入能力进入统一 `release/harness`；验证范围仍只覆盖质检整库阅读整改，未外推到跨领域或任意规模。
+- “人工质检多维结果分析”已经完成需求与方案认证：用户批准 R1 v0.4 与 R2 v0.7，认证参考固定了默认视图、任意维度整列/单行展开、公共表格与图表、完整快照复用、单一快照模块、具体功能接口、覆盖式详情和结构化 XLSX 导出。它尚未实施，不代表产品功能完成。“模糊开发需求到可审方案”Harness 已完成冻结基线、九轮目标实验和两条最终路由回归：DeepSeek 目标 005 与 009 两次独立达到 `16/18` 且无关键失败；简单修改不触发重型方案流程，缺少批准证据时有界停止。能力为 `Verified@deepseek-complex-solution-and-routing-slice`，仍限于单一质检系统和一个模型。
 - 质检材料、正式知识、当前实验平台、历史前端原型和认证参考均已纳入资产覆盖目录。用例组合覆盖全部家族，单个任务仍只读最低充分来源。
 - 本地 AI 工作审查已完成 OpenCode DeepSeek 三类闭环。正向 004 对照用户审定真值独立评分 `17/18`；任务错位 006 只读任务身份包后停止，没有访问产品实现；简单状态 002 不生成审查单。能力成熟度为 `Verified@deepseek-software-review-positive-mismatch-no-trigger-slice`。发布提交的两次正向补跑因模型服务长时间无响应没有成品，不计通过；完整失败证据已封存，不覆盖 004 的内容结论。
 
@@ -63,6 +62,7 @@
 | **本地快照导入代码回写** | 已发布质检知识 + 快照导入实现/固定报告 | 强参考与 24 项冻结问题 | Luna 三轮；`17/24 → 20/24 → 21/24` | 主链路和公共能力改善；精确校验、代表状态、日期夹具三个关键项仍缺 | 保留为 holdout；先设计通用契约/运行证据提取，再换新题验证 |
 | **可信知识问答与入口路由** | 正式质检知识 `900cf85` + 学习/现状/冲突/开发/人员/交付等真实问法 | 10 个参考答案、24 项基础内容题、10 条路由真值 | 基础包 `22/24`；路由 `10/10`；集成盲测 `10/10` | `Verified@quality-check-trusted-query-slices`，范围限定 | 冻结同领域调优；嵌入新的开发复合工况 |
 | **本地 AI 工作审查** | 已完成任务的原始输入、Diff、运行证据与边界 | v0.2 任务错位负例 + 用户审定的 v0.3 验收未完成量正向真值 | 正向 004 `17/18`；错位 006、不触发 002 通过 | 软件开发本地审查三类切片已验证 | 停止同题调优；进入模糊需求到可审方案能力 |
+| **模糊开发需求到可审方案** | 用户原始多维结果分析诉求、`quality-platform-lab@89e48d9` 与允许读取的既有知识；不含参考答案和用户纠偏记录 | 用户批准的 R1 v0.4 + R2 v0.7，入口为 `workspaces/reviews/manual-qc-multidimensional-result-analysis/review.md` | DeepSeek 基线及 9 个目标 Trial；005、009 独立 `16/18`；两条最终路由回归通过 | `Verified@deepseek-complex-solution-and-routing-slice`；内容与路由达到当前发布线 | 用已批准 R2 进入真实开发与本地审查；另选第二领域验证方案能力泛化 |
 | **任务案恢复**（旧 `TC_*`） | 冻结任务账本 fixture | 只有历史校准材料，缺新鲜参考执行 | 历史 Gemini 等记录 | 暂停，不是当前主线 | 不创建新 Trial |
 
 ### 3.1 基础文档摄入
@@ -256,7 +256,7 @@
 | 候选场景 | 当前输入准备度 | 升级为正式用例前还缺什么 | 优先级 |
 |---|---|---|---|
 | 已发布质检知识的学习/查询/开发体验审视 | 正式知识和历史查询已就绪 | 固定三条用户旅程、人工阅读意见和问题分层 | 0 |
-| 人工质检统计与详情的复杂前后端开发 | 现有工作台主体已实现；源码、正式知识、本地数据库和现状审计就绪 | 新鲜浏览器认证；选择并确认一个真正未满足的业务结果及口径 | 1 |
+| 人工质检多维结果分析的复杂前后端开发 | R1/R2 已批准，源码、正式知识、本地数据库和现状审计就绪 | 先完成方案形成 Harness；随后建立可运行参考实现与数据库/API/浏览器证据 | 1 |
 | 质检前端架构与运行调试知识摄入 | 当前代码和多份历史/目标材料已就绪 | 冻结当前/历史/目标来源身份，加入新鲜启动与调试结果 | 1 |
 | 授权数据库资产、表结构和消费者关系整合 | 本地 PostgreSQL、migration 和代码入口已就绪 | 明确授权数据库范围、安全连接方式和动态事实快照方法 | 1 |
 | 人工质检完整现状规整 | 正式知识、原料和实验代码已就绪 | 当前生产事实、人力责任和真实数据源需人工或直接证据确认 | 2 |
@@ -309,17 +309,19 @@
 | `0da62f3` / `experiment/development-harness-v1` | 确定性知识入口路由 | 10 条真实质检路线 `10/10`，人员/交付集成盲测 `10/10` |
 | `3a9715d` / `experiment/development-harness-v1` | M2 限定范围成熟度同步 | 103 项回归、Skill 与知识检查通过；M2 为 `Verified@quality-check-trusted-query-slices` |
 | `6deafb9`—`183fc6d` / `experiment/development-harness-v1` | 来源身份、兼容机制与相邻代码回写收敛 | 验收未完成量第五轮 `24/24`；108 项回归通过；回写在声明切片升级为 verified |
-| `a5104ec` / `release/development-writeback-harness-v1` / `harness-development-writeback-v1-rc1` | 当前干净 Harness 候选发布 | 已推送远端；M1/M3 按切片验证，M4 为已实现并真实试用但尚未 verified |
+| `a5104ec` / `release/development-writeback-harness-v1` / `harness-development-writeback-v1-rc1` | 历史开发与回写 Release | 已被统一 `release/harness` 取代，保留为旧快照 |
 | `a2f790e` / `experiment/development-harness-v1` | 今晚验证后的实验 Harness | 已推送远端；108 项回归通过，M4 在同系统相邻增量切片 verified，并保留精确契约 holdout 限制 |
 | `3c87fca` / `experiment/development-harness-v1` | 组件地图基线 | 组件实体与实际使用方式已整理，109 项回归通过；作为后续开发交互实验的起点 |
 | `3595182`—`ae54c8a` / `experiment/development-harness-v1` | OpenCode 缺口详情交互收敛版 | 同题由 `18/20` 提升到 `20/20`；完整焦点闭环和证据声明通过，109 项回归与知识检查通过，已推送远端 |
-| `36d266e`—`ab902c6` / `experiment/development-harness-v1` | 本地软件工作审查收敛版 | 正向报告 `17/18`；错位身份阻断和简单任务不触发通过；110 项 Harness 回归与知识检查通过，尚未推送 |
+| `36d266e`—`ab902c6` / `experiment/development-harness-v1` | 本地软件工作审查收敛版 | 正向报告 `17/18`；错位身份阻断和简单任务不触发通过；110 项 Harness 回归与知识检查通过，随后晋升统一发布分支 |
+| `1218b6f` / `release/harness` | 统一 Harness 长期发布入口 | 已推送远端；发布分支、README、manifest 与回归契约统一，110 项测试和知识检查通过 |
+| `ca6b3f6`—`f3a0d11` / `experiment/solution-formation` | 分阶段需求与方案形成收敛版 | DeepSeek 两次独立目标 Trial 均为 `16/18` 且无关键失败；简单任务和缺少批准证据回归通过；112 项测试、Skill 和知识检查通过，待/已合入统一发布分支 |
 | `fa8438b` / `experiment/reader-first-knowledge-v1` | 质检知识阅读体验认证参考 | 22 个用户可见页面经用户多轮审视后形成最佳当前结果；用于 Trial 后审计，不进入盲测输入 |
 | `3b98c89`—`ab0c7a3` / `release/reader-first-ingestion-harness-v1` / `harness-reader-first-ingestion-v1` | 整库阅读整改 Harness Release | 007 中 OpenCode 弱模型用小批页面完成 27 页审视，内容 `93/100`；99 项发布回归与知识结构检查通过，已推送远程 |
 
 M1 同批优化和发布已经收口。M2 已在质检中文知识问答切片内验证，M3 已在页面、SQL 和跨层算法三类质检开发切片验证。M4 在同系统相邻增量首次达到冻结内容接受线，但快照导入 holdout 仍证明精确契约和运行状态会遗漏。
 
-当前不继续调试“验收分配缺口详情”或同一审查用例。下一主线是“模糊开发需求到可审方案”：使用已保留的人工质检多维结果分析诉求，形成需求理解、系统上下文、影响范围、方案选项、人工决定点、验证计划和开发交接，再复用已验证的 `review-work` 审查。候选实验优先使用 OpenCode + DeepSeek V4 Flash；供应或额度失败后切 Codex + GPT-5.6 Luna high，供应失败不计内容 Trial，同模型续接不冒充跨模型证据。
+当前不继续拟合“模糊开发需求到可审方案”同题。参考、评分、失败轨迹、两次独立通过和最终路由回归见 [`trials/solution_formation/audit.md`](trials/solution_formation/audit.md)。下一主线使用用户已经批准的 R2 v0.7 进入真实开发：由 `develop-with-knowledge` 实现代码和真实运行证据，再由 `review-work` 生成本地审查页并形成知识变化候选；方案形成能力另选第二领域作泛化验证，而不是继续追加本题提示词。
 
 ## 8. 每次 Trial 必须冻结什么
 

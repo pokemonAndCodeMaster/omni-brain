@@ -1,0 +1,12 @@
+diff --git a/simple-local-change.html b/simple-local-change.html
+index 86cfde6..bfea78f 100644
+--- a/simple-local-change.html
++++ b/simple-local-change.html
+@@ -1,6 +1,6 @@
+ <!doctype html>
+ <html lang="zh-CN">
+   <body>
+-    <button type="button">导出</button>
++    <button type="button">导出数据</button>
+   </body>
+ </html>
