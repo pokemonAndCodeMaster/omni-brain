@@ -25,6 +25,7 @@
 
 - 分支：`experiment/solution-formation`
 - 发布候选：`f3a0d11`
+- 统一发布：`release/harness@a95fd1a`
 - 核心实体：`.agents/skills/form-solution/`、`AGENTS.md` 路由和 `harness.yaml` 能力声明。
 - 自动验证：112 项回归、两个 Skill 快速校验、知识检查和 `git diff --check` 全部通过。
 

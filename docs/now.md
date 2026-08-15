@@ -15,7 +15,7 @@
 - 简单局部修改：直接编辑并验证，不创建方案审查页；
 - 缺少批准证据：只检查当前审查入口，找不到后索取路径，不读产品代码或历史实验；
 - Harness：`/home/yyh/project/omni-brain-harness`，统一远端消费分支
-  `release/harness`；实验分支不作为使用入口。
+  `release/harness@a95fd1a`；实验分支不作为使用入口。
 
 方案形成能力当前标记为
 `verified_at_deepseek_complex_solution_and_routing_slice`。这只证明**单一质检系统中的复杂需求、

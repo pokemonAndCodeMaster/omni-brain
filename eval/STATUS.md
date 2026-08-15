@@ -9,7 +9,7 @@
 ## 1. 当前结论
 
 - M1“知识整理与摄入”已经完成首个质检增量文档切片闭环：内容通过、用户批准、正式发布、干净消费、86 项回归和跨模型重放均有证据。成熟度为 **Verified@quality-check-incremental-slice**，不是跨领域或全宿主 Verified。
-- 当前统一 Harness Release 位于 `/home/yyh/project/omni-brain-harness`，远端为 `github.com/pokemonAndCodeMaster/omni-brain` 的 `release/harness`；它连续集成已达到各自采用门槛的 M1 摄入、M2 查询、M3 开发、M4 回写、本地软件审查和分阶段方案形成，不预装质检答案。方案形成发布候选 `f3a0d11` 的 112 项回归、Skill 快速校验、知识检查和格式检查已通过；最终远端提交以本轮发布记录为准。
+- 当前统一 Harness Release 位于 `/home/yyh/project/omni-brain-harness`，远端为 `github.com/pokemonAndCodeMaster/omni-brain` 的 `release/harness@a95fd1a`；它连续集成已达到各自采用门槛的 M1 摄入、M2 查询、M3 开发、M4 回写、本地软件审查和分阶段方案形成，不预装质检答案。发布树上的 112 项回归、Skill 快速校验、知识检查和格式检查已通过。
 - 质检知识集成版位于 `/home/yyh/project/omni-brain-harness-quality-check-v1` 的 `release/m1-quality-knowledge-v1` 分支，提交 `900cf85`；包含 33 个 Markdown、24 个概念和两种产品视图，是 M1 产物与 M2 查询输入，不是通用 Harness 本体。
 - Luna Trial 002 是获批正式内容：25 个材料组、90 项发现、15 个主题、内容 `24/24`。Terra Trial 003 在同一 Harness 与输入上通过 6 个可恢复会话形成另一份 `24/24` 候选，证明结果不只依赖 Luna 单次长会话。
 - 固定 Luna 内容 Trial 的模型提交 `ed93abe` 为 `20/24`、无核心题为 0，首次达到当前基础文档内容线。审计发现模型手写来源索引存在路径错误，未直接发布；通用修复后可审阅候选为 `0225003`，候选领域地图下的知识检查通过。
@@ -314,7 +314,7 @@
 | `3c87fca` / `experiment/development-harness-v1` | 组件地图基线 | 组件实体与实际使用方式已整理，109 项回归通过；作为后续开发交互实验的起点 |
 | `3595182`—`ae54c8a` / `experiment/development-harness-v1` | OpenCode 缺口详情交互收敛版 | 同题由 `18/20` 提升到 `20/20`；完整焦点闭环和证据声明通过，109 项回归与知识检查通过，已推送远端 |
 | `36d266e`—`ab902c6` / `experiment/development-harness-v1` | 本地软件工作审查收敛版 | 正向报告 `17/18`；错位身份阻断和简单任务不触发通过；110 项 Harness 回归与知识检查通过，随后晋升统一发布分支 |
-| `1218b6f` / `release/harness` | 统一 Harness 长期发布入口 | 已推送远端；发布分支、README、manifest 与回归契约统一，110 项测试和知识检查通过 |
+| `a95fd1a` / `release/harness` | 统一 Harness 长期发布入口 | 已推送远端；集成分阶段方案形成，112 项测试、Skill 快速校验、知识检查和格式检查通过 |
 | `ca6b3f6`—`f3a0d11` / `experiment/solution-formation` | 分阶段需求与方案形成收敛版 | DeepSeek 两次独立目标 Trial 均为 `16/18` 且无关键失败；简单任务和缺少批准证据回归通过；112 项测试、Skill 和知识检查通过，待/已合入统一发布分支 |
 | `fa8438b` / `experiment/reader-first-knowledge-v1` | 质检知识阅读体验认证参考 | 22 个用户可见页面经用户多轮审视后形成最佳当前结果；用于 Trial 后审计，不进入盲测输入 |
 | `3b98c89`—`ab0c7a3` / `release/reader-first-ingestion-harness-v1` / `harness-reader-first-ingestion-v1` | 整库阅读整改 Harness Release | 007 中 OpenCode 弱模型用小批页面完成 27 页审视，内容 `93/100`；99 项发布回归与知识结构检查通过，已推送远程 |
