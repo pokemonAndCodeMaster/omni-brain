@@ -215,6 +215,11 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("集合不自动变成有序列表", skill)
         self.assertIn("由提供方保证完整或整体失败", skill)
         self.assertIn("不要机械默认 CSV", skill)
+        self.assertIn("“存在多个技术选项”本身不构成人工待决", skill)
+        self.assertIn("R2 是可施工方案，不是方向清单", skill)
+        self.assertIn("不能用“例如某某查询”", skill)
+        self.assertIn("一对多或变长数据放入可关联的独立", skill)
+        self.assertIn("每个待决项都能说明为何只能由", skill)
         self.assertIn("已经收敛的选择换个说法再次提问", skill)
         self.assertIn("同一完整任务的实现顺序", skill)
         self.assertIn("交给 `develop-with-knowledge`", skill)
@@ -223,6 +228,10 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("无序选择使用集合语义", reference)
         self.assertIn("业务对象和责任 owner", reference)
         self.assertIn("目标软件真实打开", reference)
+        self.assertIn("把本轮确定会建设的接口列成表", reference)
+        self.assertIn("无新增后端接口", reference)
+        self.assertIn("可追溯的底层明细", reference)
+        self.assertIn("如果它只影响内部技术实现", reference)
 
     def test_solution_skill_has_no_quality_check_answer_leakage(self) -> None:
         content = "\n".join(
