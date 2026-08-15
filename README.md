@@ -110,7 +110,7 @@ python .agents/skills/answer-from-knowledge/scripts/knowledge_route.py \
 4. 形成从系统位置、总体通路到模块责任、关键数据/交互和验证方式的 R2；
 5. R2 通过后才交给 `develop-with-knowledge` 实施，实现完成后由 `review-work` 续接实现和验证审查。
 
-Skill 不含任何质检指标、目录、接口或数值答案，也不创建需求 YAML 或方案账本。当前状态为已实现待固定模型重放；正式采用范围见 `harness.yaml`。
+Skill 不含任何质检指标、目录、接口或数值答案，也不创建需求 YAML 或方案账本。当前已由 OpenCode DeepSeek 在同一复杂前后端用例的两个独立重放中达到 16/18，并通过简单任务不触发与缺少批准证据有界停止回归；证据仍限于单一系统和模型，正式采用范围见 `harness.yaml`。
 
 ### 4. `develop-with-knowledge`：带知识开发
 

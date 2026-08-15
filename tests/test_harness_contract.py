@@ -191,8 +191,10 @@ class HarnessContractTest(unittest.TestCase):
     def test_solution_formation_is_routed_before_complex_development(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         capability = manifest["capabilities"]["solution_formation"]
-        self.assertEqual("implemented_pending_replay", capability["adoption"])
+        self.assertEqual("verified_at_deepseek_complex_solution_and_routing_slice", capability["adoption"])
         self.assertEqual([], capability["dependencies"])
+        self.assertTrue(any("两个独立重放" in item for item in capability["limits"]))
+        self.assertTrue(any("25–40" in item for item in capability["limits"]))
         self.assertEqual(
             [
                 ".agents/skills/form-solution/SKILL.md",
