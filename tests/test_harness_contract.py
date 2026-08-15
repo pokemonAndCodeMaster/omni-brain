@@ -221,6 +221,9 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("一对多或变长数据放入可关联的独立", skill)
         self.assertIn("每个待决项都能说明为何只能由", skill)
         self.assertIn("已经收敛的选择换个说法再次提问", skill)
+        self.assertIn("其他方案基本合理", skill)
+        self.assertIn("R2 待整体确认，当前", skill)
+        self.assertIn("待决项数量必须相同", skill)
         self.assertIn("同一完整任务的实现顺序", skill)
         self.assertIn("交给 `develop-with-knowledge`", skill)
         self.assertIn("需求尚未确认时只写 R1", reference)
@@ -230,6 +233,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("目标软件真实打开", reference)
         self.assertIn("把本轮确定会建设的接口列成表", reference)
         self.assertIn("无新增后端接口", reference)
+        self.assertIn("当前兼容入口", reference)
+        self.assertIn("目标业务用例", reference)
         self.assertIn("可追溯的底层明细", reference)
         self.assertIn("如果它只影响内部技术实现", reference)
 
