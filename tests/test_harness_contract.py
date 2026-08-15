@@ -15,18 +15,19 @@ class HarnessContractTest(unittest.TestCase):
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         runtime = manifest["runtime"]
         self.assertEqual("release", manifest["release_channel"])
-        self.assertEqual("m1-ingestion-harness-v1", manifest["release_id"])
+        self.assertEqual("omni-brain-harness", manifest["release_id"])
+        self.assertEqual("release/harness", manifest["release_branch"])
         self.assertEqual("opencode", runtime["primary"])
         self.assertEqual("native_file_conventions", runtime["adapter"])
         self.assertFalse(runtime["opencode_specific_config_required"])
         self.assertTrue((ROOT / runtime["instructions"]).exists())
         self.assertTrue((ROOT / manifest["roadmap"]).exists())
 
-    def test_m1_ingestion_declares_only_scoped_verification(self) -> None:
+    def test_integrated_release_keeps_ingestion_scoped_verification(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
-        self.assertEqual("M1", manifest["current_stage"]["id"])
+        self.assertEqual("M4", manifest["current_stage"]["id"])
         self.assertEqual(
-            "released_verified_at_quality_check_incremental_slice",
+            "integrated_release_with_scoped_verification_through_m4_and_local_review",
             manifest["current_stage"]["status"],
         )
         ingestion = manifest["capabilities"]["knowledge_ingestion"]
@@ -114,6 +115,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("workspaces/knowledge-ingestion/<case-id>/", readme)
         self.assertIn("workspaces/task-cases/<case-id>/", readme)
         self.assertIn("`AGENTS.md` 负责选 Skill，Skill 指导模型", readme)
+        self.assertIn("release/harness", readme)
+        self.assertIn("唯一正式入口", readme)
 
     def test_development_workflow_is_verified_in_scoped_and_composite_slices(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))

@@ -1,14 +1,15 @@
 schema_version: '0.4'
 name: omni-brain-harness
 release_channel: release
-release_id: m1-ingestion-harness-v1
-release_date: '2026-08-03'
+release_id: omni-brain-harness
+release_branch: release/harness
+release_date: '2026-08-15'
 roadmap: docs/roadmap.md
 
 current_stage:
-  id: M1
-  status: released_verified_at_quality_check_incremental_slice
-  outcome: 混乱真实材料形成可浏览、可查询、可追溯且细节不失真的规范知识
+  id: M4
+  status: integrated_release_with_scoped_verification_through_m4_and_local_review
+  outcome: 从知识摄入、可信查询、知识驱动开发到代码知识回写与本地软件审查形成可移植的受控能力链
 
 runtime:
   primary: opencode

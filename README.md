@@ -2,7 +2,29 @@
 
 这不是一个独立 AI 运行平台，而是一套放进项目根目录后由 **Codex 或 OpenCode 原生会话直接使用**的项目能力包。AI 会话负责理解、判断、写作和开发；本仓库提供任务路由、专项 Skill、确定性脚本、状态工作区、知识结构和回归测试。
 
-稳定 Release 身份仍记录在 [`harness.yaml`](harness.yaml)；当前实验分支还包含经过限定工况验证的查询、开发和代码知识回写能力。具体采用范围也以该文件为准。
+正式消费入口是长期分支 **`release/harness`**。知识摄入、可信查询、知识驱动开发、代码知识回写和本地软件审查只有在各自声明的验证范围内才进入该分支；具体采用范围以 [`harness.yaml`](harness.yaml) 为准。
+
+## 发布分支怎样使用
+
+其他人试用 Harness 时只需取得统一发布分支，不需要知道内部做过哪些实验：
+
+```bash
+git clone --branch release/harness --single-branch \
+  git@github.com:pokemonAndCodeMaster/omni-brain.git omni-brain-harness
+cd omni-brain-harness
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests
+```
+
+分支职责固定如下：
+
+| 分支或工作区 | 用途 | 是否供普通使用者消费 |
+|---|---|---|
+| `release/harness` | 持续集成已经取得范围内验证、能给全局带来收益的 Harness 能力 | 是，唯一正式入口 |
+| 本地实验分支或临时 worktree | 修改 Skill、规则、工具并运行盲测与回归 | 否 |
+| `eval/trials/` 与归档 ref | 保存固定输入、候选结果、轨迹、评价和失败证据 | 否，只供复核 |
+
+一项实验只有同时满足以下条件才晋升到 `release/harness`：产生可用结果；通过目标用例和既有回归；没有把参考答案或单题细节写入 Harness；在 `harness.yaml` 写清验证范围和限制。晋升后直接更新同一长期分支；需要回退时 revert 对应发布提交，不再创建新的“最终版”发布分支。历史 `release/*-v1` 和实验远端分支只是旧快照，不再作为后续入口。
 
 ## 实际包含哪些实体
 
