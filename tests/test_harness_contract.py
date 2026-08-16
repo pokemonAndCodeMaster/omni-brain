@@ -257,6 +257,17 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("待决项数量必须相同", skill)
         self.assertIn("同一完整任务的实现顺序", skill)
         self.assertIn("交给 `develop-with-knowledge`", skill)
+        self.assertIn("从 R1 中的日常工作反推结构", skill)
+        self.assertIn("至少两个存在实质差异的真实", skill)
+
+        reference = (ROOT / ".agents/skills/form-solution/references/software-solution.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("### 从日常工作反推架构", reference)
+        self.assertIn("### 配置与秘密", reference)
+        self.assertIn("### 数据结构与访问方式", reference)
+        self.assertIn("目录仍不足以证明软件设计成立", reference)
+        self.assertIn("业务配置变化不能被误写成", reference)
         self.assertIn("需求尚未确认时只写 R1", reference)
         self.assertIn("迁移后退出", reference)
         self.assertIn("无序选择使用集合语义", reference)
