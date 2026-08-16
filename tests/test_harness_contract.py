@@ -92,8 +92,8 @@ class HarnessContractTest(unittest.TestCase):
 
     def test_skill_frontmatter_is_discoverable(self) -> None:
         for name in (
-            "task-knowledge-prep", "ingest-knowledge", "answer-from-knowledge",
-            "form-solution", "develop-with-knowledge", "review-work",
+            "ingest-knowledge", "answer-from-knowledge", "form-solution",
+            "develop-with-knowledge", "review-work",
         ):
             path = ROOT / f".agents/skills/{name}/SKILL.md"
             match = re.match(r"\A---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.DOTALL)
@@ -113,10 +113,19 @@ class HarnessContractTest(unittest.TestCase):
             for entrypoint in capability["entrypoints"]:
                 self.assertIn(entrypoint, readme, entrypoint)
         self.assertIn("workspaces/knowledge-ingestion/<case-id>/", readme)
-        self.assertIn("workspaces/task-cases/<case-id>/", readme)
         self.assertIn("`AGENTS.md` 负责选 Skill，Skill 指导模型", readme)
         self.assertIn("release/harness", readme)
         self.assertIn("唯一正式入口", readme)
+
+    def test_retired_task_ledger_is_not_shipped(self) -> None:
+        self.assertFalse((ROOT / ".agents/skills/task-knowledge-prep").exists())
+        self.assertFalse((ROOT / "scripts/task_case.py").exists())
+        self.assertFalse((ROOT / "scripts/source_run.py").exists())
+        contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        manifest = (ROOT / "harness.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("task-knowledge-prep", contract)
+        self.assertNotIn("task_case:", manifest)
+        self.assertNotIn("local_git_source_run:", manifest)
 
     def test_development_workflow_is_verified_in_scoped_and_composite_slices(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))

@@ -40,15 +40,12 @@ harness.yaml                           各能力入口、依赖、成熟度和�
 │  └─ references/software-solution.md  跨模块软件方案的按需审查结构
 ├─ ingest-knowledge/SKILL.md           完整整理、聚焦整理和代码变化回写
 │  └─ assets/*.md                      知识页、产品视图、软件架构等写作骨架
-├─ review-work/SKILL.md                把复杂成果组织成本地逐阶段审查单
-│  └─ references/software-development.md 软件开发审查的按需说明
-└─ task-knowledge-prep/SKILL.md        模糊或高风险任务的知识准备
+└─ review-work/SKILL.md                把复杂成果组织成本地逐阶段审查单
+   └─ references/software-development.md 软件开发审查的按需说明
 
 scripts/
 ├─ ingestion_workspace.py             可恢复知识摄入/回写工作台
-├─ knowledge_check.py                  OKF/Markdown 知识结构只读检查
-├─ source_run.py                       固定本地 Git 来源版本、范围和内容指纹
-└─ task_case.py                        可恢复任务案、证据、事件和双准备度检查
+└─ knowledge_check.py                  OKF/Markdown 知识结构只读检查
 
 knowledge/                             空的规范知识与产品视图入口
 config/knowledge-domains.yaml          显式领域层级地图
@@ -70,7 +67,6 @@ tests/                                 组件、路由、工作台和知识结�
 | “先讨论/设计复杂开发需求和方案” | `form-solution` |
 | “开发、修复、重构并真实验证” | `develop-with-knowledge` |
 | “审查这项工作、生成本地 MR 说明” | `review-work` |
-| “恢复某个任务案” | 直接读取任务案状态；需要继续复杂准备时再加载 `task-knowledge-prep` |
 | 明确、局部、低风险任务 | 不加载完整 Skill，直接执行 |
 
 它还强制候选隔离、来源只读、最低充分阅读、真实路径验证和人工发布边界。OpenCode 与 Codex 都复用这个根文件，不需要单独适配器。
@@ -196,43 +192,12 @@ python scripts/knowledge_check.py
 
 通过只代表结构和声明关系成立，不能证明内容正确或充分。
 
-### 8. `task-knowledge-prep` + `task_case.py`：复杂任务知识准备
-
-入口：[`SKILL.md`](.agents/skills/task-knowledge-prep/SKILL.md) 和 [`task_case.py`](scripts/task_case.py)。
-
-只用于目标模糊、知识缺失/冲突、高风险或形成长期架构的任务。它把聊天中的目标、关键问题、证据、事件、阻塞和下一动作写成可跨会话恢复的账本：
-
-```text
-workspaces/task-cases/<case-id>/
-├─ case.yaml
-├─ evidence.jsonl
-├─ events.jsonl
-├─ overview.md
-├─ outputs/readiness-report.md
-├─ outputs/decision-context.md
-└─ knowledge-proposals/change-set.md
-```
-
-脚本支持创建、恢复、追加事件/证据、原子回答关键问题、重算决策准备度和知识交接准备度、重建视图及关闭任务案。机械检查只检查显式状态和引用，不评价方案质量。
-
-### 9. `source_run.py`：本地 Git 来源快照
-
-入口：[`source_run.py`](scripts/source_run.py)。它挂在任务案下，对用户明确授权的本地 Git 路径执行：
-
-- 登记仓库根、权威级别和 include 范围；
-- 记录 Git HEAD、文件状态、内容 SHA-256 和范围指纹；
-- 比较本次与上次是 initial、unchanged、changed 还是 partial；
-- 原子发布 `run.yaml`、`manifest.jsonl` 和必要文件快照；
-- 校验运行信封与 manifest 未被破坏。
-
-它只回答“指定来源版本和范围发生了什么变化”，不解释变化的业务含义，也不会自动触发知识摄入。
-
-### 10. 空知识骨架、模板和测试
+### 8. 空知识骨架、模板和测试
 
 - [`knowledge/index.md`](knowledge/index.md) 及其 `domains/`、`systems/`、`capabilities/`、`sources/`、`views/` 入口，是空 Harness 的知识落点；本体不预装质检答案。
 - [`config/knowledge-domains.yaml`](config/knowledge-domains.yaml) 保存明确领域层级；目录约定与 OKF frontmatter 兼容，但不是把领域分类伪装成 OKF 标准。
 - [`assets/`](.agents/skills/ingest-knowledge/assets/) 提供领域总览、知识页、软件架构、来源记录、产品视图和公共能力审查骨架，模型按内容选择，不机械复制所有章节。
-- [`tests/`](tests/) 固定任务路由、Skill 契约、工作台状态、查询路由、来源信封和知识检查器行为。
+- [`tests/`](tests/) 固定任务路由、Skill 契约、摄入工作台、查询路由和知识检查器行为。
 
 ## 用户实际怎样使用
 
