@@ -373,6 +373,24 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("报告若一面承认必需项未完成", skill)
         self.assertFalse((ROOT / ".agents/skills/review-work/scripts").exists())
 
+    def test_complex_delivery_uses_read_only_independent_review(self) -> None:
+        develop = (ROOT / ".agents/skills/develop-with-knowledge/SKILL.md").read_text(encoding="utf-8")
+        protocol = (ROOT / ".agents/skills/review-work/references/independent-delivery-check.md").read_text(encoding="utf-8")
+        agent = (ROOT / ".opencode/agents/delivery-reviewer.md").read_text(encoding="utf-8")
+
+        self.assertIn("复杂施工的独立完成复核", develop)
+        self.assertIn("只读 `delivery-reviewer`", develop)
+        self.assertIn("不要先告诉它“已经通过”", develop)
+        self.assertIn("没有可用的独立上下文", develop)
+        self.assertIn("不得声明复杂原始任务已经", develop)
+        self.assertIn("从修改前 commit 读取批准条件", protocol)
+        self.assertIn("从全新的用户入口", protocol)
+        self.assertIn("下游消费者", protocol)
+        self.assertIn("pass / fail / not_proven", protocol)
+        self.assertIn("mode: subagent", agent)
+        self.assertIn("write: false", agent)
+        self.assertIn("edit: false", agent)
+
     def test_knowledge_bundle_matches_declared_adoption(self) -> None:
         manifest = yaml.safe_load((ROOT / "harness.yaml").read_text(encoding="utf-8"))
         domains = yaml.safe_load(

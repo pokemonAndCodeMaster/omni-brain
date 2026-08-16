@@ -25,7 +25,7 @@ Harness 仓库。在 Release 根目录执行一条命令即可：
 python scripts/install_harness.py /绝对路径/目标项目
 ```
 
-安装器会直接更新 Harness 自己的 `.agents/skills/`、两个 `scripts/` 工具和
+安装器会直接更新 Harness 自己的 `.agents/skills/`、OpenCode 原生 `.opencode/agents/`、两个 `scripts/` 工具和
 `harness.yaml`；首次补齐空知识骨架与领域配置；在目标 `AGENTS.md` 末尾写入一小段
 任务路由。目标项目已有的 `AGENTS.md` 正文、`knowledge/` 内容和
 `config/knowledge-domains.yaml` 不会被空骨架覆盖。
@@ -61,7 +61,11 @@ harness.yaml                           各能力入口、依赖、成熟度和�
 ├─ ingest-knowledge/SKILL.md           完整整理、聚焦整理和代码变化回写
 │  └─ assets/*.md                      知识页、产品视图、软件架构等写作骨架
 └─ review-work/SKILL.md                把复杂软件成果组织成本地逐阶段审查单
-   └─ references/software-development.md 软件开发审查的按需说明
+   ├─ references/software-development.md 软件开发审查的按需说明
+   └─ references/independent-delivery-check.md 复杂施工的独立反证协议
+
+.opencode/agents/
+└─ delivery-reviewer.md                OpenCode 只读独立交付复核者
 
 scripts/
 ├─ ingestion_workspace.py             可恢复知识摄入/回写工作台
@@ -141,7 +145,8 @@ Skill 不含任何质检指标、目录、接口或数值答案，也不创建�
 3. 沿真实用户动作定位最小修改链，优先复用现有能力；
 4. 对可增长集合验证“最大合法组合通过、再多一项失败”；
 5. 在真实 API、CLI、数据库或页面验证正常和关键边界；写数据时额外验证基线、冲突状态、失败阻断、幂等和恢复；
-6. 最终交付真实代码、运行证据、未验证边界和知识变化候选。
+6. 跨层、公共能力或多消费者的强范围施工，在清理环境前调用只读独立复核者反证用户动作；
+7. 最终交付真实代码、运行证据、未验证边界和知识变化候选。
 
 实际产物首先是**用户要求的代码/SQL/配置和真实运行结果**。知识变化候选默认只写在交付说明中；只有用户要求正式回写时，才进入下面的 `writeback` 工作台。
 
@@ -160,6 +165,8 @@ Skill 不含任何质检指标、目录、接口或数值答案，也不创建�
 5. 用户可用 `R1`、`R2` 等编号审工作，用 `D1` 单独评价报告体验；反馈持续更新同一张审查单。
 
 当前软件开发审查切片已由 OpenCode DeepSeek 通过三类验证：正向报告按人工反馈收敛的认证参考独立评分为 17/18；任务对象错位时只读取任务身份包并停止下游审批；简单只读状态问题不会生成审查单。正向改进集中在报告入口、阶段顺序、跨层图示、可填写审查点和高价值待决项；负向加入“先核对身份、对齐后才读实现”的工具边界，避免过读引入错误事实。知识摄入、方案和 Harness 修改的专属审查尚未验证。该能力没有新增事实采集脚本或 YAML 工作台。
+
+复杂开发另提供 OpenCode 原生 [`delivery-reviewer`](.opencode/agents/delivery-reviewer.md)。它在新的只读上下文中按 [`independent-delivery-check.md`](.agents/skills/review-work/references/independent-delivery-check.md) 从批准条件选择反例、运行真实用户动作，只返回 `pass / fail / not_proven` 和证据；不修改代码或审查单，也不代替人的 R1—R5 决定。该组件当前仍是待 Trial 验证的候选能力。
 
 ### 6. `ingest-knowledge`：知识摄入和代码变化回写
 
@@ -253,7 +260,7 @@ python scripts/knowledge_check.py
 
 ## 当前明确没有什么
 
-- 没有额外 Agent 服务、后台进程或模型 API 调用层；
+- 没有额外常驻 Agent 服务、后台进程或模型 API 调用层；OpenCode 只使用项目内原生只读 subagent 配置；
 - 没有全文搜索、向量数据库、知识图谱查询或 Web UI；
 - 没有自动判断知识真伪或无人审批发布；
 - 没有通用环境安装与数据库沙箱；

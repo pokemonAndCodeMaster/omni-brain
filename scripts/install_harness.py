@@ -89,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # 这些路径是 Harness 的正式运行实体，直接以当前 Release 覆盖更新。
     copy_tree(SOURCE_ROOT / ".agents" / "skills", target / ".agents" / "skills")
+    copy_tree(SOURCE_ROOT / ".opencode" / "agents", target / ".opencode" / "agents")
     for filename in ("ingestion_workspace.py", "knowledge_check.py"):
         source = SOURCE_ROOT / "scripts" / filename
         destination = target / "scripts" / filename
@@ -107,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     merge_agents(target / "AGENTS.md", release_commit())
 
     print(f"已安装 Omni-Brain Harness：{target}")
-    print("已覆盖：.agents/skills/、scripts/ingestion_workspace.py、scripts/knowledge_check.py、harness.yaml")
+    print("已覆盖：.agents/skills/、.opencode/agents/、scripts/ingestion_workspace.py、scripts/knowledge_check.py、harness.yaml")
     print("已保留：目标项目既有知识、配置和 AGENTS.md 正文")
     print("如当前 Python 缺少依赖：python -m pip install -r requirements-omni-brain.txt")
     return 0

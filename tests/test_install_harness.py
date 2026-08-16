@@ -42,6 +42,7 @@ class InstallHarnessTest(unittest.TestCase):
             self.assertIn("`develop-with-knowledge`", agents)
             self.assertNotEqual("old harness\n", skill.read_text(encoding="utf-8"))
             self.assertTrue((target / ".agents/skills/ingest-knowledge/SKILL.md").is_file())
+            self.assertTrue((target / ".opencode/agents/delivery-reviewer.md").is_file())
             self.assertTrue((target / "scripts/ingestion_workspace.py").is_file())
             self.assertTrue((target / "scripts/knowledge_check.py").is_file())
             self.assertTrue((target / "harness.yaml").is_file())
@@ -66,3 +67,16 @@ class InstallHarnessTest(unittest.TestCase):
             agents = (target / "AGENTS.md").read_text(encoding="utf-8")
             self.assertIn("<!-- omni-brain-harness:start -->", agents)
             self.assertIn("`ingest-knowledge`", agents)
+
+    def test_install_keeps_existing_opencode_agents(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "sample-project"
+            existing = target / ".opencode" / "agents" / "project-reviewer.md"
+            existing.parent.mkdir(parents=True)
+            existing.write_text("project owned\n", encoding="utf-8")
+
+            result = self.run_installer(target)
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual("project owned\n", existing.read_text(encoding="utf-8"))
+            self.assertTrue((target / ".opencode/agents/delivery-reviewer.md").is_file())

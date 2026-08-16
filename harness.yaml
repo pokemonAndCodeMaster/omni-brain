@@ -88,6 +88,19 @@ capabilities:
       - OpenCode DeepSeek 正向报告已达到人工反馈收敛的认证参考接受线；任务错位在身份阶段停止且不读取产品实现，简单状态查询不触发审查单
       - 不调用模型 API，不自动收集证据，不替代需求澄清或方案形成；原始任务、Diff 和验证记录仍由宿主会话定向读取
       - 简单问答和局部低风险修改不创建持久审查单
+  independent_delivery_verification:
+    adoption: implemented_unverified_candidate
+    dependencies:
+      - knowledge_guided_development
+      - local_work_review
+    entrypoints:
+      - .opencode/agents/delivery-reviewer.md
+      - .agents/skills/review-work/references/independent-delivery-check.md
+    limits:
+      - 只用于跨层、公共能力、多消费者或含强范围关闭条件的复杂施工，不给局部低风险任务增加固定流程
+      - OpenCode 使用只读原生 subagent；其他宿主需要等价的新上下文，当前没有额外模型 API 或后台编排器
+      - 复核者只返回反例和证据，不修改代码或审查单，也不替代人工验收
+      - 当前仅完成实现与契约测试，尚待复杂开发 Trial 证明能阻止错误完成声明
   solution_formation:
     adoption: verified_at_deepseek_complex_solution_and_routing_slice
     dependencies: []
