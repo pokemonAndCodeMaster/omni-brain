@@ -219,6 +219,7 @@ class HarnessContractTest(unittest.TestCase):
             [
                 ".agents/skills/form-solution/SKILL.md",
                 ".agents/skills/form-solution/references/software-solution.md",
+                ".opencode/agents/r1-requirements-reviewer.md",
             ],
             capability["entrypoints"],
         )
@@ -295,6 +296,19 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("重叠的用户页面或工作流也属于两套职责", reference)
         self.assertIn("可追溯的底层明细", reference)
         self.assertIn("如果它只影响内部技术实现", reference)
+
+        r1_agent = (ROOT / ".opencode/agents/r1-requirements-reviewer.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("mode: subagent", r1_agent)
+        self.assertIn("`src/`", r1_agent)
+        self.assertIn('"workspaces/reviews/**": allow', r1_agent)
+        self.assertIn("bash: deny", r1_agent)
+        self.assertIn("glob: deny", r1_agent)
+        self.assertIn("grep: deny", r1_agent)
+        self.assertIn('"form-solution": allow', r1_agent)
+        self.assertIn("只负责复杂任务的 **R1 需求理解**", r1_agent)
+        self.assertIn("R2 只写“等待 R1 通过”", r1_agent)
 
     def test_solution_skill_has_no_quality_check_answer_leakage(self) -> None:
         content = "\n".join(

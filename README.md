@@ -65,6 +65,7 @@ harness.yaml                           各能力入口、依赖、成熟度和�
    └─ references/independent-delivery-check.md 复杂施工的独立反证协议
 
 .opencode/agents/
+├─ r1-requirements-reviewer.md         OpenCode 限知需求理解候选 Agent
 └─ delivery-reviewer.md                OpenCode 只读独立交付复核者
 
 scripts/
@@ -133,6 +134,8 @@ python .agents/skills/answer-from-knowledge/scripts/knowledge_route.py \
 5. R2 通过后才交给 `develop-with-knowledge` 实施，实现完成后由 `review-work` 续接实现和验证审查。
 
 Skill 不含任何质检指标、目录、接口或数值答案，也不创建需求 YAML 或方案账本。当前已由 OpenCode DeepSeek 在同一复杂前后端用例的两个独立重放中达到 16/18，并通过简单任务不触发与缺少批准证据有界停止回归；证据仍限于单一系统和模型，正式采用范围见 `harness.yaml`。
+
+OpenCode 另提供受控实验入口 [`r1-requirements-reviewer`](.opencode/agents/r1-requirements-reviewer.md)：它只接收原始诉求和明确补充，权限上禁止读取 `src/`、测试、配置、Git 与运行结果，只更新本任务审查页的 R1，避免需求理解被现有实现反向塑形。该 Agent 尚未取得目标 Trial 证据，因此不会替代默认 `form-solution` 路径，也不能被外推为已验证能力。
 
 ### 4. `develop-with-knowledge`：带知识开发
 

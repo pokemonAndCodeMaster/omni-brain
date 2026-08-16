@@ -107,6 +107,7 @@ capabilities:
     entrypoints:
       - .agents/skills/form-solution/SKILL.md
       - .agents/skills/form-solution/references/software-solution.md
+      - .opencode/agents/r1-requirements-reviewer.md
     limits:
       - 当前只实现复杂软件开发诉求的 R1 需求与 R2 方案形成，方案批准前不实施代码
       - R1 优先使用用户输入和最低产品入口，R1 通过后才按方案问题定向读取当前实现
@@ -115,6 +116,7 @@ capabilities:
       - 最终候选已通过简单局部修改不触发方案流程、缺少批准证据时有界停止两项路由回归
       - 证据仍限于单一人工质检系统、单一复杂用例与 OpenCode DeepSeek；尚未验证第二领域、其他弱模型和实际开发交接结果
       - R2 定向查证约 25–40 次源码读取且生成延迟偏高，来源效率与响应速度尚未优化
+      - OpenCode 的 R1 限知 Agent 已实现但尚未取得目标 Trial 证据；验证前只作为受控实验入口，不自动外推到其他宿主
   knowledge_writeback:
     adoption: verified_at_manual_qc_same_system_adjacent_writeback_slice
     dependencies:
