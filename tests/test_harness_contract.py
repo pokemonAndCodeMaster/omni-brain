@@ -259,6 +259,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("交给 `develop-with-knowledge`", skill)
         self.assertIn("从 R1 中的日常工作反推结构", skill)
         self.assertIn("至少两个存在实质差异的真实", skill)
+        self.assertIn("产品写入白名单只有这张 `review.md`", skill)
+        self.assertIn("`.env.example`、`.gitignore`", skill)
 
         reference = (ROOT / ".agents/skills/form-solution/references/software-solution.md").read_text(
             encoding="utf-8"
@@ -268,6 +270,10 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("### 数据结构与访问方式", reference)
         self.assertIn("目录仍不足以证明软件设计成立", reference)
         self.assertIn("业务配置变化不能被误写成", reference)
+        self.assertIn("形成候选表以后逐表反证", reference)
+        self.assertIn("一个业务名词不自动获得一张表", reference)
+        self.assertIn("图片、附件、模型文件等大对象", reference)
+        self.assertIn("只能来自本轮保存的命令或运行输出", reference)
         self.assertIn("需求尚未确认时只写 R1", reference)
         self.assertIn("迁移后退出", reference)
         self.assertIn("无序选择使用集合语义", reference)
