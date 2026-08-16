@@ -183,6 +183,12 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("页面变化不能自动证明导出、弹窗、图表或批量动作", skill)
         self.assertIn("旧行为 → 新 owner → 替代测试或真实证据", skill)
         self.assertIn("不能在实现后重新解释批准条件", skill)
+        self.assertIn("用户动作闭环", skill)
+        self.assertIn("从全新的真实入口运行默认旅程", skill)
+        self.assertIn("缺少入口等于功能未实现", skill)
+        self.assertIn("结构化产物不能只检查文件存在", skill)
+        self.assertIn("最容易漏掉的合法状态", skill)
+        self.assertIn("依赖审计命令非零", skill)
         self.assertIn("视觉或状态样式也要匹配业务语义", skill)
         self.assertIn("规范落点不能只写当前工程", skill)
 
