@@ -40,7 +40,7 @@ harness.yaml                           各能力入口、依赖、成熟度和�
 │  └─ references/software-solution.md  跨模块软件方案的按需审查结构
 ├─ ingest-knowledge/SKILL.md           完整整理、聚焦整理和代码变化回写
 │  └─ assets/*.md                      知识页、产品视图、软件架构等写作骨架
-└─ review-work/SKILL.md                把复杂成果组织成本地逐阶段审查单
+└─ review-work/SKILL.md                把复杂软件成果组织成本地逐阶段审查单
    └─ references/software-development.md 软件开发审查的按需说明
 
 scripts/
@@ -66,7 +66,7 @@ tests/                                 组件、路由、工作台和知识结�
 | “根据现有知识回答、学习、判断缺口” | `answer-from-knowledge` |
 | “先讨论/设计复杂开发需求和方案” | `form-solution` |
 | “开发、修复、重构并真实验证” | `develop-with-knowledge` |
-| “审查这项工作、生成本地 MR 说明” | `review-work` |
+| “审查这项软件开发、生成本地 MR 说明” | `review-work` |
 | 明确、局部、低风险任务 | 不加载完整 Skill，直接执行 |
 
 它还强制候选隔离、来源只读、最低充分阅读、真实路径验证和人工发布边界。OpenCode 与 Codex 都复用这个根文件，不需要单独适配器。
