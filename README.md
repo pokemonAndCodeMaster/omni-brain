@@ -16,6 +16,26 @@ python -m pip install -r requirements.txt
 python -m unittest discover -s tests
 ```
 
+### 安装到已有项目
+
+如果目标项目已经有自己的代码、`AGENTS.md` 和开发规则，不必把它变成另一个
+Harness 仓库。在 Release 根目录执行一条命令即可：
+
+```bash
+python scripts/install_harness.py /绝对路径/目标项目
+```
+
+安装器会直接更新 Harness 自己的 `.agents/skills/`、两个 `scripts/` 工具和
+`harness.yaml`；首次补齐空知识骨架与领域配置；在目标 `AGENTS.md` 末尾写入一小段
+任务路由。目标项目已有的 `AGENTS.md` 正文、`knowledge/` 内容和
+`config/knowledge-domains.yaml` 不会被空骨架覆盖。
+
+安装后直接在目标项目根目录打开 Codex 或 OpenCode；若当前 Python 环境缺少依赖，再按需执行：
+
+```bash
+python -m pip install -r requirements-omni-brain.txt
+```
+
 分支职责固定如下：
 
 | 分支或工作区 | 用途 | 是否供普通使用者消费 |
@@ -46,6 +66,8 @@ harness.yaml                           各能力入口、依赖、成熟度和�
 scripts/
 ├─ ingestion_workspace.py             可恢复知识摄入/回写工作台
 └─ knowledge_check.py                  OKF/Markdown 知识结构只读检查
+
+scripts/install_harness.py             一键覆盖安装到已有项目
 
 knowledge/                             空的规范知识与产品视图入口
 config/knowledge-domains.yaml          显式领域层级地图
