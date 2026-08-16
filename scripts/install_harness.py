@@ -44,7 +44,7 @@ def copy_tree(source: Path, target: Path) -> None:
 
 
 def merge_agents(path: Path, commit: str) -> None:
-    current = path.read_text(encoding="utf-8")
+    current = path.read_text(encoding="utf-8") if path.exists() else ""
     block = f"""{BLOCK_START}
 ## Omni-Brain Harness
 

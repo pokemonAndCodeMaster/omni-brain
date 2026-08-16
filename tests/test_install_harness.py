@@ -54,3 +54,15 @@ class InstallHarnessTest(unittest.TestCase):
             repeated = self.run_installer(target)
             self.assertEqual(0, repeated.returncode, repeated.stderr)
             self.assertEqual(1, (target / "AGENTS.md").read_text(encoding="utf-8").count("<!-- omni-brain-harness:start -->"))
+
+    def test_install_creates_agents_when_target_has_none(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary) / "sample-project"
+            target.mkdir()
+
+            result = self.run_installer(target)
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            agents = (target / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("<!-- omni-brain-harness:start -->", agents)
+            self.assertIn("`ingest-knowledge`", agents)
