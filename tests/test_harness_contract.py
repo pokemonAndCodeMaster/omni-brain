@@ -178,6 +178,11 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("来源身份", skill)
         self.assertIn("页面默认范围不能冒充固定工况", skill)
         self.assertIn("具体结果值", skill)
+        self.assertIn("强范围声明", skill)
+        self.assertIn("最可能失败的反例", skill)
+        self.assertIn("页面变化不能自动证明导出、弹窗、图表或批量动作", skill)
+        self.assertIn("旧行为 → 新 owner → 替代测试或真实证据", skill)
+        self.assertIn("不能在实现后重新解释批准条件", skill)
         self.assertIn("视觉或状态样式也要匹配业务语义", skill)
         self.assertIn("规范落点不能只写当前工程", skill)
 
@@ -336,6 +341,13 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("处理结果", software)
         self.assertIn("你的反馈", software)
         self.assertIn("不要为了“发现问题”制造低价值待决点", software)
+        self.assertIn("批准关闭条件覆盖", software)
+        self.assertIn("公共复用", software)
+        self.assertIn("旧 owner 没有活跃消费者", software)
+        self.assertIn("剩余测试全绿不能替代这张映射", software)
+        self.assertIn("报告内部是否自相矛盾", software)
+        self.assertIn("总体决定保持关闭", software)
+        self.assertIn("报告若一面承认必需项未完成", skill)
         self.assertFalse((ROOT / ".agents/skills/review-work/scripts").exists())
 
     def test_knowledge_bundle_matches_declared_adoption(self) -> None:
