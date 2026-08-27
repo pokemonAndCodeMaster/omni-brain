@@ -1,0 +1,27 @@
+schema_version: '0.1'
+seed:
+  revision: 7076817f5a6d05e6011cf3a59e77bdb6ee4cc561
+  run_id: run-20260826-154920-80e330
+  completion_score: 99
+  process_score: 97
+  aggregate_score: 98.0
+  judge_summary: 结果准确、完整且可直接使用；分类标题仍有轻微语义重叠，并为精确行号重复读取了一次 harness.yaml。
+candidate:
+  revision: 73d23ab437facda949197bcc6c68c71cfc87fd96
+  optimizer_run_id: run-20260826-155059-c7dbb2
+  evaluation_run_id: run-20260826-155329-d36cba
+  changed_files:
+    - AGENTS.md
+    - tests/test_harness_contract.py
+  verification:
+    focused_tests: 24
+    full_tests: 91
+    diff_check: passed
+  completion_score: 99
+  process_score: 98
+  aggregate_score: 98.5
+  delta: 0.5
+  selected_inside_experiment: true
+  merged_to_release: false
+selection_rule: 候选有真实文件变化且双维度均分严格高于当前 best 时，只在该进化记录内选择为 best revision。
+human_review_note: 0.5 分差异可能包含 Judge 波动；候选还把一次查询中的措辞与读取方式固化进全局 AGENTS，晋升前必须判断是否过拟合并用不同状态查询反证。

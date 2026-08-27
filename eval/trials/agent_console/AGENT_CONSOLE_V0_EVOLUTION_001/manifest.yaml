@@ -1,0 +1,37 @@
+schema_version: '0.1'
+trial_id: AGENT_CONSOLE_V0_EVOLUTION_001
+record_kind: candidate
+task_id: agent-console-v0-linear-harness-evolution
+started_at: '2026-08-26T15:49:20Z'
+ended_at: '2026-08-26T15:55:26Z'
+identity:
+  evolution_id: evo-20260826-154920-89cccd
+  agent_id: knowledge-assistant
+  executor: codex
+  model: default
+  harness_repository: /home/yyh/project/omni-brain-harness
+  seed_revision: 7076817f5a6d05e6011cf3a59e77bdb6ee4cc561
+  candidate_revision: 73d23ab437facda949197bcc6c68c71cfc87fd96
+runs:
+  baseline: run-20260826-154920-80e330
+  optimizer: run-20260826-155059-c7dbb2
+  candidate_evaluation: run-20260826-155329-d36cba
+result:
+  status: completed
+  seed_score: 98.0
+  candidate_score: 98.5
+  delta: 0.5
+  selected_inside_experiment: true
+  merged_to_release: false
+artifacts:
+  target_prompt:
+    path: target-prompt.md
+  comparison:
+    path: comparison.yaml
+  candidate_patch:
+    path: candidate.patch
+  audit:
+    path: README.md
+runtime_record:
+  state_root: .derived/agent-console/evolutions/evo-20260826-154920-89cccd.json
+  note: 三个 Run 的完整事件、final、Judge 原生日志与 worktree 位置保留在本地运行状态。

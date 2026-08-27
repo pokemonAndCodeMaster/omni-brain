@@ -95,6 +95,21 @@ conda activate omni-brain
 
 当前核心脚本（`scripts/compile_index.py`、`search_engine.py`、`ingest_pipeline.py`、`health_checker.py`）均为占位实现，可执行以确认状态，但尚不具备真实检索、索引或摄入能力。知识操作目前主要通过 Agent Skill 以人机协作方式完成。
 
+## Agent 能力工作台 v0
+
+本地工作台把 Agent 能力发现、任务运行、历史轨迹、评测和线性进化放在一个入口。用户只需要选择“知识问答 Agent”“方案形成 Agent”等业务能力；Harness、Skill、执行器和 revision 只在高级详情出现。领域页面以后仍可调用同一 Run API，汇总工作台负责跨领域的历史、评测、进化和版本治理。
+
+```bash
+python -m pip install -e .
+cd apps/agent-console
+npm install
+npm run build
+cd ../..
+python scripts/agent_console.py
+```
+
+浏览器打开 `http://127.0.0.1:8787`。v0 同时只允许一个受管任务，运行现场位于 `/home/yyh/project/.omni-brain-runs/<run-id>/`；它只提供 Git 文件隔离，不隔离进程、网络或凭证。具体边界和验证证据见 [Agent 能力工作台 v0](docs/specs/agent-workbench-v0.md)。
+
 ## 路线图
 
 | 阶段 | 目标 | 状态 |

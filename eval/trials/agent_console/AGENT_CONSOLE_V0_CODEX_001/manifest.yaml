@@ -1,0 +1,38 @@
+schema_version: '0.1'
+trial_id: AGENT_CONSOLE_V0_CODEX_001
+record_kind: candidate
+task_id: agent-console-v0-read-only-harness-query
+started_at: '2026-08-26T15:32:46Z'
+ended_at: '2026-08-26T15:34:58Z'
+identity:
+  workbench_run_id: run-20260826-153246-278e30
+  agent_id: knowledge-assistant
+  executor: codex
+  executor_version: 0.144.1
+  model: default
+  harness_repository: /home/yyh/project/omni-brain-harness
+  harness_revision: 7076817f5a6d05e6011cf3a59e77bdb6ee4cc561
+  branch: agent-console/run-20260826-153246-278e30
+  historical_workspace: /home/yyh/project/.omni-brain-runs/run-20260826-153246-278e30
+result:
+  run_status: completed
+  exit_code: 0
+  event_count: 16
+  file_changes: false
+  judge_success: true
+  completion_score: 99
+  process_score: 97
+artifacts:
+  prompt:
+    path: prompt.md
+  final_response:
+    path: final-response.md
+  trace_summary:
+    path: trace-summary.yaml
+  evaluation:
+    path: evaluation.json
+  audit:
+    path: README.md
+runtime_record:
+  state_root: .derived/agent-console/runs/run-20260826-153246-278e30
+  note: 原始 JSONL 轨迹与 Judge 原生日志保留在可删除运行状态；本 Trial 封存最低充分的可审轨迹。

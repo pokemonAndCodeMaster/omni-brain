@@ -1,0 +1,29 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 0ebbdea..e96fb93 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -25,6 +25,8 @@
+
+ 能力是否存在、入口在哪里、验证到了哪个范围，只以 `harness.yaml` 为准；本文件不复制动态成熟度。不得把一个用例中的成功外推到任意领域、模型或规模，也不得把测试通过当作内容正确。本 Release 不预装质检知识；领域知识是 Harness 运行后的独立产物。
+
++列举已注册能力及采用状态时，首次读取 `harness.yaml` 就使用带行号的完整输出完成取证，不再为精确引用重复读取；保留每项原始 `adoption` 值，并使用互斥标题“已验证”、“已实现的空骨架”、“已实现但未验证候选”；如登记出现其他状态则按原值另列，不得用“仅实现”笼统覆盖后两类。
++
+ ## 知识内容优先
+diff --git a/tests/test_harness_contract.py b/tests/test_harness_contract.py
+index 59a41b7..c07ed20 100644
+--- a/tests/test_harness_contract.py
++++ b/tests/test_harness_contract.py
+@@ -67,6 +67,15 @@ class HarnessContractTest(unittest.TestCase):
+         self.assertIn("加载 `answer-from-knowledge`", contract)
+         self.assertIn("不加载 `ingest-knowledge`", contract)
+
++    def test_capability_status_queries_use_distinct_labels_and_one_citable_read(self) -> None:
++        contract = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
++        self.assertIn("首次读取 `harness.yaml` 就使用带行号的完整输出", contract)
++        self.assertIn("不再为精确引用重复读取", contract)
++        self.assertIn("保留每项原始 `adoption` 值", contract)
++        self.assertIn("“已实现的空骨架”", contract)
++        self.assertIn("“已实现但未验证候选”", contract)
++        self.assertIn("不得用“仅实现”笼统覆盖后两类", contract)
++
+     def test_trusted_query_skill_is_stateless_and_bounded(self) -> None:

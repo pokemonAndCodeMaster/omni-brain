@@ -1,0 +1,60 @@
+schema_version: '0.1'
+source:
+  repository: ../omni-brain-harness
+  revision: release/harness
+  manifest: harness.yaml
+
+agents:
+  - id: knowledge-assistant
+    name: 知识问答 Agent
+    category: 知识管理
+    description: 从正式知识入口回答已有事实、缺口、冲突和任务上下文。
+    capability_keys:
+      - knowledge_query_and_context
+    default_executor: codex
+    examples:
+      - 当前知识库已经明确了哪些能力，哪些仍然未知？
+      - 为接下来的开发任务提供最低充分的知识上下文。
+
+  - id: knowledge-builder
+    name: 知识建设 Agent
+    category: 知识管理
+    description: 将有界材料整理为可浏览、可追溯、可审查的候选知识。
+    capability_keys:
+      - knowledge_ingestion
+      - knowledge_writeback
+    default_executor: opencode
+    examples:
+      - 把这批产品与代码材料整理为候选知识并生成审查入口。
+      - 根据固定代码变化更新既有知识，但不要自动发布。
+
+  - id: solution-agent
+    name: 方案形成 Agent
+    category: 软件开发
+    description: 从复杂诉求形成可审需求与可施工方案，在批准前保持产品代码不变。
+    capability_keys:
+      - solution_formation
+    default_executor: opencode
+    examples:
+      - 为这个跨前后端需求形成 R1 需求与 R2 实施方案。
+
+  - id: development-agent
+    name: 知识驱动开发 Agent
+    category: 软件开发
+    description: 使用正式知识与当前源码完成开发、真实验证和知识变化交接。
+    capability_keys:
+      - knowledge_guided_development
+    default_executor: codex
+    examples:
+      - 按已批准方案完成实现并运行端到端验证。
+
+  - id: review-agent
+    name: 工作审查 Agent
+    category: 质量与治理
+    description: 审查已完成的软件工作，对齐原始任务、实现变化和真实证据。
+    capability_keys:
+      - local_work_review
+      - independent_delivery_verification
+    default_executor: opencode
+    examples:
+      - 审查这项开发工作是否真正完成了原始任务。
