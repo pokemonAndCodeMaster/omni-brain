@@ -1,50 +1,96 @@
-# Agent 能力工作台 v0
+# Agent 能力工作台 v0.1
 
-> 状态：verified@codex-readonly-run-eval-and-one-linear-evolution-slice；OpenCode 正向执行仍为 implemented
-> 范围：本地、单用户、同一时间一个受管任务
+> 状态：implemented-and-verified-at-one-opencode-control-slice
+> 日期：2026-08-29
+> 宿主：`/home/yyh/project/quality-platform-lab`
+> 范围：现有 Vue3 质检平台、PostgreSQL、OpenCode-only、单服务单并发、Git worktree 文件隔离
 
 ## 用户结果
 
-Agent 能力的建设者和运营者可以从一个本地网页入口：
+团队成员可以在现有质检一站式平台中：
 
-1. 按业务领域查看已经注册的 Agent 能力、当前版本和验证状态；
-2. 输入任务并启动 Codex 或 OpenCode，在独立 Git worktree 中执行；
-3. 实时查看可见消息、工具事件、进程状态、最终输出和代码差异；
-4. 查看本工作台的新运行和设计仓已经封存的历史 Trial；
-5. 用一个 Judge 对“任务完成”和“执行过程”两个维度形成结构化评价；
-6. 从一个 Seed 开始，查看线性进化中每个候选的问题、修改、结果和取舍。
-7. 在 Run 结束且 worktree 干净后显式释放现场，同时保留运行记录、分支和 commit。
+1. 按知识管理、软件开发、质量治理等类别查看已发布 Agent 能力和轻量 Run 计数；
+2. 选择一个 Agent，填写任务、可选标题和 OpenCode 模型并启动；
+3. 在 Run 列表查看状态、操作者、模型和时间，不为列表加载完整 prompt、结果或 trace；
+4. 选择具体 Run 后查看任务、worktree、分支、OpenCode session、原始失败原因、最终输出和增量事件；
+5. 保留 worktree 与本地产物，供后续人工检查、提交和 MR 流程使用。
 
-领域页面以后可以直接调用同一套 Run API。领域页面负责在具体业务上下文中使用能力；本工作台负责跨领域的能力发现、任务历史、评测、进化和版本治理。
+入口：
 
-## 已确认取舍
+- `/ai/agents`：能力目录和启动；
+- `/ai/runs`：Run 摘要、详情和 trace。
 
-- 用户一级对象统一叫“Agent 能力”；Harness、Skill 和执行器只在高级详情中出现。
-- Codex 和 OpenCode 是内部执行器，不建立 HostProfile 产品对象。
-- v0 不使用 Docker。每个 Run 从 Agent 仓库的固定 revision 创建一个 Git worktree，只承诺代码和文件隔离。
-- v0 假定同一时间只有一个受管 Run，不建设并发调度。
-- Agent 与评测定义继续由 Git/YAML 管理；运行状态和事件写入可删除的 `.derived/agent-console/`。
-- 评测默认使用一个 Judge，顶层只有任务完成与执行过程两个维度。
-- 进化采用线性 `执行 -> 评测 -> 改进 -> 选择`，每个候选保留可审计快照；不做种群搜索和自动合入。
+## 已批准取舍
 
-## 运行边界
+- 前端不再维护 React 控制台；直接复用质检平台的 Vue3 `AppShell`、Vue Router、设计 token、HTTP 层和测试体系。
+- Run 元数据和规范事件不再以 SQLite 为事实源；复用平台 `DatabaseManager → PGConnector → PostgreSQL` 公共链路。
+- 第一版只实现 OpenCode，不提供 Codex 适配、执行器选择或多模型置信度路由。
+- Agent 定义继续来自本仓 `config/agent-registry.yaml` 和发布 Harness；进程启动时读取并缓存，显式刷新才重新扫描。
+- worktree 只负责代码和文件隔离。第一版不使用 Docker，也不声称隔离进程、端口、CPU、内存、网络、依赖或凭据。
+- 默认直接运行本机 `opencode run`，由 OpenCode 选择随机端口；已有单个 OpenCode server 时可配置 `OPENCODE_ENDPOINT`。
+- 当前服务以单进程、单 OpenCode 并发为运行假设。多 worker、远程工作站、租户权限和资源调度必须由后续真实团队工况单独设计与验证。
 
-Worktree 不隔离进程、网络、系统服务和凭证。v0 只用于受信任仓库与受信任 Agent。只有真实任务证明文件隔离不足时，才引入 Docker。
+## 数据与读取边界
 
-## 最薄验收
+PostgreSQL 表：
 
-- 能从浏览器看到当前 Release 中至少四项可使用的 Agent 能力和现有评测用例；
-- 能选择一个 Agent，创建 worktree 并启动一次真实 Codex/OpenCode 任务；
-- 页面刷新后仍能恢复任务、事件、最终输出、分支和差异；
-- 能停止运行、在已有 session 上续接，并对已完成 Run 发起双维度评测；
-- 能看到历史封存 Trial；
-- 能创建一次进化记录，并按候选时间线查看评价、修改和相对效果；
-- 后端、前端构建和关键 API 测试通过。
+- `manual_qc_lab.t_agent_run`：Run 身份、Agent、操作者、状态、模型、repository/revision、worktree/branch、session、结果、具体失败、产物路径和时间；
+- `manual_qc_lab.t_agent_run_event`：每个 Run 内单调递增的规范事件，保存事件摘要和原始 JSONB payload。
 
-## 2026-08-26 验证结果
+读取固定分层：
 
-- `knowledge-assistant + Codex` 从 `release/harness@7076817` 建立独立 worktree，保存 16 个事件、session、最终回答与零文件差异；刷新后可以恢复；
-- 单一 Judge 对同一 Run 给出任务完成 `99`、执行过程 `97`，证据封存在 [`AGENT_CONSOLE_V0_CODEX_001`](../../eval/trials/agent_console/AGENT_CONSOLE_V0_CODEX_001/README.md)；
-- OpenCode CLI 的 worktree、session、结构化错误与 Stop 路径已真实触发；当前账户余额不足，免费模型在有界时间无首事件，因此正向执行仍未验证；
-- 线性进化完成一次真实模型 Trial：Seed `98.0`，候选 `73d23ab` 经 91 项 Release 测试与同题重跑后为 `98.5`，实验内选择但未自动合入；证据与过拟合风险见 [`AGENT_CONSOLE_V0_EVOLUTION_001`](../../eval/trials/agent_console/AGENT_CONSOLE_V0_EVOLUTION_001/README.md)；
-- Chromium 在 1440×1000 和 390×844 下无控制台错误或横向溢出，TypeScript 与生产构建通过。
+```text
+GET /api/agents
+  → Agent 摘要与聚合 Run 计数
+GET /api/agents/{id}
+  → 单 Agent 能力、示例和发布身份
+
+GET /api/agent-runs
+  → Run 摘要分页
+GET /api/agent-runs/{id}
+  → 单 Run 完整详情
+GET /api/agent-runs/{id}/events?after_sequence=N
+  → 只取新增事件
+```
+
+Agent 目录无后台轮询。Run 列表只在进入页面或用户刷新时读取；只有已选择且仍活跃的 Run 每 8 秒续拉详情和新增事件，进入终态后停止。
+
+## 失败信息
+
+平台在保留 OpenCode 原始事件和具体 `failure_reason` 的同时附加可查询 `failure_code`：
+
+- `authentication_failed`；
+- `model_unavailable`；
+- `insufficient_balance`；
+- `rate_limited`；
+- `opencode_error`；
+- `platform_error` / `platform_restarted`。
+
+不能把余额、鉴权、模型不可用等原因统一简化为“环境问题”。
+
+## 历史迁移
+
+`quality-platform-lab/scripts/import_opencode_runs.py` 可一次性读取旧
+`.derived/agent-console/agent-console.sqlite3`，只迁移 `executor=opencode` 的 Run 与事件；
+按 Run ID 幂等跳过，不导入 Codex。旧 SQLite 文件在人工确认迁移结果前保留为只读核对源，
+不再承担在线读取。
+
+## 验证证据
+
+- Python 18 项测试通过；
+- Vue/Vitest 32 项测试、`vue-tsc` 和生产构建通过；
+- `run-20260829-154603-c81456`：真实 OpenCode、独立 worktree、session、10 个规范事件、零文件变化；
+- `run-20260829-154845-cd07a9`：最终文本解析回归成功，结果为 `OpenCode trace parser verified.`；
+- 4 条旧 OpenCode 历史迁入 PostgreSQL，余额不足的原始原因与 HTTP/APIError 信息保留；
+- 真实实现与更完整验证记录位于 `quality-platform-lab/docs/verification-report.md`。
+
+## 尚未实现
+
+- 多用户鉴权、权限与审计身份可信注入；
+- 多工作站注册、心跳、任务领取和 OBS 回传；
+- Docker 或其他进程/依赖/网络隔离；
+- 多 OpenCode server 调度、多 worker 一致性和跨进程并发租约；
+- 评测用例启动、Judge、评测报告和进化 loop；
+- commit、push、MR 创建与合入门禁自动化。
+
+这些边界是后续纵切候选，不能因为表、字段或旧实现曾存在就声称已经支持。
