@@ -5,6 +5,7 @@ import { RouterLink, RouterView, useRoute } from 'vue-router'
 const route = useRoute()
 const mobileNavOpen = shallowRef(false)
 const pageTitle = computed(() => String(route.meta.title ?? '质检一站式平台'))
+const pageEyebrow = computed(() => String(route.meta.eyebrow ?? '人工质检 / 本地实验'))
 
 function closeMobileNav() {
   mobileNavOpen.value = false
@@ -33,6 +34,16 @@ function closeMobileNav() {
           <span>验收操作闭环</span>
           <small>下一纵切</small>
         </div>
+
+        <p class="nav-group nav-group-spaced">AI 协作</p>
+        <RouterLink to="/ai/agents" @click="closeMobileNav">
+          <span class="nav-index">A1</span>
+          <span>Agent 能力目录</span>
+        </RouterLink>
+        <RouterLink to="/ai/runs" @click="closeMobileNav">
+          <span class="nav-index">A2</span>
+          <span>Run 记录</span>
+        </RouterLink>
       </nav>
 
       <div class="sidebar-note">
@@ -52,7 +63,7 @@ function closeMobileNav() {
         ☰
       </button>
       <div>
-        <p class="topbar-eyebrow">人工质检 / 本地实验</p>
+        <p class="topbar-eyebrow">{{ pageEyebrow }}</p>
         <h1>{{ pageTitle }}</h1>
       </div>
       <span class="environment-badge">LOCAL · V20260709</span>
@@ -139,6 +150,10 @@ function closeMobileNav() {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
+}
+
+.nav-group-spaced {
+  margin-top: 24px;
 }
 
 .main-nav a,

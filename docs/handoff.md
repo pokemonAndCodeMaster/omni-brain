@@ -1,9 +1,9 @@
 # 人工质检实验接力报告
 
-> 更新时间：2026-07-26  
-> 仓库：`/home/yyh/project/quality-platform-lab`  
-> 分支：`quality-platform-lab/manual-qc-workbench-v1`  
-> 功能基线：`54f0b11 fix(manual-qc): resize charts with dashboard cards`
+> 更新时间：2026-08-29
+> 仓库：`/home/yyh/project/quality-platform-lab`
+> 分支：`feature/agent-workbench-opencode-v1`
+> 功能基线：待提交的 Agent Runtime 纵切
 
 ## 1. 当前结论
 
@@ -20,6 +20,10 @@
 当前完成的是**人工质检标注与验收的只读分析工作台**。用户可以从业务总览进入多图层
 统计图，再进入任务明细，按任务 → 日期 → 组 → 标注员逐级查看标注、Good/Bad、
 验收分配、完成、通过、打回和问题选项。
+
+2026-08-29 新增了同一平台内的 **OpenCode-only Agent Runtime**：Agent 定义从发布
+Harness 注册表读取，Run 元数据和规范事件进入现有 PostgreSQL；Vue 列表使用摘要接口，
+只有选中具体 Run 才加载 prompt、结果与增量 trace。React、SQLite 和 Codex 不属于该纵切。
 
 当前阶段已经收口。下一位模型不应继续做无目的的组件抽象、V1 清理或页面微调，而应先
 和用户确认下一项真实业务结果。
@@ -43,6 +47,8 @@
 
 ```text
 http://127.0.0.1:5173/manual-qc/snapshots
+http://127.0.0.1:5173/ai/agents
+http://127.0.0.1:5173/ai/runs
 ```
 
 页面从上到下包括：
@@ -83,6 +89,7 @@ src/database/                  PostgreSQL connector / manager
 src/manual_qc/snapshot/        快照行与旧四级聚合
 src/manual_qc/analysis/        指标目录、受控查询、动态问题选项
 src/portal/                    视图配置保存
+src/agent_runtime/             OpenCode Run 编排、PostgreSQL 元数据/事件、worktree
 src/api/routers/               FastAPI 路由
 src/api/schemas/               Pydantic HTTP / 配置契约
 ```
@@ -116,6 +123,9 @@ src/frontend/src/shared/data-workbench/
 
 src/frontend/src/shared/dashboard/
   GridStack、总览卡、图表卡、多图层编辑器和持久化
+
+src/frontend/src/features/agent-runtime/
+  Agent 摘要目录、按需启动、Run 摘要列表、详情和增量 trace
 ```
 
 通用组件只负责呈现和交互；人工质检指标、问题选项语义和预设留在人工质检 feature。
@@ -127,6 +137,8 @@ src/frontend/src/shared/dashboard/
 ```text
 manual_qc_lab.t_qc_daily_snapshot
 manual_qc_lab.t_portal_view_config
+manual_qc_lab.t_agent_run
+manual_qc_lab.t_agent_run_event
 ```
 
 当前确定性种子：
@@ -208,10 +220,12 @@ npm run build
 
 当前基线：
 
-- Python：16 项通过；
-- Vue/Vitest：29 项通过；
+- Python：18 项通过；
+- Vue/Vitest：32 项通过；
 - `vue-tsc`：通过；
 - Vite 生产构建：通过，仍有单 bundle 超过 500 kB 的警告；
+- OpenCode 真实纵链：`run-20260829-154845-cd07a9` 成功，session、worktree、最终文本和
+  规范事件均由 PostgreSQL API 回读；
 - 真实页面：5 张图表、24 个任务、首个任务展开得到 14 个日期；
 - 图表卡增高一格时，卡片、内容区、ECharts 容器和 canvas 同步增加 58px。
 

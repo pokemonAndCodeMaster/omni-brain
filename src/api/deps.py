@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import Request
 
+from src.agent_runtime import AgentRunService
 from src.database import DatabaseManager
 from src.manual_qc.analysis import AnalysisQueryService, AnalysisRepository
 from src.manual_qc.snapshot.repository import SnapshotRepository
@@ -11,6 +12,10 @@ from src.portal.view_config import ViewConfigRepository, ViewConfigService
 
 def get_database_manager(request: Request) -> DatabaseManager:
     return request.app.state.database_manager
+
+
+def get_agent_run_service(request: Request) -> AgentRunService:
+    return request.app.state.agent_run_service
 
 
 def get_snapshot_service(request: Request) -> SnapshotQueryService:

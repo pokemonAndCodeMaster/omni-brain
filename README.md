@@ -21,6 +21,9 @@
    并把关注的问题选项固定为可筛选、可排序的新列；
 9. 把卡片的查询、样式和布局，以及任务表列配置保存到 PostgreSQL；重开页面时
    用最新快照重新计算并恢复。
+10. 在同一 Vue3 平台查看已发布 Agent 的轻量目录和历史 Run 计数，按需启动 OpenCode；
+11. 在 PostgreSQL 中保存 Run 元数据和规范事件，选择具体 Run 后再读取完整任务、结果与
+    `after_sequence` 增量 trace。
 
 ## 快速开始
 
@@ -45,6 +48,23 @@ npm run dev
 ```
 
 打开 `http://127.0.0.1:5173/manual-qc/snapshots`。
+
+Agent 入口：
+
+- `http://127.0.0.1:5173/ai/agents`：能力目录与启动入口；
+- `http://127.0.0.1:5173/ai/runs`：轻量 Run 列表和按需详情/trace。
+
+Agent Runtime 第一版只支持 OpenCode。默认直接调用本机 `opencode run` 并由 OpenCode
+选择随机端口；如团队已有单独的 OpenCode server，可在 `.env` 中配置
+`OPENCODE_ENDPOINT`。worktree 只隔离代码和文件，不充当进程、端口或租户隔离。
+
+需要保留旧控制台中的 OpenCode 历史时，迁移一次：
+
+```bash
+.venv/bin/python scripts/import_opencode_runs.py
+```
+
+脚本只导入 `executor=opencode` 的 Run 与事件；重复执行按 Run ID 跳过，不导入 Codex。
 
 ## 页面怎么用
 
@@ -139,10 +159,12 @@ src/
     config_loader.py     ConfigManager
   database/
     pg_connector.py      PostgreSQL 公共能力
+  agent_runtime/         OpenCode Run、worktree、PostgreSQL Repository/Service
   manual_qc/
     snapshot/            快照 Repository 与 Service
   frontend/              Vue 一站式平台（app/features/shared）
 scripts/postgres.sh     隔离数据库生命周期
+scripts/import_opencode_runs.py  旧 OpenCode 历史的一次性导入
 ```
 
 后续模型从 [`docs/handoff.md`](docs/handoff.md) 续接。详细边界见

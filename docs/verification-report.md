@@ -95,3 +95,30 @@ V1 配置迁移与旧四级 API 仍作为有意保留的回退边界。这些边
 [`handoff.md`](handoff.md)；已经完成的 V2 设计依据归档在
 [`archive/manual-qc-analysis-workbench-v2-design.md`](archive/manual-qc-analysis-workbench-v2-design.md)。
 不能把当前结果描述为完整人工质检平台。
+
+## 2026-08-29 OpenCode Agent Runtime 增量验证
+
+新增链路：
+
+```text
+Harness Agent 注册表（启动时缓存）
+→ Vue Agent 摘要目录 / 按需详情
+→ FastAPI AgentRunService
+→ git worktree + OpenCode CLI
+→ PostgreSQL Run 元数据 / 追加式规范事件
+→ Vue Run 摘要列表 / 按需详情 / after_sequence 增量 trace
+```
+
+| 验证项 | 实际结果 | 状态 |
+|---|---|---|
+| Python 自动化测试 | 原 16 项加 OpenCode 命令与具体失败分类，共 18 项 | 通过 |
+| Vue 自动化测试 | 原 29 项加摘要 API、按需详情和目录首屏，共 32 项 | 通过 |
+| PostgreSQL migration | 新建 `t_agent_run`、`t_agent_run_event` 及状态/Agent/事件游标索引 | 通过 |
+| 摘要与详情分离 | `/api/agents` 不含能力 limits；`/api/agent-runs` 不含 prompt、result 或事件；详情接口独立 | 通过（HTTP 实查） |
+| OpenCode 健康 | 本机 `/home/yyh/.local/bin/opencode`，版本 `1.18.10` | 通过 |
+| 真实只读 Run | `run-20260829-154603-c81456` 建立独立 worktree 和 session，读取两份文件、写入 10 个规范事件，工作区零修改 | 通过 |
+| 最终文本解析回归 | `run-20260829-154845-cd07a9` 回填 `OpenCode trace parser verified.`，没有被 step token 数覆盖 | 通过 |
+| 旧历史迁移 | 一次性脚本只导入 4 条 OpenCode Run，余额不足等具体原因保留；Codex 不导入 | 通过 |
+
+本纵切未验证多 worker 并发调度、团队权限、远程工作站、Docker、对象存储、MR 自动创建
+或评测/进化。worktree 当前只承担代码与文件隔离；运行服务保持单进程、单 OpenCode 并发。

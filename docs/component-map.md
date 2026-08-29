@@ -13,6 +13,11 @@
 | `AnalysisQueryService` | 校验人工质检指标目录、查询粒度、筛选、排序与问题选项参数 | 页面状态或 SQL 字符串拼接 |
 | FastAPI Router | 校验 HTTP 参数并调用 Service | 直接访问数据库 |
 | `ViewConfigRepository / Service` | 保存和恢复总览、统计卡片及任务表列配置 | 计算统计值、保存一次性筛选或展开状态 |
+| `AgentRegistry` | 启动时读取并缓存已发布 Harness 的 Agent 定义 | 保存 Run、选择 Codex 或在请求期扫描全部历史 |
+| `AgentRunRepository` | 在 PostgreSQL 保存 Run 元数据、聚合计数和追加式规范事件 | 启动进程、解释业务结果或保存工作区文件 |
+| `AgentRunService` | 串行调度一个 OpenCode Run、衔接 worktree、进程、事件与最终状态 | SQL、模型评判、多执行器路由或容器隔离 |
+| `OpenCodeExecutor` | 组装 `opencode run`、解析 JSON 事件并保留具体失败原因 | Codex 兼容层、Run 持久化或 worktree 生命周期 |
+| `WorktreeManager` | 为一次 Run 建立独立分支/目录并读取最终 Diff 状态 | 端口、进程、租户或依赖隔离 |
 
 数据依赖方向固定为 `Router → Service → Repository → Connector → PostgreSQL`。
 
@@ -27,6 +32,20 @@
 | `App.vue` | 渲染应用外壳 | 无 |
 | `AppShell.vue` | 提供侧边栏、顶栏和路由内容区 | 读取路由元数据，不拥有领域状态 |
 | `SnapshotPage.vue` | 组装人工质检总览、可编辑看板和逐级明细 | 使用 composable，把状态传给子组件；处理图表下钻 |
+| `AgentCatalogPage.vue` | 展示 Agent 摘要、OpenCode 健康和聚合 Run 计数，按需读取启动配置 | 不读取 Run trace，不轮询历史详情 |
+| `AgentRunsPage.vue` | 展示轻量 Run 列表，并在选中后组合详情和增量 trace | 不在列表接口读取 prompt、result 或原始事件 |
+
+## Agent Runtime 功能
+
+| 组件或 composable | 单一职责 | 输入 / 输出 |
+|---|---|---|
+| `useAgentCatalog` | 首次并行读取 Agent 摘要与 OpenCode 健康，显式刷新注册表 | 输出目录、健康、加载和错误；无后台轮询 |
+| `AgentLaunchDialog.vue` | 编辑一次 OpenCode 任务的标题、prompt 和可选模型 | 接收单个 Agent 详情；发出 typed `submit/close` |
+| `useAgentRunDetail` | 选择 Run 后读取完整详情与 `after_sequence` 事件 | 仅活跃且已选中的 Run 每 8 秒续拉；终态停止 |
+| `RunTraceTimeline.vue` | 呈现规范事件摘要并允许按需展开原始 JSON | 不拉取数据、不推断结果 |
+
+Agent 数据读取固定分层：`Agent 摘要 → 单 Agent 详情`、`Run 摘要列表 → 单 Run 详情 → 增量事件`。
+目录页和列表页都不复用详情模型。
 
 ## 人工质检快照功能
 

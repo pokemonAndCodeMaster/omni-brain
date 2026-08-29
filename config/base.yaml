@@ -25,3 +25,11 @@ external_tasks:
 
 object_storage:
   mode: disabled
+
+agent_runtime:
+  registry_path: ${OMNI_AGENT_REGISTRY:../omni-brain/config/agent-registry.yaml}
+  worktree_root: ${OMNI_RUN_ROOT:../.omni-brain-runs}
+  artifact_root: ${OMNI_RUN_ARTIFACT_ROOT:.runtime/agent-runs}
+  opencode:
+    command: ${OPENCODE_COMMAND:opencode}
+    endpoint: ${OPENCODE_ENDPOINT:}

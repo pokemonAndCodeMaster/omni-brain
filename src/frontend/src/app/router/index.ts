@@ -11,6 +11,18 @@ const router = createRouter({
       component: SnapshotPage,
       meta: { title: '人工质检 · 标注与验收快照' },
     },
+    {
+      path: '/ai/agents',
+      name: 'agent-catalog',
+      component: () => import('@/features/agent-runtime/pages/AgentCatalogPage.vue'),
+      meta: { title: 'Agent 能力目录', eyebrow: 'AI 协作 / 能力目录' },
+    },
+    {
+      path: '/ai/runs/:runId?',
+      name: 'agent-runs',
+      component: () => import('@/features/agent-runtime/pages/AgentRunsPage.vue'),
+      meta: { title: 'Run 记录', eyebrow: 'AI 协作 / 执行记录' },
+    },
   ],
 })
 
