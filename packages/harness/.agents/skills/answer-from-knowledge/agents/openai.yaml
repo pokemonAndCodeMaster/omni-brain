@@ -1,0 +1,4 @@
+interface:
+  display_name: "可信知识问答"
+  short_description: "从正式知识中给出最低充分、可追溯并明确未知边界的答案"
+  default_prompt: "Use $answer-from-knowledge to answer my question from the project knowledge without over-reading."

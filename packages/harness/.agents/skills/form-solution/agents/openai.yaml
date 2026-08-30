@@ -1,0 +1,4 @@
+interface:
+  display_name: "形成可审方案"
+  short_description: "把复杂或模糊的开发诉求逐步形成可批准的需求与软件方案"
+  default_prompt: "使用 $form-solution 结合当前项目形成可逐步审查的需求和方案；方案批准前不要实施。"
