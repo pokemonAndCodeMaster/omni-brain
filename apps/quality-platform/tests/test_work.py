@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -62,8 +63,45 @@ def test_step_display_status_keeps_gate_separate_from_run_status(
     run_status: str | None,
     expected: str,
 ) -> None:
-    runs = [{"status": run_status}] if run_status else []
-    assert WorkRepository._display_status({"status": stored_status, "runs": runs}) == expected
+    step_updated_at = datetime(2026, 8, 30, tzinfo=timezone.utc)
+    runs = (
+        [{"status": run_status, "created_at": step_updated_at + timedelta(seconds=1)}]
+        if run_status
+        else []
+    )
+    assert (
+        WorkRepository._display_status(
+            {"status": stored_status, "runs": runs, "updated_at": step_updated_at}
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    ("stored_status", "expected"),
+    [("ready", "ready"), ("pending", "blocked")],
+)
+def test_revision_reset_invalidates_an_older_successful_run(
+    stored_status: str,
+    expected: str,
+) -> None:
+    reset_at = datetime(2026, 8, 30, 15, 0, tzinfo=timezone.utc)
+
+    assert (
+        WorkRepository._display_status(
+            {
+                "status": stored_status,
+                "updated_at": reset_at,
+                "runs": [
+                    {
+                        "status": "succeeded",
+                        "created_at": reset_at - timedelta(seconds=1),
+                    }
+                ],
+            }
+        )
+        == expected
+    )
 
 
 class FakeRegistry:

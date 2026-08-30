@@ -230,11 +230,15 @@ class WorkRepository:
         runs = step["runs"]
         if runs:
             latest = runs[0]
-            if latest["status"] in {"queued", "running"}:
-                return "running"
-            if latest["status"] == "succeeded":
-                return "awaiting_gate"
-            return "failed"
+            # Resetting a step for revision advances step.updated_at. Runs created
+            # before that boundary remain auditable history but can no longer
+            # satisfy the new delivery cycle's gate.
+            if latest["created_at"] > step["updated_at"]:
+                if latest["status"] in {"queued", "running"}:
+                    return "running"
+                if latest["status"] == "succeeded":
+                    return "awaiting_gate"
+                return "failed"
         return "ready" if step["status"] == "ready" else "blocked"
 
     def detail(self, work_id: str) -> dict[str, Any] | None:
@@ -469,14 +473,18 @@ class WorkRepository:
                 raise ValueError("前序步骤尚未完成")
             latest = connection.execute(
                 f"""
-                    SELECT id, status FROM {self._runs}
+                    SELECT id, status, created_at FROM {self._runs}
                     WHERE work_id = %s AND plan_step_id = %s
                     ORDER BY created_at DESC, id DESC
                     LIMIT 1
                 """,
                 (work_id, step_id),
             ).fetchone()
-            if latest is None or latest["status"] != "succeeded":
+            if (
+                latest is None
+                or latest["status"] != "succeeded"
+                or latest["created_at"] <= step["updated_at"]
+            ):
                 raise ValueError("步骤需要最近一次 Run 成功后才能确认完成")
             connection.execute(
                 f"""
