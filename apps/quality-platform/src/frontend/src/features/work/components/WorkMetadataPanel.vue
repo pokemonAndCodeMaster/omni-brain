@@ -58,13 +58,18 @@ function save() {
 <style scoped>
 .metadata-form {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
 .metadata-form label {
   display: grid;
+  min-width: 0;
   gap: 5px;
+}
+
+.metadata-form .field {
+  min-width: 0;
 }
 
 .metadata-form label span {
