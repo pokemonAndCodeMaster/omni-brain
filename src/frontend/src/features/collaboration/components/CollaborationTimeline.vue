@@ -118,7 +118,17 @@ function summary(item: TimelineItem) {
 .collab-timeline p { margin: 6px 0 0; color: var(--color-ink-secondary); white-space: pre-wrap; word-break: break-word; }
 .collab-timeline footer { justify-content: flex-start; margin-top: 8px; }
 .collab-timeline footer a,
-.collab-timeline footer button { padding: 0; border: 0; background: transparent; color: var(--color-primary); font-size: 10px; text-decoration: none; }
+.collab-timeline footer button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 10px;
+  text-decoration: none;
+}
 .run-state { color: var(--color-muted); font: 10px var(--font-mono); }
 .timeline-empty { padding: 40px 12px; color: var(--color-muted); text-align: center; }
 </style>

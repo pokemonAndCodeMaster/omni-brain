@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { shallowRef, watch } from 'vue'
+import { onMounted, shallowRef, watch } from 'vue'
 import type { AgentDetail, CreateAgentRunInput, ExecutorHealth, ExecutorName } from '../types'
 
 const props = defineProps<{
@@ -18,6 +18,9 @@ const title = shallowRef('')
 const prompt = shallowRef('')
 const model = shallowRef('')
 const executor = shallowRef<ExecutorName>('codex')
+const closeButton = shallowRef<HTMLButtonElement | null>(null)
+
+onMounted(() => closeButton.value?.focus())
 
 watch(
   () => props.agent.id,
@@ -50,13 +53,14 @@ function submit() {
       role="dialog"
       aria-modal="true"
       :aria-labelledby="`launch-${agent.id}`"
+      @keydown.esc="emit('close')"
     >
       <header class="dialog-header">
         <div>
           <p class="eyebrow">{{ executor }} · {{ agent.category }}</p>
           <h2 :id="`launch-${agent.id}`">启动 {{ agent.name }}</h2>
         </div>
-        <button class="icon-button" type="button" aria-label="关闭" @click="emit('close')">
+        <button ref="closeButton" class="icon-button" type="button" aria-label="关闭" @click="emit('close')">
           ×
         </button>
       </header>

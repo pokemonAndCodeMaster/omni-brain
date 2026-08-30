@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, shallowRef } from 'vue'
+import { computed, nextTick, onMounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { createAgentRun, getAgent } from '../api/agentRuntime'
 import AgentLaunchDialog from '../components/AgentLaunchDialog.vue'
@@ -12,6 +12,7 @@ const selectedAgent = shallowRef<AgentDetail | null>(null)
 const detailLoadingId = shallowRef('')
 const launchSubmitting = shallowRef(false)
 const launchError = shallowRef('')
+const launchTrigger = shallowRef<HTMLElement | null>(null)
 
 const executorHealth = computed(() => health.value?.executors ?? [])
 const healthByName = computed(() => new Map(executorHealth.value.map((item) => [item.name, item])))
@@ -32,7 +33,8 @@ const categories = computed(() => {
 
 onMounted(() => void load())
 
-async function openLaunch(agent: AgentSummary) {
+async function openLaunch(agent: AgentSummary, event: MouseEvent) {
+  launchTrigger.value = event.currentTarget as HTMLElement
   detailLoadingId.value = agent.id
   launchError.value = ''
   try {
@@ -42,6 +44,13 @@ async function openLaunch(agent: AgentSummary) {
   } finally {
     detailLoadingId.value = ''
   }
+}
+
+async function closeLaunch() {
+  selectedAgent.value = null
+  await nextTick()
+  launchTrigger.value?.focus()
+  launchTrigger.value = null
 }
 
 async function launch(payload: CreateAgentRunInput) {
@@ -113,7 +122,7 @@ async function launch(payload: CreateAgentRunInput) {
                 class="button primary"
                 type="button"
                 :disabled="detailLoadingId === agent.id || !canLaunch(agent)"
-                @click="openLaunch(agent)"
+                @click="openLaunch(agent, $event)"
               >
                 {{ detailLoadingId === agent.id ? '读取配置…' : '启动任务' }}
               </button>
@@ -131,7 +140,7 @@ async function launch(payload: CreateAgentRunInput) {
       :submitting="launchSubmitting"
       :error="launchError"
       :executor-health="executorHealth"
-      @close="selectedAgent = null"
+      @close="closeLaunch"
       @submit="launch"
     />
   </section>
@@ -185,19 +194,25 @@ async function launch(payload: CreateAgentRunInput) {
 }
 
 .runtime-strip {
+  flex-wrap: wrap;
   gap: 9px;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 8px 14px;
   color: var(--color-muted);
   font-size: 12px;
 }
 
 .runtime-item {
   display: flex;
+  min-width: 0;
   gap: 8px;
   align-items: center;
   padding-right: 14px;
   border-right: 1px solid var(--color-line-subtle);
+}
+
+.runtime-item > span:last-child {
+  overflow-wrap: anywhere;
 }
 
 .runtime-strip strong {
@@ -205,9 +220,13 @@ async function launch(payload: CreateAgentRunInput) {
 }
 
 .runtime-strip a {
+  display: inline-flex;
+  min-height: 34px;
   margin-left: auto;
+  align-items: center;
   color: var(--color-primary);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .runtime-dot {
@@ -346,6 +365,17 @@ async function launch(payload: CreateAgentRunInput) {
   .page-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .runtime-item {
+    flex: 1 1 100%;
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .runtime-strip a {
+    width: 100%;
+    margin-left: 0;
   }
 }
 </style>

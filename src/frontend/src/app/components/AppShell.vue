@@ -10,10 +10,16 @@ const pageEyebrow = computed(() => String(route.meta.eyebrow ?? '人工质检 / 
 function closeMobileNav() {
   mobileNavOpen.value = false
 }
+
+function focusMainContent() {
+  document.querySelector<HTMLElement>('#main-content')?.focus()
+}
 </script>
 
 <template>
   <div class="app-shell">
+    <a class="skip-link" href="#main-content" @click.prevent="focusMainContent">跳到主要内容</a>
+
     <aside class="sidebar" :class="{ 'is-open': mobileNavOpen }">
       <div class="brand">
         <span class="brand-mark">QC</span>
@@ -77,7 +83,7 @@ function closeMobileNav() {
       <span class="environment-badge">LOCAL · V20260709</span>
     </header>
 
-    <main id="main-content" class="main-content">
+    <main id="main-content" class="main-content" tabindex="-1">
       <RouterView />
     </main>
 
@@ -310,6 +316,7 @@ function closeMobileNav() {
     display: inline-grid;
     width: 36px;
     height: 36px;
+    flex: none;
     place-items: center;
     border: 1px solid var(--color-line);
     border-radius: 4px;

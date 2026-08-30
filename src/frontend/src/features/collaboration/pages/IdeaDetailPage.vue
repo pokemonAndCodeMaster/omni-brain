@@ -121,7 +121,10 @@ async function archiveCurrent() {
           <header class="section-heading"><strong>协作时间线</strong><button class="button" type="button" @click="load">刷新</button></header>
           <CollaborationTimeline :items="timeline" @use-run="useRun" />
           <form class="message-composer" @submit.prevent="submitMessage">
-            <textarea v-model="message" class="field" rows="3" placeholder="补充判断、纠正或约束"></textarea>
+            <label class="message-field">
+              <span>补充意见</span>
+              <textarea v-model="message" class="field" rows="3" placeholder="补充判断、纠正或约束"></textarea>
+            </label>
             <button class="button" type="submit" :disabled="messagePending || !message.trim()">记录人的意见</button>
           </form>
         </section>

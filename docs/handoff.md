@@ -3,7 +3,7 @@
 > 更新时间：2026-08-30
 > 仓库：`/home/yyh/project/quality-platform-lab`
 > 分支：`feature/agent-workbench-opencode-v1`
-> 功能基线：待提交的协作平台 S0 与双执行器纵切
+> 功能基线：协作平台 S0、Codex/OpenCode 双执行器与本地 Chromium 验收
 
 ## 1. 当前结论
 
@@ -216,8 +216,9 @@ scripts/postgres.sh status
 curl http://127.0.0.1:8000/api/health
 ```
 
-编写本报告时，PostgreSQL、FastAPI 和 Vite 分别监听 `127.0.0.1:55432`、`:8000`
-和 `:5173`。这是临时运行状态；后续会话必须重新检查，不能假定进程始终存在。
+编写本报告时，PostgreSQL、FastAPI 和本轮验收用 Vite 分别监听 `127.0.0.1:55432`、
+`:8000` 和 `:5174`。README 中的默认启动仍使用 Vite 默认端口 `:5173`；这是临时运行
+状态，后续会话必须重新检查，不能假定进程始终存在。
 
 Windows Navicat 使用 `127.0.0.1:55432`、数据库/用户 `quality_lab`。密码必须通过
 `scripts/postgres.sh enable-tcp` 在本机设置，不得从聊天、日志或 Git 中寻找或写入密码。
@@ -257,13 +258,19 @@ npm run build
 - OpenCode 对照 Run `run-20260830-041237-59dfb6` 暴露单行 JSON 超过默认 64 KiB 的
   Adapter 缺陷，失败原因原样保存；流上限提高到有界 16 MiB 后，
   `run-20260830-041949-740b63` 成功并回填 session、42 个事件和最终文本；
+- Playwright Chromium 1.58.0 已在 1440、1024、390、320 四档宽度验收 6 条协作路由，
+  24/24 个路由—视口组合通过；无横向溢出、未命名控件、小于 32px 的可见点击目标、
+  控制台/Page Error 或 4xx/5xx；
+- 20/20 项真实交互通过：Idea/Requirement/Run/Agent 主路径、移动导航、跳过导航、
+  可见键盘焦点、对话框入焦、Esc 关闭和焦点归还；本机证据位于被忽略的
+  `.runtime/e2e-collaboration/`；
 - 真实页面：5 张图表、24 个任务、首个任务展开得到 14 个日期；
 - 图表卡增高一格时，卡片、内容区、ECharts 容器和 canvas 同步增加 58px。
 
 详细用户路径和核算值见 [`verification-report.md`](verification-report.md)。CSS、拖拽、
 弹窗和 ECharts 尺寸问题必须使用真实浏览器验证，不能只以 jsdom 测试通过为结论。
-本轮新增协作路由已经通过真实 HTTP、Vitest、类型检查和生产构建，但当前环境没有可用的
-Chromium/Playwright，因此不能声称完成了新页面的真实浏览器视觉验收。
+本轮新增协作路由已通过真实 HTTP、Vitest、类型检查、生产构建和 Chromium/Playwright
+多视口验收。仍未验证的是长进程取消的 Adapter 端到端链路，而不是页面基础交互。
 
 ## 8. 已完成且不要重复建设
 

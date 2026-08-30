@@ -58,8 +58,8 @@ function formatTime(value: string) {
       <header class="collab-toolbar requirement-toolbar">
         <strong>{{ total }} 条需求</strong>
         <div>
-          <input v-model="query" class="field" placeholder="搜索标题" @keyup.enter="load" />
-          <select v-model="status" class="select-field" @change="load">
+          <input v-model="query" class="field" type="search" aria-label="搜索需求标题" placeholder="搜索标题" @keyup.enter="load" />
+          <select v-model="status" class="select-field" aria-label="按需求状态筛选" @change="load">
             <option value="">全部状态</option>
             <option value="candidate">candidate</option>
             <option value="accepted">accepted</option>
@@ -67,7 +67,7 @@ function formatTime(value: string) {
             <option value="deferred">deferred</option>
             <option value="merged">merged</option>
           </select>
-          <select v-model="commitment" class="select-field" @change="load">
+          <select v-model="commitment" class="select-field" aria-label="按需求承诺筛选" @change="load">
             <option value="">全部承诺</option>
             <option value="NEXT">NEXT</option>
             <option value="LATER">LATER</option>
