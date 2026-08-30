@@ -17,10 +17,10 @@ Omni-Brain 已收口为一个产品主线。团队 AI 协作与交付平台、Ha
 
 | 位置 | 当前作用 | 状态 |
 |---|---|---|
-| `apps/quality-platform/` | Vue3 + FastAPI + PostgreSQL 的协作与 Agent 控制面 | S0 已实现，待从主线现场复验 |
+| `apps/quality-platform/` | Vue3 + FastAPI + PostgreSQL 的协作与 Agent 控制面 | `verified@mainline-s0` |
 | `harness.yaml`、`.agents/skills/` | 主线 Agent 能力与运行规则 | 已接入 |
-| `packages/harness/` | `release/harness@7076817` 的可追溯发布快照 | 已导入，历史 90 项回归待主线复跑 |
-| `knowledge/published/quality-check/` | 首批认证质检知识 | 已导入，待主线查询验证 |
+| `packages/harness/` | `release/harness@7076817` 的可追溯发布快照 | 已导入，主线 90 项回归通过 |
+| `knowledge/published/quality-check/` | 首批认证质检知识 | 已导入，33 文件/24 概念校验与主线查询通过 |
 | `knowledge/raw/quality_check/` | 认证知识可回溯的不可变来源 | 已登记 |
 | `config/agent-registry.yaml` | 平台从主线注册 Agent 的入口 | 已改为当前仓 `HEAD` |
 
@@ -43,11 +43,10 @@ Run 详情后读取 prompt、结果和 trace，活跃 Run 才增量刷新。Run 
 
 ## 当前下一动作
 
-1. 从 `omni-brain/main` 启动 PostgreSQL、后端和 Vue 前端，复跑后端、前端和 Harness 测试；
-2. 在真实 Chromium 中复验 Idea → Requirement → Agent → Run 的主线闭环及响应式页面；
-3. 把已有 PostgreSQL Run 历史和运行产物迁入主线应用目录，保持现有记录可查询；
-4. 开始 S1 Work 纵切：Requirement 生成 Work、关联 Agent Run、Git 分支/提交/MR 和验证证据；
-5. 建立历史实验资产晋升清单，逐项登记为 Requirement/EvalCase，而不是继续维护平行产品仓。
+1. 开始 S1 Work 纵切：Requirement 生成 Work、关联 Agent Run、Git 分支/提交/MR 和验证证据；
+2. 建立历史实验资产晋升清单，逐项登记为 Requirement/EvalCase，而不是继续维护平行产品仓；
+3. 以主线正式知识运行首个知识问答/开发任务，验证平台 Run 确实消费 `knowledge/published/`；
+4. 为知识浏览、查询和受审更新形成下一条 Requirement，让知识不只在文件中可调用，也能在平台中治理。
 
 用户当前无需为目录或分支继续拍板；主线复验通过后，下一处需要用户确认的是 S1 的真实交付页面与
 “什么证据允许 Work 完成”的交互，而不是底层仓库拓扑。

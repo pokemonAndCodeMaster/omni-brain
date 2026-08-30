@@ -3,9 +3,9 @@ requires = ["setuptools>=75", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "quality-platform-lab"
+name = "omni-brain-quality-platform"
 version = "0.1.0"
-description = "Local manual quality-control platform experiment"
+description = "Omni-Brain team AI collaboration, agent, evaluation, and delivery platform"
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.116,<1",

@@ -1,12 +1,12 @@
 # 团队 AI 协作与交付中枢 S0：需求治理与双执行器 R2
 
-> 状态：`verified@local-s0`（本地 API/数据库/CLI 与新增页面浏览器验收通过；长进程取消仍未端到端验证）
+> 状态：`verified@mainline-s0`（主线 API/数据库/CLI、20 组页面/响应式检查与关键交互通过；长进程取消仍未端到端验证）
 >
 > 日期：2026-08-30
 >
 > 产品依据：[`team-ai-collaboration-delivery-hub-product-design.md`](../team-ai-collaboration-delivery-hub-product-design.md)
 >
-> 实施宿主：`/home/yyh/project/quality-platform-lab@feature/agent-workbench-opencode-v1`
+> 实施宿主：`/home/yyh/project/omni-brain/main` 的 `apps/quality-platform/`
 >
 > 本规格只覆盖 S0。S1 的 Work、WorkPlan、Commit/Push/PR、交付审查包、知识提案和 EvalCase 只保留接口边界，不在本轮实现。
 

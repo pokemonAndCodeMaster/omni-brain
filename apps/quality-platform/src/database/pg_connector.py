@@ -43,7 +43,7 @@ class PGConnector:
             "port": int(config["port"]),
             "dbname": str(config["database"]),
             "user": str(config["user"]),
-            "application_name": "quality-platform-lab",
+            "application_name": "omni-brain-quality-platform",
         }
         password = str(config.get("password", ""))
         if password:

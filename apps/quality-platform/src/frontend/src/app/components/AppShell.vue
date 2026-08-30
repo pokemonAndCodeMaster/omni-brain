@@ -4,8 +4,8 @@ import { RouterLink, RouterView, useRoute } from 'vue-router'
 
 const route = useRoute()
 const mobileNavOpen = shallowRef(false)
-const pageTitle = computed(() => String(route.meta.title ?? '质检一站式平台'))
-const pageEyebrow = computed(() => String(route.meta.eyebrow ?? '人工质检 / 本地实验'))
+const pageTitle = computed(() => String(route.meta.title ?? 'Omni-Brain'))
+const pageEyebrow = computed(() => String(route.meta.eyebrow ?? '团队 AI 协作与交付'))
 
 function closeMobileNav() {
   mobileNavOpen.value = false
@@ -22,10 +22,10 @@ function focusMainContent() {
 
     <aside class="sidebar" :class="{ 'is-open': mobileNavOpen }">
       <div class="brand">
-        <span class="brand-mark">QC</span>
+        <span class="brand-mark">OB</span>
         <span class="brand-copy">
-          <strong>质量与 AI 协作平台</strong>
-          <small>团队工作中枢 · 本地实验</small>
+          <strong>Omni-Brain</strong>
+          <small>团队 AI 协作与交付中枢</small>
         </span>
       </div>
 
@@ -80,7 +80,7 @@ function focusMainContent() {
         <p class="topbar-eyebrow">{{ pageEyebrow }}</p>
         <h1>{{ pageTitle }}</h1>
       </div>
-      <span class="environment-badge">LOCAL · V20260709</span>
+      <span class="environment-badge">MAIN · S0</span>
     </header>
 
     <main id="main-content" class="main-content" tabindex="-1">

@@ -128,7 +128,7 @@ const statusLabels: Record<RunStatus, string> = {
         </div>
       </aside>
 
-      <main class="run-detail panel">
+      <section class="run-detail panel" aria-label="Run 详情">
         <div v-if="!selectedRunId" class="empty-detail">
           <span>RUN</span>
           <h3>选择一条记录查看详情</h3>
@@ -193,7 +193,7 @@ const statusLabels: Record<RunStatus, string> = {
             <RunTraceTimeline :events="events" />
           </section>
         </template>
-      </main>
+      </section>
     </div>
   </section>
 </template>
