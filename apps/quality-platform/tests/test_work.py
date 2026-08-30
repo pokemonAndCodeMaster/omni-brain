@@ -104,6 +104,66 @@ def test_revision_reset_invalidates_an_older_successful_run(
     )
 
 
+class RevisionGateConnection:
+    def __init__(self, reset_at: datetime) -> None:
+        self.reset_at = reset_at
+
+    def __enter__(self) -> RevisionGateConnection:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def execute(self, query: str, _: object = None) -> SimpleNamespace:
+        if "SELECT id, status FROM manual_qc_lab.t_collab_work" in query:
+            return SimpleNamespace(fetchone=lambda: {"id": "work-1", "status": "in_progress"})
+        if "SELECT step.*" in query:
+            return SimpleNamespace(
+                fetchone=lambda: {
+                    "id": "step-development",
+                    "work_plan_id": "plan-1",
+                    "position": 3,
+                    "actor_kind": "agent",
+                    "status": "ready",
+                    "updated_at": self.reset_at,
+                }
+            )
+        if "SELECT count(*)::integer AS count" in query:
+            return SimpleNamespace(fetchone=lambda: {"count": 0})
+        if "SELECT id, status, created_at" in query:
+            return SimpleNamespace(
+                fetchone=lambda: {
+                    "id": "run-before-revision",
+                    "status": "succeeded",
+                    "created_at": self.reset_at - timedelta(seconds=1),
+                }
+            )
+        raise AssertionError(f"旧 Run 不得越过 Gate 继续写入：{query}")
+
+
+class RevisionGatePostgres:
+    schema = "manual_qc_lab"
+
+    def __init__(self, reset_at: datetime) -> None:
+        self.connection = RevisionGateConnection(reset_at)
+
+    def transaction(self) -> RevisionGateConnection:
+        return self.connection
+
+
+def test_completion_gate_rejects_a_successful_run_from_before_revision() -> None:
+    reset_at = datetime(2026, 8, 30, 15, 0, tzinfo=timezone.utc)
+    repository = WorkRepository(RevisionGatePostgres(reset_at))  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="最近一次 Run 成功"):
+        repository.complete_step(
+            work_id="work-1",
+            step_id="step-development",
+            note="不得复用旧结果",
+            actor_id="admin",
+        )
+
+
 class FakeRegistry:
     def get(self, agent_id: str) -> dict:
         assert agent_id == "development-agent"
