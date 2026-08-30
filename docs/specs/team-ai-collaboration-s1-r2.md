@@ -49,6 +49,11 @@ Work 列表只查询摘要和 Run 数量；进入详情后才读取计划、步�
 一个 Work 只建立一个共享 worktree，所有步骤在同一 worktree 中读取或修改。单仓同时只允许一个
 未结束的写入型 Work。知识、方案、验证和审查步骤只读，开发步骤使用 workspace-write。
 
+OpenCode 延续 S0 的非交互 `--auto` 调用，但只读性不依赖人工确认：平台为每次 Run 注入显式权限，
+默认拒绝 Bash、编辑和外部目录，只按完整命令模式开放读取与有界验证。OpenCode 官方语义规定
+`--auto` 只自动通过原本需要询问的动作，显式 `deny` 仍会阻断；因此不得移除兜底 deny，也不得把
+未列入白名单的命令改为 allow。见 [OpenCode Permissions](https://opencode.ai/docs/permissions/)。
+
 Agent 可以修改和验证。Codex 的 `workspace-write` 会把 linked worktree 指向的 Git 元数据保持只读，
 因此开发 Run 不获得主仓 `.git` 写权限；人在确认开发 Gate 时，由受信的平台进程把该 Work 的文件
 变化提交到已登记分支。平台不会自动 Push、创建 PR/MR 或 Merge；PR/MR 仅保存人工操作后回填的

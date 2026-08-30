@@ -28,6 +28,8 @@ def test_opencode_command_uses_worktree_and_optional_model() -> None:
     command = executor.command_for(request())
 
     assert command[:4] == ["opencode", "run", "--format", "json"]
+    # Auto only resolves "ask"; explicit inline deny rules remain enforced.
+    assert "--auto" in command
     assert command[command.index("--dir") + 1] == "/tmp/agent-run-1"
     assert command[command.index("--attach") + 1] == "http://127.0.0.1:4096"
     assert command[command.index("--model") + 1] == "provider/model"
