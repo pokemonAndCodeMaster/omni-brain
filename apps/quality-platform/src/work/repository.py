@@ -638,6 +638,32 @@ class WorkRepository:
                     """,
                     (work_id,),
                 )
+                connection.execute(
+                    f"""
+                        UPDATE {self._steps} AS step
+                        SET status = CASE
+                                WHEN step.step_key = 'development' THEN 'ready'
+                                ELSE 'pending'
+                            END,
+                            completion_note = NULL,
+                            completed_by = NULL,
+                            completed_at = NULL,
+                            updated_at = now()
+                        FROM {self._plans} AS plan
+                        WHERE plan.id = step.work_plan_id
+                          AND plan.work_id = %s
+                          AND step.position >= 3
+                    """,
+                    (work_id,),
+                )
+                connection.execute(
+                    f"""
+                        UPDATE {self._plans}
+                        SET status = 'active', completed_at = NULL
+                        WHERE work_id = %s
+                    """,
+                    (work_id,),
+                )
             row = connection.execute(
                 f"""
                     INSERT INTO {self._decisions} (

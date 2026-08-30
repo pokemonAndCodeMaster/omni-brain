@@ -29,7 +29,6 @@ const statusLabels: Record<PlanStep['display_status'], string> = {
 
 function canLaunch(step: PlanStep) {
   if (step.actor_kind !== 'agent') return false
-  if (step.display_status === 'completed') return props.workStatus === 'revision_requested'
   return ['ready', 'failed', 'awaiting_gate'].includes(step.display_status)
 }
 

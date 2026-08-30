@@ -182,7 +182,7 @@ class WorkService:
             raise ValueError("前序步骤尚未完成")
         if step["display_status"] == "running":
             raise ValueError("该步骤已有活跃 Run，请等待结束或先取消")
-        if step["display_status"] == "completed" and work["status"] != "revision_requested":
+        if step["display_status"] == "completed":
             raise ValueError("步骤已经完成")
         requirement = work["requirement_title"]
         context = self.repository.step_context(work_id, int(step["position"]))
