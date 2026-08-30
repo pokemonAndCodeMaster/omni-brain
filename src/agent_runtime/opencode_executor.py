@@ -3,41 +3,22 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import signal
-from dataclasses import dataclass
-from pathlib import Path
+import shutil
+import subprocess
 from typing import Any, Awaitable, Callable
+
+from .executor import (
+    ExecutorHealth,
+    ExecutorRequest,
+    ExecutorResult,
+    SUBPROCESS_STREAM_LIMIT,
+    classify_failure,
+    cleanup_process_group,
+    terminate_process,
+)
 
 
 EventCallback = Callable[[dict[str, Any]], Awaitable[None]]
-
-
-@dataclass(frozen=True)
-class OpenCodeResult:
-    exit_code: int
-    session_id: str | None
-    final_message: str
-    failure_code: str | None = None
-    failure_reason: str | None = None
-
-
-def classify_failure(message: str, status_code: int | None = None) -> str:
-    folded = message.casefold()
-    if "insufficient balance" in folded or "creditserror" in folded:
-        return "insufficient_balance"
-    if status_code in {401, 403} or any(
-        marker in folded
-        for marker in ("unauthorized", "forbidden", "invalid api key", "authentication")
-    ):
-        return "authentication_failed"
-    if any(
-        marker in folded
-        for marker in ("model not found", "providermodelnotfounderror", "model is not available")
-    ):
-        return "model_unavailable"
-    if status_code == 429 or "rate limit" in folded or "too many requests" in folded:
-        return "rate_limited"
-    return "opencode_error"
 
 
 def _nested(value: Any, keys: set[str]) -> str | None:
@@ -81,57 +62,52 @@ def _event_summary(payload: dict[str, Any], event_type: str) -> str:
     return _text(payload) or event_type
 
 
-async def terminate_process(process: asyncio.subprocess.Process) -> None:
-    if process.returncode is not None:
-        return
-    if os.name == "posix":
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            return
-    else:
-        process.terminate()
-    try:
-        await asyncio.wait_for(process.wait(), timeout=5)
-    except asyncio.TimeoutError:
-        if os.name == "posix":
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        else:
-            process.kill()
-        await process.wait()
-
-
-async def cleanup_process_group(process: asyncio.subprocess.Process) -> None:
-    """Stop a local OpenCode server child that outlives the CLI process."""
-
-    if os.name != "posix":
-        return
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        return
-    await asyncio.sleep(0.05)
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
-
-
 class OpenCodeExecutor:
+    name = "opencode"
+
     def __init__(self, *, command: str = "opencode", endpoint: str = "") -> None:
         self.command = command
         self.endpoint = endpoint.strip()
 
+    def health(self) -> ExecutorHealth:
+        resolved = shutil.which(self.command)
+        if not resolved:
+            return ExecutorHealth(
+                name=self.name,
+                available=False,
+                command=self.command,
+                reason=f"找不到命令：{self.command}",
+                details={"endpoint": self.endpoint or None},
+            )
+        try:
+            result = subprocess.run(
+                [resolved, "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return ExecutorHealth(
+                name=self.name,
+                available=False,
+                command=resolved,
+                reason=str(exc),
+                details={"endpoint": self.endpoint or None},
+            )
+        lines = (result.stdout or result.stderr).strip().splitlines()
+        return ExecutorHealth(
+            name=self.name,
+            available=result.returncode == 0,
+            command=resolved,
+            version=lines[0] if lines else None,
+            reason=None if result.returncode == 0 else "OpenCode 版本检查失败",
+            details={"endpoint": self.endpoint or None},
+        )
+
     def command_for(
         self,
-        *,
-        worktree: Path,
-        prompt: str,
-        run_id: str,
-        model: str | None,
+        request: ExecutorRequest,
     ) -> list[str]:
         argv = [
             self.command,
@@ -140,37 +116,29 @@ class OpenCodeExecutor:
             "json",
             "--auto",
             "--dir",
-            str(worktree),
+            str(request.worktree),
             "--title",
-            run_id,
+            request.run_id,
         ]
         if self.endpoint:
             argv.extend(["--attach", self.endpoint])
-        if model:
-            argv.extend(["--model", model])
-        argv.append(prompt)
+        if request.model:
+            argv.extend(["--model", request.model])
+        argv.append(request.prompt)
         return argv
 
     async def run(
         self,
-        *,
-        worktree: Path,
-        prompt: str,
-        run_id: str,
-        model: str | None,
+        request: ExecutorRequest,
         on_event: EventCallback,
         on_process: Callable[[asyncio.subprocess.Process], None],
-    ) -> OpenCodeResult:
+    ) -> ExecutorResult:
         process = await asyncio.create_subprocess_exec(
-            *self.command_for(
-                worktree=worktree,
-                prompt=prompt,
-                run_id=run_id,
-                model=model,
-            ),
+            *self.command_for(request),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=worktree,
+            limit=SUBPROCESS_STREAM_LIMIT,
+            cwd=request.worktree,
             env=os.environ.copy(),
             start_new_session=os.name == "posix",
         )
@@ -246,7 +214,8 @@ class OpenCodeExecutor:
             failure_reason = failure_reason or f"OpenCode 退出码 {exit_code}"
             failure_code = classify_failure(failure_reason)
             final_message = failure_reason
-        return OpenCodeResult(
+        return ExecutorResult(
+            executor=self.name,
             exit_code=exit_code,
             session_id=session_id,
             final_message=final_message,

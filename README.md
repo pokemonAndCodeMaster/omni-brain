@@ -1,6 +1,6 @@
 # Quality Platform Lab
 
-人工质检一站式平台的本地实验工程。当前切片把 ConfigManager、独立 PostgreSQL、人工质检快照、FastAPI 和 Vue 页面连成一条可运行的数据链。
+质量与 AI 协作平台的本地实验工程。当前同时保留人工质检数据链，并新增团队 Idea、候选/正式 Requirement、人机时间线和 Codex/OpenCode 双执行器的 S0 纵切。
 
 工程目录和快照字段以原始质检平台资料中的当前实现为基线，不再使用早期实验自定义的 `quality_platform_lab` 包或 `lab-v1` 字段集。
 
@@ -21,8 +21,10 @@
    并把关注的问题选项固定为可筛选、可排序的新列；
 9. 把卡片的查询、样式和布局，以及任务表列配置保存到 PostgreSQL；重开页面时
    用最新快照重新计算并恢复。
-10. 在同一 Vue3 平台查看已发布 Agent 的轻量目录和历史 Run 计数，按需启动 OpenCode；
-11. 在 PostgreSQL 中保存 Run 元数据和规范事件，选择具体 Run 后再读取完整任务、结果与
+10. 在同一 Vue3 平台记录不可覆盖的 Idea，并把它转成带 Revision 的 candidate Requirement；
+11. 由固定服务端身份 `admin` 记录人的消息、Agent Run 和接纳/驳回/延期/合并决定；
+12. 查看已发布能力的轻量目录和历史 Run 计数，按能力默认或显式选择 Codex/OpenCode；
+13. 在 PostgreSQL 中保存 Run 元数据和规范事件，选择具体 Run 后再读取完整任务、结果与
     `after_sequence` 增量 trace。
 
 ## 快速开始
@@ -51,12 +53,15 @@ npm run dev
 
 Agent 入口：
 
+- `http://127.0.0.1:5173/ai/ideas`：Idea Inbox、讨论、Agent 动作与转候选需求；
+- `http://127.0.0.1:5173/ai/requirements`：candidate/accepted Requirement、Revision 与评审；
 - `http://127.0.0.1:5173/ai/agents`：能力目录与启动入口；
 - `http://127.0.0.1:5173/ai/runs`：轻量 Run 列表和按需详情/trace。
 
-Agent Runtime 第一版只支持 OpenCode。默认直接调用本机 `opencode run` 并由 OpenCode
-选择随机端口；如团队已有单独的 OpenCode server，可在 `.env` 中配置
-`OPENCODE_ENDPOINT`。worktree 只隔离代码和文件，不充当进程、端口或租户隔离。
+Agent Runtime 同时支持 `codex exec --json` 与 `opencode run --format json`。开发、方案和
+协作动作默认 Codex，评测/对照默认 OpenCode；能力允许时可以显式切换。OpenCode 默认
+使用本机随机端口，也可通过 `OPENCODE_ENDPOINT` 连接已登记 server。worktree 只隔离
+代码和文件，不充当进程、端口或租户隔离；S0 仍是单仓单写入、单执行并发。
 
 需要保留旧控制台中的 OpenCode 历史时，迁移一次：
 
@@ -159,7 +164,8 @@ src/
     config_loader.py     ConfigManager
   database/
     pg_connector.py      PostgreSQL 公共能力
-  agent_runtime/         OpenCode Run、worktree、PostgreSQL Repository/Service
+  agent_runtime/         Codex/OpenCode Run、worktree、PostgreSQL Repository/Service
+  collaboration/         Idea、Requirement、Revision、Decision 与时间线
   manual_qc/
     snapshot/            快照 Repository 与 Service
   frontend/              Vue 一站式平台（app/features/shared）

@@ -14,17 +14,31 @@ vi.mock('../composables/useAgentCatalog', async () => {
           category: '知识管理',
           description: '从正式知识入口回答问题。',
           state: 'verified',
-          executor: 'opencode',
+          default_executor: 'codex',
+          supported_executors: ['codex', 'opencode'],
           revision_short: 'abc1234',
           run_counts: { total: 8, active: 1, succeeded: 6, failed: 1 },
         },
       ]),
       health: shallowRef({
-        available: true,
-        command: '/usr/bin/opencode',
-        version: '1.18.10',
-        endpoint: null,
-        reason: null,
+        executors: [
+          {
+            name: 'codex',
+            available: true,
+            command: '/usr/bin/codex',
+            version: 'codex-cli 0.144.1',
+            reason: null,
+            details: {},
+          },
+          {
+            name: 'opencode',
+            available: true,
+            command: '/usr/bin/opencode',
+            version: '1.18.10',
+            reason: null,
+            details: {},
+          },
+        ],
       }),
       loading: shallowRef(false),
       error: shallowRef(''),
@@ -49,7 +63,7 @@ vi.mock('vue-router', async () => {
 import AgentCatalogPage from './AgentCatalogPage.vue'
 
 describe('AgentCatalogPage', () => {
-  it('首屏只展示注册摘要、OpenCode 状态和 Run 计数', async () => {
+  it('首屏只展示注册摘要、双执行器状态和 Run 计数', async () => {
     render(AgentCatalogPage, {
       global: {
         stubs: {
@@ -59,7 +73,9 @@ describe('AgentCatalogPage', () => {
     })
 
     expect(await screen.findByText('知识问答 Agent')).toBeTruthy()
-    expect(screen.getByText('1.18.10 · 本机随机端口')).toBeTruthy()
+    expect(screen.getByText('codex-cli 0.144.1')).toBeTruthy()
+    expect(screen.getByText('1.18.10')).toBeTruthy()
+    expect(screen.getByText('codex 默认 · codex / opencode')).toBeTruthy()
     expect(screen.getByText('8')).toBeTruthy()
     expect(screen.getByText('6')).toBeTruthy()
     expect(load).toHaveBeenCalledOnce()

@@ -6,7 +6,8 @@ import type {
   AgentRunList,
   AgentSummary,
   CreateAgentRunInput,
-  OpenCodeHealth,
+  AgentRuntimeHealth,
+  ExecutorName,
   RunStatus,
 } from '../types'
 
@@ -25,13 +26,16 @@ export async function getAgent(agentId: string): Promise<AgentDetail> {
   return response.data
 }
 
-export async function getOpenCodeHealth(): Promise<OpenCodeHealth> {
-  const response = await http.get<OpenCodeHealth>('/agent-runtime/health')
+export async function getAgentRuntimeHealth(): Promise<AgentRuntimeHealth> {
+  const response = await http.get<AgentRuntimeHealth>('/agent-runtime/health')
   return response.data
 }
 
 export async function getAgentRuns(filters: {
   agentId?: string
+  executor?: ExecutorName
+  subjectType?: 'idea' | 'requirement' | 'work'
+  subjectId?: string
   statuses?: RunStatus[]
   limit?: number
   offset?: number
@@ -39,6 +43,9 @@ export async function getAgentRuns(filters: {
   const response = await http.get<AgentRunList>('/agent-runs', {
     params: {
       agent_id: filters.agentId || undefined,
+      executor: filters.executor || undefined,
+      subject_type: filters.subjectType || undefined,
+      subject_id: filters.subjectId || undefined,
       status: filters.statuses?.length ? filters.statuses : undefined,
       limit: filters.limit ?? 30,
       offset: filters.offset ?? 0,

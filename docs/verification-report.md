@@ -122,3 +122,37 @@ Harness Agent 注册表（启动时缓存）
 
 本纵切未验证多 worker 并发调度、团队权限、远程工作站、Docker、对象存储、MR 自动创建
 或评测/进化。worktree 当前只承担代码与文件隔离；运行服务保持单进程、单 OpenCode 并发。
+
+## 2026-08-30 团队协作 S0 与双执行器验证
+
+新增真实链路：
+
+```text
+Idea 原文 + 人的补充
+→ Codex/OpenCode 受控动作 Run
+→ 可审阅 R1 候选
+→ candidate Requirement + 不可覆盖 Revision
+→ admin Decision（accepted + NEXT）
+→ PostgreSQL 派生时间线与按需 Run 详情
+```
+
+| 验证项 | 实际结果 | 状态 |
+|---|---|---|
+| PostgreSQL migration | `006_create_collaboration_s0.sql` 在现有本地库成功执行，新增 Idea、Requirement、Revision、Thread、Entry、Decision，并演进 `t_agent_run` | 通过 |
+| 后端自动化 | 24 项通过，覆盖双执行器命令/失败分类、actor 注入拒绝、Decision 契约、接纳最低内容和 Codex 严格输出 Schema | 通过 |
+| Vue 自动化 | 13 个文件、34 项通过；协作摘要列表不读取正文，选中对象/Run 后才读取详情 | 通过 |
+| Vue 类型与构建 | `vue-tsc --noEmit` 和生产构建通过；主 bundle 仍有超过 500 kB 的已知警告 | 通过（有警告） |
+| 双执行器健康 | `/api/agent-runtime/health` 同时返回本机 Codex 与 OpenCode；目录页无后台轮询 | 通过 |
+| 首条真实 Idea | `idea-20260830-040827-8866bc` 保存原始想法，人的补充进入独立 Thread Entry，未覆盖原文 | 通过 |
+| Codex 查背景 | `run-20260830-040838-a93487` 成功，回填 session、规范事件和最终文本 | 通过 |
+| Codex 严格需求草稿 | 首次 `run-20260830-041115-de9aec` 因 Schema 的可选字段失败，原始 `invalid_json_schema` 保留；修正 strict schema 后 `run-20260830-041157-1bf223` 成功返回结构化 R1 | 通过（含失败修复证据） |
+| Idea 转需求 | 成功 Run 的 payload 创建 `req-20260830-041647-e9f632`；来源 Idea 与来源 Run 可回查，重复转换契约已由 API smoke 验证 | 通过 |
+| 人工接纳 | 服务端检查当前问题、期望结果、范围和验收标准后，由 `admin` 接纳当前 Revision 为 `accepted + NEXT / S1` | 通过 |
+| S1 正式需求 | 通过直接创建入口登记 `req-20260830-042453-d51b4a`，明确 Work、固定计划、双执行器分工、Git 边界和验收；由 `admin` 接纳为 `accepted + NEXT / S1` | 通过 |
+| OpenCode 对照 | `run-20260830-041237-59dfb6` 精确暴露 `Separator is found, but chunk is longer than limit`，定位为默认 64 KiB 单行读取限制；Adapter 提高为有界 16 MiB 后，`run-20260830-041949-740b63` 成功并回填 session、42 个事件和最终文本，原失败记录未覆盖 | 通过（含失败修复证据） |
+| 新页面路由 | `/ai/ideas` 及代理 API 可从 Vite 实际访问 | 通过（HTTP） |
+| 新页面视觉与交互 | 当前环境无可用 Chromium/Playwright；只完成 Vitest、类型和生产构建验证 | 未验证 |
+
+本次结果证明 S0 的业务与双执行器闭环已经实现，但新协作页面的真实浏览器视觉验收仍
+必须补充，不能用旧人工质检页面的 Edge 证据替代。取消路径已有代码和单元边界，尚未做
+真实长进程的 Adapter 集成测试，因此也不能声称取消能力已经完成端到端验证。

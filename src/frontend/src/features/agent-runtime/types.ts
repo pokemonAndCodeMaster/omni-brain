@@ -1,4 +1,5 @@
 export type RunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+export type ExecutorName = 'codex' | 'opencode'
 
 export interface AgentRunCounts {
   total: number
@@ -13,7 +14,8 @@ export interface AgentSummary {
   category: string
   description: string
   state: string
-  executor: 'opencode'
+  default_executor: ExecutorName
+  supported_executors: ExecutorName[]
   revision_short: string
   run_counts: AgentRunCounts
 }
@@ -35,12 +37,17 @@ export interface AgentDetail extends AgentSummary {
   release_date: string | null
 }
 
-export interface OpenCodeHealth {
+export interface ExecutorHealth {
+  name: ExecutorName
   available: boolean
   command: string
   version: string | null
-  endpoint: string | null
   reason: string | null
+  details: Record<string, unknown>
+}
+
+export interface AgentRuntimeHealth {
+  executors: ExecutorHealth[]
 }
 
 export interface CreateAgentRunInput {
@@ -48,7 +55,11 @@ export interface CreateAgentRunInput {
   prompt: string
   title?: string
   model?: string
-  actor_id?: string
+  executor?: ExecutorName
+  subject_type?: 'idea' | 'requirement' | 'work'
+  subject_id?: string
+  thread_id?: string
+  trigger_action?: string
 }
 
 export interface AgentRunSummary {
@@ -60,7 +71,12 @@ export interface AgentRunSummary {
   status: RunStatus
   model: string | null
   branch_name: string | null
-  opencode_session_id: string | null
+  executor: ExecutorName
+  executor_session_id: string | null
+  subject_type: 'idea' | 'requirement' | 'work' | null
+  subject_id: string | null
+  thread_id: string | null
+  trigger_action: string | null
   exit_code: number | null
   failure_code: string | null
   created_at: string
@@ -75,6 +91,7 @@ export interface AgentRun extends AgentRunSummary {
   base_revision: string
   worktree_path: string | null
   result_summary: string | null
+  result_payload: Record<string, unknown> | null
   failure_reason: string | null
   artifact_path: string | null
 }

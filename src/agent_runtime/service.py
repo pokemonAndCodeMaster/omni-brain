@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import shutil
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from .opencode_executor import OpenCodeExecutor, terminate_process
+from .executor import AgentExecutor, ExecutorRequest, terminate_process
 from .registry import AgentRegistry
 from .repository import AgentRunRepository
 from .worktrees import WorktreeManager
@@ -25,13 +23,15 @@ class AgentRunService:
         repository: AgentRunRepository,
         registry: AgentRegistry,
         worktrees: WorktreeManager,
-        executor: OpenCodeExecutor,
+        executors: dict[str, AgentExecutor],
         artifact_root: Path,
     ) -> None:
         self.repository = repository
         self.registry = registry
         self.worktrees = worktrees
-        self.executor = executor
+        self.executors = executors
+        if not self.executors:
+            raise ValueError("至少需要登记一个 Agent Executor")
         self.artifact_root = artifact_root.resolve()
         self.artifact_root.mkdir(parents=True, exist_ok=True)
         self._semaphore = asyncio.Semaphore(1)
@@ -60,29 +60,34 @@ class AgentRunService:
         )
         return agent
 
-    def opencode_health(self) -> dict[str, Any]:
-        resolved = shutil.which(self.executor.command)
-        if not resolved:
-            return {
-                "available": False,
-                "command": self.executor.command,
-                "reason": f"找不到命令：{self.executor.command}",
-            }
-        result = subprocess.run(
-            [resolved, "--version"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        version = (result.stdout or result.stderr).strip().splitlines()
-        return {
-            "available": result.returncode == 0,
-            "command": resolved,
-            "version": version[0] if version else None,
-            "endpoint": self.executor.endpoint or None,
-            "reason": None if result.returncode == 0 else "OpenCode 版本检查失败",
-        }
+    def executor_health(self) -> dict[str, Any]:
+        values = []
+        for name in ("codex", "opencode"):
+            executor = self.executors.get(name)
+            if executor is None:
+                values.append(
+                    {
+                        "name": name,
+                        "available": False,
+                        "command": name,
+                        "version": None,
+                        "reason": "执行器未登记",
+                        "details": {},
+                    }
+                )
+                continue
+            health = executor.health()
+            values.append(
+                {
+                    "name": health.name,
+                    "available": health.available,
+                    "command": health.command,
+                    "version": health.version,
+                    "reason": health.reason,
+                    "details": health.details,
+                }
+            )
+        return {"executors": values}
 
     async def start(
         self,
@@ -91,9 +96,24 @@ class AgentRunService:
         prompt: str,
         title: str | None,
         model: str | None,
-        actor_id: str,
+        actor_id: str = "admin",
+        executor: str | None = None,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        thread_id: str | None = None,
+        trigger_action: str | None = None,
+        output_schema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         agent = self.registry.get(agent_id)
+        selected_executor = executor or str(agent["default_executor"])
+        if selected_executor not in agent["supported_executors"]:
+            raise ValueError(
+                f"Agent {agent_id} 不支持执行器：{selected_executor}"
+            )
+        if selected_executor not in self.executors:
+            raise ValueError(f"执行器未登记：{selected_executor}")
+        if (subject_type is None) != (subject_id is None):
+            raise ValueError("subject_type 与 subject_id 必须同时提供")
         run_id = f"run-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid4().hex[:6]}"
         artifact_path = self.artifact_root / run_id
         artifact_path.mkdir(parents=True)
@@ -110,19 +130,34 @@ class AgentRunService:
                 "repository_path": agent["repository"],
                 "base_revision": agent["revision"],
                 "artifact_path": str(artifact_path),
+                "executor": selected_executor,
+                "subject_type": subject_type,
+                "subject_id": subject_id,
+                "thread_id": thread_id,
+                "trigger_action": trigger_action,
             }
         )
-        task = asyncio.create_task(self._execute(run_id), name=f"agent-run:{run_id}")
+        task = asyncio.create_task(
+            self._execute(run_id, output_schema=output_schema),
+            name=f"agent-run:{run_id}",
+        )
         self._tasks[run_id] = task
         task.add_done_callback(lambda _task: self._tasks.pop(run_id, None))
         return run
 
-    async def _execute(self, run_id: str) -> None:
+    async def _execute(
+        self,
+        run_id: str,
+        *,
+        output_schema: dict[str, Any] | None = None,
+    ) -> None:
         async with self._semaphore:
             run = self.repository.get(run_id)
             if run is None or run["status"] != "queued":
                 return
             artifact_path = Path(str(run["artifact_path"]))
+            executor_name = str(run["executor"])
+            executor = self.executors[executor_name]
             try:
                 self.repository.update(
                     run_id,
@@ -133,7 +168,7 @@ class AgentRunService:
                     run_id=run_id,
                     event_type="run.started",
                     summary="开始建立隔离 worktree",
-                    payload={"executor": "opencode"},
+                    payload={"executor": executor_name},
                 )
                 workspace = await asyncio.to_thread(
                     self.worktrees.create,
@@ -154,21 +189,41 @@ class AgentRunService:
                 )
 
                 async def on_event(event: dict[str, Any]) -> None:
+                    payload = dict(event["payload"])
+                    if (
+                        event["event_type"] == "thread.started"
+                        and payload.get("thread_id")
+                    ):
+                        await asyncio.to_thread(
+                            self.repository.update,
+                            run_id,
+                            executor_session_id=str(payload["thread_id"]),
+                        )
                     await asyncio.to_thread(
                         self.repository.append_event,
                         run_id=run_id,
                         event_type=str(event["event_type"]),
                         summary=str(event["summary"]),
-                        payload=dict(event["payload"]),
+                        payload=payload,
                         source=str(event["source"]),
                         channel=event.get("channel"),
                     )
 
-                result = await self.executor.run(
-                    worktree=Path(workspace["path"]),
-                    prompt=str(run["prompt"]),
-                    run_id=run_id,
-                    model=run.get("model"),
+                sandbox = (
+                    "workspace-write"
+                    if str(run["agent_id"]) == "development-agent"
+                    else "read-only"
+                )
+                result = await executor.run(
+                    ExecutorRequest(
+                        worktree=Path(workspace["path"]),
+                        prompt=str(run["prompt"]),
+                        run_id=run_id,
+                        model=run.get("model"),
+                        sandbox=sandbox,
+                        output_schema=output_schema,
+                        artifact_path=artifact_path,
+                    ),
                     on_event=on_event,
                     on_process=lambda process: self._processes.__setitem__(run_id, process),
                 )
@@ -191,9 +246,13 @@ class AgentRunService:
                 self.repository.update(
                     run_id,
                     status=final_status,
-                    opencode_session_id=result.session_id,
+                    executor_session_id=result.session_id,
+                    opencode_session_id=(
+                        result.session_id if executor_name == "opencode" else None
+                    ),
                     exit_code=result.exit_code,
                     result_summary=result.final_message,
+                    result_payload=result.final_payload,
                     failure_code=result.failure_code,
                     failure_reason=result.failure_reason,
                     finished_at=datetime.now(timezone.utc),
@@ -202,13 +261,14 @@ class AgentRunService:
                     run_id=run_id,
                     event_type=f"run.{final_status}",
                     summary=(
-                        "OpenCode 任务执行完成"
+                        f"{executor_name} 任务执行完成"
                         if succeeded
                         else result.failure_reason or "OpenCode 任务执行失败"
                     ),
                     payload={
                         "exit_code": result.exit_code,
                         "session_id": result.session_id,
+                        "executor": executor_name,
                         "failure_code": result.failure_code,
                     },
                 )

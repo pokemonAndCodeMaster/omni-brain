@@ -23,6 +23,9 @@ describe('agent runtime api', () => {
     expect(http.get).toHaveBeenCalledWith('/agent-runs', {
       params: {
         agent_id: undefined,
+        executor: undefined,
+        subject_type: undefined,
+        subject_id: undefined,
         status: ['running'],
         limit: 30,
         offset: 0,

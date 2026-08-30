@@ -1,14 +1,14 @@
 import { shallowRef } from 'vue'
 import {
   getAgents,
-  getOpenCodeHealth,
+  getAgentRuntimeHealth,
   refreshAgents,
 } from '../api/agentRuntime'
-import type { AgentSummary, OpenCodeHealth } from '../types'
+import type { AgentRuntimeHealth, AgentSummary } from '../types'
 
 export function useAgentCatalog() {
   const agents = shallowRef<AgentSummary[]>([])
-  const health = shallowRef<OpenCodeHealth | null>(null)
+  const health = shallowRef<AgentRuntimeHealth | null>(null)
   const loading = shallowRef(false)
   const error = shallowRef('')
 
@@ -18,7 +18,7 @@ export function useAgentCatalog() {
     try {
       const [agentRows, runtimeHealth] = await Promise.all([
         refresh ? refreshAgents() : getAgents(),
-        getOpenCodeHealth(),
+        getAgentRuntimeHealth(),
       ])
       agents.value = agentRows
       health.value = runtimeHealth

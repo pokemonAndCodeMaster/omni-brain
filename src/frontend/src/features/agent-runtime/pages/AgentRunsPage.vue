@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getAgentRuns } from '../api/agentRuntime'
 import RunTraceTimeline from '../components/RunTraceTimeline.vue'
 import { useAgentRunDetail } from '../composables/useAgentRunDetail'
-import type { AgentRunSummary, RunStatus } from '../types'
+import type { AgentRunSummary, ExecutorName, RunStatus } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +14,7 @@ const total = shallowRef(0)
 const listLoading = shallowRef(false)
 const listError = shallowRef('')
 const statusFilter = shallowRef<RunStatus | ''>('')
+const executorFilter = shallowRef<ExecutorName | ''>('')
 const { run, events, loading, cancelling, error, refresh, cancel } = useAgentRunDetail(selectedRunId)
 
 const active = computed(() => run.value && ['queued', 'running'].includes(run.value.status))
@@ -33,6 +34,7 @@ async function loadRuns() {
   try {
     const response = await getAgentRuns({
       statuses: statusFilter.value ? [statusFilter.value] : undefined,
+      executor: executorFilter.value || undefined,
     })
     runs.value = response.items
     total.value = response.total
@@ -90,6 +92,11 @@ const statusLabels: Record<RunStatus, string> = {
               {{ label }}
             </option>
           </select>
+          <select v-model="executorFilter" class="select-field" aria-label="按执行器筛选" @change="loadRuns">
+            <option value="">全部执行器</option>
+            <option value="codex">Codex</option>
+            <option value="opencode">OpenCode</option>
+          </select>
           <button class="button" type="button" :disabled="listLoading" @click="loadRuns">刷新</button>
         </header>
 
@@ -113,7 +120,7 @@ const statusLabels: Record<RunStatus, string> = {
             <span class="run-agent">{{ item.agent_name }}</span>
             <span class="run-meta">
               <span>{{ formatTime(item.created_at) }}</span>
-              <span>{{ item.model || 'OpenCode 默认模型' }}</span>
+              <span>{{ item.executor }} · {{ item.model || '默认模型' }}</span>
             </span>
           </button>
 
@@ -155,9 +162,10 @@ const statusLabels: Record<RunStatus, string> = {
 
           <dl class="detail-facts">
             <div><dt>Agent</dt><dd>{{ run.agent_name }}</dd></div>
-            <div><dt>模型</dt><dd>{{ run.model || 'OpenCode 默认配置' }}</dd></div>
+            <div><dt>执行器</dt><dd>{{ run.executor }}</dd></div>
+            <div><dt>模型</dt><dd>{{ run.model || '默认配置' }}</dd></div>
             <div><dt>分支</dt><dd>{{ run.branch_name || '尚未建立' }}</dd></div>
-            <div><dt>会话</dt><dd>{{ run.opencode_session_id || '尚未回填' }}</dd></div>
+            <div><dt>会话</dt><dd>{{ run.executor_session_id || '尚未回填' }}</dd></div>
             <div><dt>开始</dt><dd>{{ formatTime(run.started_at) }}</dd></div>
             <div><dt>结束</dt><dd>{{ formatTime(run.finished_at) }}</dd></div>
           </dl>
@@ -168,7 +176,7 @@ const statusLabels: Record<RunStatus, string> = {
           </section>
 
           <section v-if="run.failure_reason" class="failure-section">
-            <header><strong>{{ run.failure_code || 'opencode_error' }}</strong></header>
+            <header><strong>{{ run.failure_code || 'executor_error' }}</strong></header>
             <p>{{ run.failure_reason }}</p>
           </section>
 

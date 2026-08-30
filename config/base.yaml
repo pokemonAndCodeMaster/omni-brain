@@ -1,7 +1,7 @@
 app:
   name: Quality Platform Lab
   environment: local
-  schema_version: snapshot-jsonb-v20260709
+  schema_version: collaboration-s0-v1
 
 logging:
   level: ${QC_LOG_LEVEL:INFO}
@@ -30,6 +30,8 @@ agent_runtime:
   registry_path: ${OMNI_AGENT_REGISTRY:../omni-brain/config/agent-registry.yaml}
   worktree_root: ${OMNI_RUN_ROOT:../.omni-brain-runs}
   artifact_root: ${OMNI_RUN_ARTIFACT_ROOT:.runtime/agent-runs}
+  codex:
+    command: ${CODEX_COMMAND:codex}
   opencode:
     command: ${OPENCODE_COMMAND:opencode}
     endpoint: ${OPENCODE_ENDPOINT:}

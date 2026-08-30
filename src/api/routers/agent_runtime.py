@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.agent_runtime import AgentRunService
-from src.api.deps import get_agent_run_service
+from src.api.deps import get_actor_id, get_agent_run_service
 from src.api.schemas.agent_runtime import (
     AgentOut,
     AgentSummaryOut,
@@ -13,12 +13,13 @@ from src.api.schemas.agent_runtime import (
     AgentRunEventListOut,
     AgentRunListOut,
     AgentRunOut,
-    OpenCodeHealthOut,
+    AgentRuntimeHealthOut,
 )
 
 
 router = APIRouter(tags=["agent-runtime"])
 Service = Annotated[AgentRunService, Depends(get_agent_run_service)]
+Actor = Annotated[str, Depends(get_actor_id)]
 StatusFilter = Literal["queued", "running", "succeeded", "failed", "cancelled"]
 
 
@@ -40,9 +41,9 @@ def get_agent(agent_id: str, service: Service) -> dict:
         raise HTTPException(status_code=404, detail=f"未登记 Agent：{agent_id}") from exc
 
 
-@router.get("/api/agent-runtime/health", response_model=OpenCodeHealthOut)
+@router.get("/api/agent-runtime/health", response_model=AgentRuntimeHealthOut)
 def agent_runtime_health(service: Service) -> dict:
-    return service.opencode_health()
+    return service.executor_health()
 
 
 @router.get("/api/agent-runs", response_model=AgentRunListOut)
@@ -51,12 +52,18 @@ def list_agent_runs(
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
     offset: Annotated[int, Query(ge=0)] = 0,
     agent_id: str | None = None,
+    executor: Literal["codex", "opencode"] | None = None,
+    subject_type: Literal["idea", "requirement", "work"] | None = None,
+    subject_id: str | None = None,
     run_status: Annotated[list[StatusFilter] | None, Query(alias="status")] = None,
 ) -> AgentRunListOut:
     rows, total = service.repository.list(
         limit=limit,
         offset=offset,
         agent_id=agent_id,
+        executor=executor,
+        subject_type=subject_type,
+        subject_id=subject_id,
         statuses=run_status or (),
     )
     return AgentRunListOut(items=rows, total=total, limit=limit, offset=offset)
@@ -70,9 +77,10 @@ def list_agent_runs(
 async def create_agent_run(
     payload: AgentRunCreate,
     service: Service,
+    actor_id: Actor,
 ) -> dict:
     try:
-        return await service.start(**payload.model_dump())
+        return await service.start(**payload.model_dump(), actor_id=actor_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"未登记 Agent：{payload.agent_id}") from exc
     except (OSError, RuntimeError, ValueError) as exc:

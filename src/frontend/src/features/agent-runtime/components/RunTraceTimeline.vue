@@ -74,6 +74,10 @@ function formatTime(value: string) {
   background: var(--color-primary);
 }
 
+.source-codex {
+  background: #7857c4;
+}
+
 .trace-content header {
   display: flex;
   flex-wrap: wrap;

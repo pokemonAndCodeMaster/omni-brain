@@ -46,7 +46,7 @@ def _adoption_label(value: str) -> str:
 
 
 class AgentRegistry:
-    """Read the released Harness catalog once; execution is always OpenCode."""
+    """Read and cache the released Harness capability catalog."""
 
     def __init__(self, registry_path: Path) -> None:
         self.registry_path = registry_path.resolve()
@@ -96,6 +96,18 @@ class AgentRegistry:
                 value.startswith(("verified", "implemented"))
                 for value in adoptions
             )
+            supported_executors = [
+                str(value)
+                for value in raw.get("supported_executors", ["codex", "opencode"])
+                if str(value) in {"codex", "opencode"}
+            ]
+            if not supported_executors:
+                supported_executors = ["codex", "opencode"]
+            default_executor = str(raw.get("default_executor", "codex"))
+            if default_executor not in supported_executors:
+                raise ValueError(
+                    f"Agent {raw.get('id')} 的 default_executor 不在 supported_executors 中"
+                )
             result.append(
                 {
                     "id": str(raw["id"]),
@@ -111,7 +123,8 @@ class AgentRegistry:
                         else "experimental"
                     ),
                     "capabilities": capability_details,
-                    "executor": "opencode",
+                    "default_executor": default_executor,
+                    "supported_executors": supported_executors,
                     "repository": str(repository),
                     "revision": resolved_revision,
                     "revision_short": resolved_revision[:7],

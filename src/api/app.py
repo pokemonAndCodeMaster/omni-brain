@@ -10,15 +10,18 @@ from src.agent_runtime import (
     AgentRegistry,
     AgentRunRepository,
     AgentRunService,
+    CodexExecutor,
     OpenCodeExecutor,
     WorktreeManager,
 )
 from src.api.routers.agent_runtime import router as agent_runtime_router
 from src.api.routers.analysis import router as analysis_router
+from src.api.routers.collaboration import router as collaboration_router
 from src.api.routers.snapshot import router as snapshot_router
 from src.api.routers.view_config import router as view_config_router
 from src.api.schemas import HealthResponse
 from src.config import ConfigManager
+from src.collaboration import CollaborationRepository, CollaborationService
 from src.database import DatabaseManager
 
 
@@ -37,15 +40,26 @@ def create_app() -> FastAPI:
         return value.resolve() if value.is_absolute() else (root / value).resolve()
 
     opencode_config = config.get_nested("agent_runtime.opencode", {})
+    codex_config = config.get_nested("agent_runtime.codex", {})
     agent_run_service = AgentRunService(
         repository=AgentRunRepository(database_manager.postgres()),
         registry=AgentRegistry(configured_path("agent_runtime.registry_path")),
         worktrees=WorktreeManager(configured_path("agent_runtime.worktree_root")),
-        executor=OpenCodeExecutor(
-            command=str(opencode_config.get("command", "opencode")),
-            endpoint=str(opencode_config.get("endpoint", "")),
-        ),
+        executors={
+            "codex": CodexExecutor(
+                command=str(codex_config.get("command", "codex")),
+            ),
+            "opencode": OpenCodeExecutor(
+                command=str(opencode_config.get("command", "opencode")),
+                endpoint=str(opencode_config.get("endpoint", "")),
+            ),
+        },
         artifact_root=configured_path("agent_runtime.artifact_root"),
+    )
+    collaboration_service = CollaborationService(
+        repository=CollaborationRepository(database_manager.postgres()),
+        run_service=agent_run_service,
+        run_repository=agent_run_service.repository,
     )
 
     @asynccontextmanager
@@ -53,6 +67,7 @@ def create_app() -> FastAPI:
         app.state.config = config
         app.state.database_manager = database_manager
         app.state.agent_run_service = agent_run_service
+        app.state.collaboration_service = collaboration_service
         database_manager.postgres().open()
         agent_run_service.recover()
         yield
@@ -68,11 +83,12 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT"],
+        allow_methods=["GET", "POST", "PUT", "PATCH"],
         allow_headers=["*"],
     )
     app.include_router(analysis_router)
     app.include_router(agent_runtime_router)
+    app.include_router(collaboration_router)
     app.include_router(snapshot_router)
     app.include_router(view_config_router)
 

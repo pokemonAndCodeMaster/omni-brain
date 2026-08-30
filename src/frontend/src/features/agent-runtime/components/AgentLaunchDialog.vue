@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { shallowRef, watch } from 'vue'
-import type { AgentDetail, CreateAgentRunInput } from '../types'
+import type { AgentDetail, CreateAgentRunInput, ExecutorHealth, ExecutorName } from '../types'
 
 const props = defineProps<{
   agent: AgentDetail
   submitting: boolean
   error: string
+  executorHealth: ExecutorHealth[]
 }>()
 
 const emit = defineEmits<{
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 const title = shallowRef('')
 const prompt = shallowRef('')
 const model = shallowRef('')
+const executor = shallowRef<ExecutorName>('codex')
 
 watch(
   () => props.agent.id,
@@ -23,6 +25,7 @@ watch(
     title.value = ''
     prompt.value = ''
     model.value = ''
+    executor.value = props.agent.default_executor
   },
   { immediate: true },
 )
@@ -35,6 +38,7 @@ function submit() {
     prompt: value,
     title: title.value.trim() || undefined,
     model: model.value.trim() || undefined,
+    executor: executor.value,
   })
 }
 </script>
@@ -49,7 +53,7 @@ function submit() {
     >
       <header class="dialog-header">
         <div>
-          <p class="eyebrow">OpenCode · {{ agent.category }}</p>
+          <p class="eyebrow">{{ executor }} · {{ agent.category }}</p>
           <h2 :id="`launch-${agent.id}`">启动 {{ agent.name }}</h2>
         </div>
         <button class="icon-button" type="button" aria-label="关闭" @click="emit('close')">
@@ -91,7 +95,20 @@ function submit() {
           ></textarea>
         </label>
         <label>
-          <span>OpenCode 模型 <small>可选，留空使用本机默认配置</small></span>
+          <span>执行器</span>
+          <select v-model="executor" class="select-field">
+            <option
+              v-for="name in agent.supported_executors"
+              :key="name"
+              :value="name"
+              :disabled="executorHealth.find((item) => item.name === name)?.available === false"
+            >
+              {{ name }}{{ executorHealth.find((item) => item.name === name)?.available === false ? '（不可用）' : '' }}
+            </option>
+          </select>
+        </label>
+        <label>
+          <span>模型 <small>可选，留空使用 {{ executor }} 本机默认配置</small></span>
           <input v-model="model" class="field" placeholder="provider/model" />
         </label>
 

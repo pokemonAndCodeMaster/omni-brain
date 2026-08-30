@@ -13,6 +13,13 @@ const detailLoadingId = shallowRef('')
 const launchSubmitting = shallowRef(false)
 const launchError = shallowRef('')
 
+const executorHealth = computed(() => health.value?.executors ?? [])
+const healthByName = computed(() => new Map(executorHealth.value.map((item) => [item.name, item])))
+
+function canLaunch(agent: AgentSummary) {
+  return agent.supported_executors.some((name) => healthByName.value.get(name)?.available)
+}
+
 const categories = computed(() => {
   const groups = new Map<string, AgentSummary[]>()
   for (const agent of agents.value) {
@@ -65,11 +72,17 @@ async function launch(payload: CreateAgentRunInput) {
       </button>
     </header>
 
-    <div class="runtime-strip panel" :class="{ unavailable: health && !health.available }">
-      <span class="runtime-dot"></span>
-      <strong>OpenCode</strong>
-      <span v-if="health?.available">{{ health.version }} · {{ health.endpoint || '本机随机端口' }}</span>
-      <span v-else>{{ health?.reason || '正在探测执行端…' }}</span>
+    <div class="runtime-strip panel">
+      <div
+        v-for="item in executorHealth"
+        :key="item.name"
+        class="runtime-item"
+        :class="{ unavailable: !item.available }"
+      >
+        <span class="runtime-dot"></span>
+        <strong>{{ item.name }}</strong>
+        <span>{{ item.available ? item.version : item.reason }}</span>
+      </div>
       <RouterLink to="/ai/runs">查看 Run 记录</RouterLink>
     </div>
 
@@ -95,11 +108,11 @@ async function launch(payload: CreateAgentRunInput) {
               <div><dt>成功</dt><dd>{{ agent.run_counts.succeeded }}</dd></div>
             </dl>
             <footer>
-              <span>OpenCode</span>
+              <span>{{ agent.default_executor }} 默认 · {{ agent.supported_executors.join(' / ') }}</span>
               <button
                 class="button primary"
                 type="button"
-                :disabled="detailLoadingId === agent.id || !health?.available"
+                :disabled="detailLoadingId === agent.id || !canLaunch(agent)"
                 @click="openLaunch(agent)"
               >
                 {{ detailLoadingId === agent.id ? '读取配置…' : '启动任务' }}
@@ -117,6 +130,7 @@ async function launch(payload: CreateAgentRunInput) {
       :agent="selectedAgent"
       :submitting="launchSubmitting"
       :error="launchError"
+      :executor-health="executorHealth"
       @close="selectedAgent = null"
       @submit="launch"
     />
@@ -178,6 +192,14 @@ async function launch(payload: CreateAgentRunInput) {
   font-size: 12px;
 }
 
+.runtime-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-right: 14px;
+  border-right: 1px solid var(--color-line-subtle);
+}
+
 .runtime-strip strong {
   color: var(--color-ink);
 }
@@ -196,7 +218,7 @@ async function launch(payload: CreateAgentRunInput) {
   box-shadow: 0 0 0 3px var(--color-success-soft);
 }
 
-.runtime-strip.unavailable .runtime-dot {
+.runtime-item.unavailable .runtime-dot {
   background: var(--color-danger);
   box-shadow: 0 0 0 3px var(--color-danger-soft);
 }

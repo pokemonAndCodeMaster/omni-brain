@@ -10,13 +10,17 @@ from src.database import PGConnector
 RUN_COLUMNS = """
     id, agent_id, agent_name, title, prompt, actor_id, status, model,
     repository_path, base_revision, worktree_path, branch_name,
-    opencode_session_id, exit_code, result_summary, failure_code,
+    executor, executor_session_id, opencode_session_id,
+    subject_type, subject_id, thread_id, trigger_action,
+    exit_code, result_summary, result_payload, failure_code,
     failure_reason, artifact_path, created_at, started_at, finished_at, updated_at
 """
 
 RUN_SUMMARY_COLUMNS = """
     id, agent_id, agent_name, title, actor_id, status, model,
-    branch_name, opencode_session_id, exit_code, failure_code,
+    branch_name, executor, executor_session_id,
+    subject_type, subject_id, thread_id, trigger_action,
+    exit_code, failure_code,
     created_at, started_at, finished_at, updated_at
 """
 
@@ -28,7 +32,9 @@ class AgentRunRepository:
         "status",
         "worktree_path",
         "branch_name",
+        "executor_session_id",
         "opencode_session_id",
+        "result_payload",
         "exit_code",
         "result_summary",
         "failure_code",
@@ -50,11 +56,14 @@ class AgentRunRepository:
                     f"""
                         INSERT INTO {self._runs} (
                             id, agent_id, agent_name, title, prompt, actor_id, status,
-                            model, repository_path, base_revision, artifact_path
+                            model, repository_path, base_revision, artifact_path,
+                            executor, subject_type, subject_id, thread_id, trigger_action
                         ) VALUES (
                             %(id)s, %(agent_id)s, %(agent_name)s, %(title)s,
                             %(prompt)s, %(actor_id)s, 'queued', %(model)s,
-                            %(repository_path)s, %(base_revision)s, %(artifact_path)s
+                            %(repository_path)s, %(base_revision)s, %(artifact_path)s,
+                            %(executor)s, %(subject_type)s, %(subject_id)s,
+                            %(thread_id)s, %(trigger_action)s
                         )
                         RETURNING {RUN_COLUMNS}
                     """,
@@ -67,12 +76,20 @@ class AgentRunRepository:
                             run_id, sequence, event_type, source, summary, payload
                         ) VALUES (
                             %(id)s, 1, 'run.queued', 'platform',
-                            '任务已进入 OpenCode 执行队列', %(payload)s
+                            %(summary)s, %(payload)s
                         )
                     """,
                     {
                         "id": run["id"],
-                        "payload": Jsonb({"agent_id": run["agent_id"]}),
+                        "summary": f"任务已进入 {run['executor']} 执行队列",
+                        "payload": Jsonb(
+                            {
+                                "agent_id": run["agent_id"],
+                                "executor": run["executor"],
+                                "subject_type": run.get("subject_type"),
+                                "subject_id": run.get("subject_id"),
+                            }
+                        ),
                     },
                 )
         if row is None:
@@ -94,6 +111,8 @@ class AgentRunRepository:
             if row is None:
                 raise KeyError(run_id)
             return row
+        if isinstance(changes.get("result_payload"), dict):
+            changes["result_payload"] = Jsonb(changes["result_payload"])
         assignments = [f"{key} = %({key})s" for key in changes]
         params = {"id": run_id, **changes}
         row = self._postgres.fetch_one(
@@ -115,6 +134,9 @@ class AgentRunRepository:
         limit: int,
         offset: int,
         agent_id: str | None = None,
+        executor: str | None = None,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
         statuses: Iterable[str] = (),
     ) -> tuple[list[dict[str, Any]], int]:
         clauses: list[str] = []
@@ -122,6 +144,15 @@ class AgentRunRepository:
         if agent_id:
             clauses.append("agent_id = %(agent_id)s")
             params["agent_id"] = agent_id
+        if executor:
+            clauses.append("executor = %(executor)s")
+            params["executor"] = executor
+        if subject_type:
+            clauses.append("subject_type = %(subject_type)s")
+            params["subject_type"] = subject_type
+        if subject_id:
+            clauses.append("subject_id = %(subject_id)s")
+            params["subject_id"] = subject_id
         status_values = tuple(statuses)
         if status_values:
             clauses.append("status = ANY(%(statuses)s)")
@@ -245,7 +276,7 @@ class AgentRunRepository:
                 UPDATE {self._runs}
                 SET status = 'failed',
                     failure_code = 'platform_restarted',
-                    failure_reason = '平台重启，原 OpenCode 进程已无法继续跟踪',
+                    failure_reason = '平台重启，原执行器进程已无法继续跟踪',
                     finished_at = now(),
                     updated_at = now()
                 WHERE status IN ('queued', 'running')

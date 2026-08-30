@@ -18,8 +18,8 @@ function closeMobileNav() {
       <div class="brand">
         <span class="brand-mark">QC</span>
         <span class="brand-copy">
-          <strong>质检一站式平台</strong>
-          <small>本地实验 · 人工质检快照</small>
+          <strong>质量与 AI 协作平台</strong>
+          <small>团队工作中枢 · 本地实验</small>
         </span>
       </div>
 
@@ -36,19 +36,27 @@ function closeMobileNav() {
         </div>
 
         <p class="nav-group nav-group-spaced">AI 协作</p>
-        <RouterLink to="/ai/agents" @click="closeMobileNav">
+        <RouterLink to="/ai/ideas" @click="closeMobileNav">
           <span class="nav-index">A1</span>
-          <span>Agent 能力目录</span>
+          <span>灵感</span>
+        </RouterLink>
+        <RouterLink to="/ai/requirements" @click="closeMobileNav">
+          <span class="nav-index">A2</span>
+          <span>需求</span>
+        </RouterLink>
+        <RouterLink to="/ai/agents" @click="closeMobileNav">
+          <span class="nav-index">A3</span>
+          <span>能力</span>
         </RouterLink>
         <RouterLink to="/ai/runs" @click="closeMobileNav">
-          <span class="nav-index">A2</span>
-          <span>Run 记录</span>
+          <span class="nav-index">A4</span>
+          <span>Runs</span>
         </RouterLink>
       </nav>
 
       <div class="sidebar-note">
         <span class="status-dot"></span>
-        <span>仅连接本地实验数据</span>
+        <span>admin · 本地 PostgreSQL</span>
       </div>
     </aside>
 

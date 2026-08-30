@@ -13,13 +13,14 @@ from .analysis import AnalysisCatalogOut, AnalysisFacetOut, AnalysisQueryOut
 from .view_config import DashboardConfig, DashboardConfigResponse
 from .agent_runtime import (
     AgentOut,
+    AgentRuntimeHealthOut,
     AgentSummaryOut,
     AgentRunCreate,
     AgentRunEventListOut,
     AgentRunListOut,
     AgentRunOut,
     AgentRunSummaryOut,
-    OpenCodeHealthOut,
+    ExecutorHealthOut,
 )
 
 __all__ = [
@@ -36,11 +37,12 @@ __all__ = [
     "DashboardConfig",
     "DashboardConfigResponse",
     "AgentOut",
+    "AgentRuntimeHealthOut",
     "AgentSummaryOut",
     "AgentRunCreate",
     "AgentRunEventListOut",
     "AgentRunListOut",
     "AgentRunOut",
     "AgentRunSummaryOut",
-    "OpenCodeHealthOut",
+    "ExecutorHealthOut",
 ]

@@ -1,9 +1,9 @@
-# 人工质检实验接力报告
+# 质量与 AI 协作平台接力报告
 
-> 更新时间：2026-08-29
+> 更新时间：2026-08-30
 > 仓库：`/home/yyh/project/quality-platform-lab`
 > 分支：`feature/agent-workbench-opencode-v1`
-> 功能基线：待提交的 Agent Runtime 纵切
+> 功能基线：待提交的协作平台 S0 与双执行器纵切
 
 ## 1. 当前结论
 
@@ -21,12 +21,14 @@
 统计图，再进入任务明细，按任务 → 日期 → 组 → 标注员逐级查看标注、Good/Bad、
 验收分配、完成、通过、打回和问题选项。
 
-2026-08-29 新增了同一平台内的 **OpenCode-only Agent Runtime**：Agent 定义从发布
-Harness 注册表读取，Run 元数据和规范事件进入现有 PostgreSQL；Vue 列表使用摘要接口，
-只有选中具体 Run 才加载 prompt、结果与增量 trace。React、SQLite 和 Codex 不属于该纵切。
+2026-08-30 在同一宿主增加了**团队 AI 协作 S0**：Idea、candidate/accepted Requirement、
+不可覆盖 Revision、Thread Entry 和 Decision 均进入 PostgreSQL；固定服务端身份为
+`admin`。Agent Runtime 通过统一 Adapter 同时接入 Codex 与 OpenCode，列表保持摘要读取，
+只有选中具体 Run 才加载 prompt、结果与增量 trace。
 
-当前阶段已经收口。下一位模型不应继续做无目的的组件抽象、V1 清理或页面微调，而应先
-和用户确认下一项真实业务结果。
+产品终稿和 S0 R2 已由用户批准。S0 仍不包含 Work、Git 自动化、认证、Docker、远程
+Worker、正式 EvalCase/Judge 或进化 Loop；下一纵切是 S1 固定开发闭环，不再重新讨论
+Proposal 独立对象、S0 身份或双执行器是否引入。
 
 ## 2. 后续模型的阅读顺序
 
@@ -47,6 +49,8 @@ Harness 注册表读取，Run 元数据和规范事件进入现有 PostgreSQL；
 
 ```text
 http://127.0.0.1:5173/manual-qc/snapshots
+http://127.0.0.1:5173/ai/ideas
+http://127.0.0.1:5173/ai/requirements
 http://127.0.0.1:5173/ai/agents
 http://127.0.0.1:5173/ai/runs
 ```
@@ -61,6 +65,10 @@ http://127.0.0.1:5173/ai/runs
 4. **任务分析表：** 默认 24 个任务，逐级展开 14 个日期、组和标注员；
 5. **指标详情：** 点击 Good 占比、完成率或通过率，查看整体、Good/Bad、趋势和
    问题标签—选项；问题选项可以固定为可筛选、可排序的列。
+6. **Idea 与 Requirement：** 记录原始想法，在详情中追加人的意见、启动 Agent 动作、
+   保存 Revision，并由 admin 接纳、驳回、延期、合并或重开。
+7. **能力与 Runs：** 显示 Codex/OpenCode 健康、能力默认执行器和轻量历史；进入 Run
+   后才读取具体输入、结果、失败原因与规范事件。
 
 顶部范围作用于全页。表头聚合筛选默认只影响任务表，只有日期、单个项目或单个任务等
 可以无损表达的条件，才允许显式提升到全页或统计卡片。
@@ -89,7 +97,8 @@ src/database/                  PostgreSQL connector / manager
 src/manual_qc/snapshot/        快照行与旧四级聚合
 src/manual_qc/analysis/        指标目录、受控查询、动态问题选项
 src/portal/                    视图配置保存
-src/agent_runtime/             OpenCode Run 编排、PostgreSQL 元数据/事件、worktree
+src/agent_runtime/             Codex/OpenCode Adapter、Run 元数据/事件、worktree
+src/collaboration/             Idea、Requirement、Revision、Decision 与派生时间线
 src/api/routers/               FastAPI 路由
 src/api/schemas/               Pydantic HTTP / 配置契约
 ```
@@ -126,6 +135,9 @@ src/frontend/src/shared/dashboard/
 
 src/frontend/src/features/agent-runtime/
   Agent 摘要目录、按需启动、Run 摘要列表、详情和增量 trace
+
+src/frontend/src/features/collaboration/
+  Idea/Requirement 摘要、详情、时间线、R1 编辑和评审
 ```
 
 通用组件只负责呈现和交互；人工质检指标、问题选项语义和预设留在人工质检 feature。
@@ -139,6 +151,12 @@ manual_qc_lab.t_qc_daily_snapshot
 manual_qc_lab.t_portal_view_config
 manual_qc_lab.t_agent_run
 manual_qc_lab.t_agent_run_event
+manual_qc_lab.t_collab_idea
+manual_qc_lab.t_collab_requirement
+manual_qc_lab.t_collab_requirement_revision
+manual_qc_lab.t_collab_thread
+manual_qc_lab.t_collab_thread_entry
+manual_qc_lab.t_collab_decision
 ```
 
 当前确定性种子：
@@ -220,17 +238,32 @@ npm run build
 
 当前基线：
 
-- Python：18 项通过；
-- Vue/Vitest：32 项通过；
+- Python：24 项通过；
+- Vue/Vitest：34 项通过；
 - `vue-tsc`：通过；
 - Vite 生产构建：通过，仍有单 bundle 超过 500 kB 的警告；
 - OpenCode 真实纵链：`run-20260829-154845-cd07a9` 成功，session、worktree、最终文本和
   规范事件均由 PostgreSQL API 回读；
+- Codex JSONL、结构化输出文件和 session resume 已完成本地只读 PoC；S0 首条真实
+  `knowledge_context` Run `run-20260830-040838-a93487` 成功并回填 session、最终结果与
+  规范事件；严格 R1 重跑 `run-20260830-041157-1bf223` 成功并成为首个 Requirement 的
+  来源 Run；
+- 协作 API 真实 smoke 已验证客户端 actor 注入被拒绝、Idea 转 Requirement 幂等、
+  `accepted + NEXT` 与派生时间线；真实对象为
+  `idea-20260830-040827-8866bc` → `req-20260830-041647-e9f632`；
+- 下一阶段已作为独立正式需求登记并接纳：
+  `req-20260830-042453-d51b4a`（“S1：由平台管理的首个标准开发闭环”，
+  `accepted + NEXT / S1`）；后续 Work 不应错误复用 S0 自举需求；
+- OpenCode 对照 Run `run-20260830-041237-59dfb6` 暴露单行 JSON 超过默认 64 KiB 的
+  Adapter 缺陷，失败原因原样保存；流上限提高到有界 16 MiB 后，
+  `run-20260830-041949-740b63` 成功并回填 session、42 个事件和最终文本；
 - 真实页面：5 张图表、24 个任务、首个任务展开得到 14 个日期；
 - 图表卡增高一格时，卡片、内容区、ECharts 容器和 canvas 同步增加 58px。
 
 详细用户路径和核算值见 [`verification-report.md`](verification-report.md)。CSS、拖拽、
 弹窗和 ECharts 尺寸问题必须使用真实浏览器验证，不能只以 jsdom 测试通过为结论。
+本轮新增协作路由已经通过真实 HTTP、Vitest、类型检查和生产构建，但当前环境没有可用的
+Chromium/Playwright，因此不能声称完成了新页面的真实浏览器视觉验收。
 
 ## 8. 已完成且不要重复建设
 
@@ -252,7 +285,7 @@ V1 配置类型和旧四级 API 仍承担迁移、回退或顶部范围数据职
 
 ### 9.1 产品边界
 
-当前仍是**只读分析工作台**，尚未实现：
+人工质检仍是**只读分析工作台**；AI 协作当前只到 S0，尚未实现：
 
 - 验收覆盖矩阵；
 - 预期分配与实际分配缺口定位；
@@ -260,6 +293,10 @@ V1 配置类型和旧四级 API 仍承担迁移、回退或顶部范围数据职
 - 执行前预览和人工确认；
 - 任务下发、部分失败、重试、执行结果和状态回查；
 - 多用户权限、共享视图和冲突合并。
+- Work、WorkPlan 与标准开发闭环；
+- Commit/Push/PR/MR 关联和交付审查包；
+- 正式 EvalCase、Judge 和能力进化；
+- Docker、远程 Worker、Lease 与对象存储。
 
 ### 9.2 技术边界
 
@@ -283,9 +320,14 @@ V1 配置类型和旧四级 API 仍承担迁移、回退或顶部范围数据职
 因此目前只能称为**防御性修复，根因未证实**。若再次复现，应记录发生时间、当时是否
 打开过表头筛选或卡片编辑器，并在真实 Windows Edge 环境继续取证；不能写成已彻底解决。
 
-## 10. 下一步候选
+## 10. 下一步
 
-下一步尚未由用户最终选择。推荐顺序如下。
+协作平台下一步已经批准为 S1：从 accepted Requirement 创建 Work 和固定
+`standard_development_v1`，默认用 Codex 做方案/开发、OpenCode 做评测/对照，并回填
+worktree、分支、Commit、验证、审查和人工接受。Agent 可以 Commit；Push/创建 PR(MR)
+必须人工确认，Merge 始终人工。
+
+以下人工质检候选仍未单独排期。
 
 ### 候选 A：验收覆盖与配额缺口
 
