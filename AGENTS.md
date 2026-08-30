@@ -21,7 +21,11 @@ M1 已完成首个质检增量文档切片，当前进入**开发优先的 M2+M3
 - `docs/product-direction-discussion.md`：产品判断的推理过程、争议、备选和未决问题；
 - `docs/design-discussion.md`：早期调研、组件议题和历史上下文。
 
-本仓库是 **Harness 设计与评测仓**：维护 Blueprint、参考成果、用例、Trial 和晋升依据。`/home/yyh/project/omni-brain-harness` 是 **精简发布仓**：只保留模型实际使用的规则、Skills、工具和空知识骨架。真实试验从发布仓版本建立一次性工作区，在其中修改候选并运行；证据归档回本仓，达到采用门槛后再晋升发布仓。不要把发布运行规则整份复制回本仓，也不要让本仓历史实验组件因为“曾经存在”重新进入 Release。
+本仓库是 **唯一产品主线**：`apps/quality-platform/` 承载团队 AI 协作与交付平台，`knowledge/`
+承载规范知识与原始证据，根目录 `AGENTS.md`、`.agents/skills/` 和 `harness.yaml` 是主线当前可调用的
+Harness，`packages/harness/` 保存已发布版本的可追溯快照，`eval/` 保存用例、Trial 和晋升证据。
+Idea、Requirement、实现、知识与评测结果最终都回到本仓主线；实验分支和 worktree 只用于短期隔离，
+不是并列产品入口。历史独立 checkout 仅作迁移与复核来源，不再承接新的正式开发。
 
 ## 当前工作模型
 
@@ -69,7 +73,8 @@ open question → hypothesis → provisional → approved → implemented → ve
 
 - 回答项目状态、审查已有产物或做局部安全修改：读取直接事实源后完成，不创建额外工作区；
 - 设计 Blueprint 组件、公共能力或工作流：先明确真实用户工况、可用结果、组件边界和验收证据，再形成可审方案；
-- 运行或评测已发布能力：从精简发布仓建立隔离 Trial，使用发布仓自己的 `AGENTS.md` 和 Skills，不用设计仓规则代替被测 Harness；
+- 运行主线能力：从当前主线版本建立一次性 worktree，使用根目录 `AGENTS.md`、Skills 和知识；
+- 重放指定已发布 Harness：从 `packages/harness/` 记录的版本身份建立隔离 Trial，不用主线新增规则污染被测候选；
 - 关键事实一次有界查证后仍然缺失或冲突：明确它会改变哪个决定、已查范围和补知责任，停止猜测；没有真实用例证明必要时，不为此新建通用工作流或状态系统。
 
 选择能完成当前结果的最低成本路径。知识范围以“是否会改变下一步行动、方案选择、验证、风险或结果解释”为准，不以流程完整或资料数量为目标。
@@ -226,8 +231,11 @@ docs/blueprint.md      稳定目标、产品架构、组件边界和设计原则
 docs/harness-roadmap.md 完整时间线、组件实施、用例、产物、验证和进度摘要
 docs/                 产品方向、场景、设计讨论与实施规格
 knowledge/raw/        不可变原始资料
+knowledge/published/  已认证、可由主线 Agent 直接消费的规范知识包
 knowledge/            规范知识卡、目录、分类与日志
 .agents/skills/       可复用 Agent 工作流
+apps/quality-platform/ Vue3、FastAPI、PostgreSQL 的正式产品宿主
+packages/harness/     已发布 Harness 的可追溯快照与独立回归
 scripts/              检索、摄入、健康检查等确定性工具（当前多为 stub）
 eval/                 固定问题、用户旅程与回归评测
 eval/STATUS.md        用例、真值、Trial、Harness 与下一动作的唯一实验总账
