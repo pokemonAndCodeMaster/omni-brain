@@ -38,11 +38,15 @@ READ_ONLY_BASH_PERMISSION = {
     "git show *": "allow",
     "git rev-parse *": "allow",
     ".venv/bin/pytest *": "allow",
+    "cd apps/quality-platform && .venv/bin/pytest *": "allow",
     "python -m pytest *": "allow",
     "python -m compileall *": "allow",
     "npm test *": "allow",
     "npm run type-check *": "allow",
     "npm run build *": "allow",
+    "cd apps/quality-platform/src/frontend && npm test *": "allow",
+    "cd apps/quality-platform/src/frontend && npm run type-check *": "allow",
+    "cd apps/quality-platform/src/frontend && npm run build *": "allow",
 }
 
 WRITE_BASH_PERMISSION = {

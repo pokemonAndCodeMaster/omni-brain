@@ -44,6 +44,12 @@ def test_opencode_read_only_profile_denies_edits_and_unlisted_shell_commands() -
     assert config["permission"]["external_directory"] == "deny"
     assert config["permission"]["bash"]["*"] == "deny"
     assert config["permission"]["bash"]["git diff *"] == "allow"
+    assert (
+        config["permission"]["bash"][
+            "cd apps/quality-platform && .venv/bin/pytest *"
+        ]
+        == "allow"
+    )
     assert config["permission"]["bash"].get("git push*", "deny") == "deny"
 
 
