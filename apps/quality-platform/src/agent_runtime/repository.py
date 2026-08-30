@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
 
 from src.database import PGConnector
@@ -52,54 +53,59 @@ class AgentRunRepository:
         self._events = f"{postgres.schema}.t_agent_run_event"
 
     def create(self, run: dict[str, Any]) -> dict[str, Any]:
-        with self._postgres.transaction() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    f"""
-                        INSERT INTO {self._runs} (
-                            id, agent_id, agent_name, title, prompt, actor_id, status,
-                            model, repository_path, base_revision, artifact_path,
-                            worktree_path, branch_name, executor,
-                            subject_type, subject_id, thread_id, trigger_action,
-                            work_id, plan_step_id
-                        ) VALUES (
-                            %(id)s, %(agent_id)s, %(agent_name)s, %(title)s,
-                            %(prompt)s, %(actor_id)s, 'queued', %(model)s,
-                            %(repository_path)s, %(base_revision)s, %(artifact_path)s,
-                            %(worktree_path)s, %(branch_name)s, %(executor)s,
-                            %(subject_type)s, %(subject_id)s,
-                            %(thread_id)s, %(trigger_action)s,
-                            %(work_id)s, %(plan_step_id)s
-                        )
-                        RETURNING {RUN_COLUMNS}
-                    """,
-                    run,
-                )
-                row = cursor.fetchone()
-                cursor.execute(
-                    f"""
-                        INSERT INTO {self._events} (
-                            run_id, sequence, event_type, source, summary, payload
-                        ) VALUES (
-                            %(id)s, 1, 'run.queued', 'platform',
-                            %(summary)s, %(payload)s
-                        )
-                    """,
-                    {
-                        "id": run["id"],
-                        "summary": f"任务已进入 {run['executor']} 执行队列",
-                        "payload": Jsonb(
-                            {
-                                "agent_id": run["agent_id"],
-                                "executor": run["executor"],
-                                "subject_type": run.get("subject_type"),
-                                "subject_id": run.get("subject_id"),
-                                "work_id": run.get("work_id"),
-                                "plan_step_id": run.get("plan_step_id"),
-                            }
-                        ),
-                    },
-                )
+        try:
+            with self._postgres.transaction() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"""
+                            INSERT INTO {self._runs} (
+                                id, agent_id, agent_name, title, prompt, actor_id, status,
+                                model, repository_path, base_revision, artifact_path,
+                                worktree_path, branch_name, executor,
+                                subject_type, subject_id, thread_id, trigger_action,
+                                work_id, plan_step_id
+                            ) VALUES (
+                                %(id)s, %(agent_id)s, %(agent_name)s, %(title)s,
+                                %(prompt)s, %(actor_id)s, 'queued', %(model)s,
+                                %(repository_path)s, %(base_revision)s, %(artifact_path)s,
+                                %(worktree_path)s, %(branch_name)s, %(executor)s,
+                                %(subject_type)s, %(subject_id)s,
+                                %(thread_id)s, %(trigger_action)s,
+                                %(work_id)s, %(plan_step_id)s
+                            )
+                            RETURNING {RUN_COLUMNS}
+                        """,
+                        run,
+                    )
+                    row = cursor.fetchone()
+                    cursor.execute(
+                        f"""
+                            INSERT INTO {self._events} (
+                                run_id, sequence, event_type, source, summary, payload
+                            ) VALUES (
+                                %(id)s, 1, 'run.queued', 'platform',
+                                %(summary)s, %(payload)s
+                            )
+                        """,
+                        {
+                            "id": run["id"],
+                            "summary": f"任务已进入 {run['executor']} 执行队列",
+                            "payload": Jsonb(
+                                {
+                                    "agent_id": run["agent_id"],
+                                    "executor": run["executor"],
+                                    "subject_type": run.get("subject_type"),
+                                    "subject_id": run.get("subject_id"),
+                                    "work_id": run.get("work_id"),
+                                    "plan_step_id": run.get("plan_step_id"),
+                                }
+                            ),
+                        },
+                    )
+        except UniqueViolation as exc:
+            if exc.diag.constraint_name == "uq_agent_run_active_plan_step":
+                raise ValueError("该步骤已有活跃 Run，请等待结束或先取消") from exc
+            raise
         if row is None:
             raise RuntimeError("创建 Run 后未返回记录")
         return row
