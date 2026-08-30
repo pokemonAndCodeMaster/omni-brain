@@ -55,7 +55,6 @@ export interface IdeaSummary {
   owner_id: string
   requirement_id: string | null
   run_count: number
-  work_id: string | null
   created_at: string
   updated_at: string
 }
@@ -93,6 +92,7 @@ export interface RequirementSummary {
   owner_id: string
   current_revision_no: number
   run_count: number
+  work_id: string | null
   created_at: string
   updated_at: string
 }

@@ -246,6 +246,36 @@ class WorkService:
             actor_id=actor_id,
         )
 
+    def complete_step(
+        self,
+        *,
+        work_id: str,
+        step_id: str,
+        note: str,
+        actor_id: str,
+    ) -> dict[str, Any]:
+        work = self.detail(work_id)
+        step = next(
+            (candidate for candidate in work["plan"]["steps"] if candidate["id"] == step_id),
+            None,
+        )
+        if step is None:
+            raise KeyError(step_id)
+        if step["step_key"] == "development":
+            if step["display_status"] != "awaiting_gate":
+                raise ValueError("开发步骤需要最近一次 Run 成功后才能确认完成")
+            self.worktrees.commit_delivery(
+                Path(str(work["worktree_path"])),
+                str(work["base_commit"]),
+                f"agent: complete {work_id} development",
+            )
+        return self.repository.complete_step(
+            work_id=work_id,
+            step_id=step_id,
+            note=note,
+            actor_id=actor_id,
+        )
+
     def decide(
         self,
         *,
@@ -254,6 +284,23 @@ class WorkService:
         reason: str,
         actor_id: str,
     ) -> dict[str, Any]:
+        if decision_type == "accept":
+            work = self.detail(work_id)
+            evidence = work.get("latest_evidence")
+            if evidence is not None:
+                recorded = evidence["payload"]
+                current = self.worktrees.delivery_evidence(
+                    Path(str(work["worktree_path"])),
+                    str(work["base_commit"]),
+                )
+                git_fields = (
+                    "head_commit",
+                    "branch_name",
+                    "worktree_status",
+                    "diff_summary",
+                )
+                if any(recorded.get(field) != current.get(field) for field in git_fields):
+                    raise ValueError("当前 Git 状态已变化，请刷新并重新保存证据后再接受")
         return self.repository.decide(
             decision_id=self._id("work-decision"),
             work_id=work_id,

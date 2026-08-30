@@ -116,7 +116,7 @@ async function startWork() {
         <RouterLink v-if="requirement?.source_idea_id" class="button" :to="`/ai/ideas/${requirement.source_idea_id}`">来源 Idea</RouterLink>
         <RouterLink v-if="requirement?.work_id" class="button primary" :to="`/ai/works/${requirement.work_id}`">打开 Work</RouterLink>
         <button
-          v-else-if="requirement?.status === 'accepted'"
+          v-else-if="requirement?.status === 'accepted' && requirement.commitment === 'NEXT'"
           class="button primary"
           type="button"
           :disabled="creatingWork"

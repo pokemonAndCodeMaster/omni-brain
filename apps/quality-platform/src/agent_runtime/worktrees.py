@@ -102,3 +102,30 @@ class WorktreeManager:
             "worktree_status": _git(path, "status", "--short"),
             "diff_summary": _git(path, "diff", "--stat", f"{base_commit}..{head}"),
         }
+
+    def commit_delivery(self, path: Path, base_commit: str, message: str) -> str:
+        """Commit a development Run's files from the trusted platform process.
+
+        Codex workspace-write intentionally protects Git metadata, including the
+        resolved metadata directory of a linked worktree. The platform therefore
+        owns the narrow commit operation after a human confirms the development
+        Gate; the Agent never receives broader access to the main repository's
+        ``.git`` directory.
+        """
+
+        if _git(path, "status", "--short"):
+            _git(path, "add", "--all")
+            _git(
+                path,
+                "-c",
+                "user.name=Omni Brain",
+                "-c",
+                "user.email=omni-brain@localhost",
+                "commit",
+                "-m",
+                message,
+            )
+        head = _git(path, "rev-parse", "HEAD")
+        if head == base_commit:
+            raise ValueError("开发步骤没有可交付的 Commit 或文件变化")
+        return head

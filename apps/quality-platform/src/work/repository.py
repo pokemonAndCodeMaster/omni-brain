@@ -66,7 +66,7 @@ class WorkRepository:
             )
             requirement = connection.execute(
                 f"""
-                    SELECT id, title, status, accepted_revision_id
+                    SELECT id, title, status, commitment, accepted_revision_id
                     FROM {self._requirements}
                     WHERE id = %s
                     FOR UPDATE
@@ -75,8 +75,12 @@ class WorkRepository:
             ).fetchone()
             if requirement is None:
                 raise KeyError(requirement_id)
-            if requirement["status"] != "accepted" or not requirement["accepted_revision_id"]:
-                raise ValueError("只有已接纳且冻结 Revision 的 Requirement 可以创建 Work")
+            if (
+                requirement["status"] != "accepted"
+                or not requirement["accepted_revision_id"]
+                or requirement["commitment"] != "NEXT"
+            ):
+                raise ValueError("只有 accepted + NEXT 且冻结 Revision 的 Requirement 可以创建 Work")
             existing = connection.execute(
                 f"SELECT id FROM {self._works} WHERE requirement_id = %s",
                 (requirement_id,),

@@ -49,8 +49,10 @@ Work 列表只查询摘要和 Run 数量；进入详情后才读取计划、步�
 一个 Work 只建立一个共享 worktree，所有步骤在同一 worktree 中读取或修改。单仓同时只允许一个
 未结束的写入型 Work。知识、方案、验证和审查步骤只读，开发步骤使用 workspace-write。
 
-Agent 可以修改、验证和 Commit。平台不会自动 Push、创建 PR/MR 或 Merge；PR/MR 仅保存人工操作后
-回填的引用。接受交付至少要求：
+Agent 可以修改和验证。Codex 的 `workspace-write` 会把 linked worktree 指向的 Git 元数据保持只读，
+因此开发 Run 不获得主仓 `.git` 写权限；人在确认开发 Gate 时，由受信的平台进程把该 Work 的文件
+变化提交到已登记分支。平台不会自动 Push、创建 PR/MR 或 Merge；PR/MR 仅保存人工操作后回填的
+引用。接受交付至少要求：
 
 - 前五个步骤均已人工确认完成；
 - `HEAD` 与固定 base commit 不同；

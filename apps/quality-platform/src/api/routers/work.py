@@ -138,13 +138,13 @@ def complete_work_step(
     actor_id: Actor,
 ) -> dict:
     try:
-        return service.repository.complete_step(
+        return service.complete_step(
             work_id=work_id,
             step_id=step_id,
             note=payload.note,
             actor_id=actor_id,
         )
-    except (KeyError, ValueError) as exc:
+    except (KeyError, RuntimeError, ValueError) as exc:
         _raise_http(exc)
 
 

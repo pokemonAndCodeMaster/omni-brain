@@ -412,6 +412,10 @@ AgentRun（逻辑步骤执行）
 - Codex/OpenCode CLI 进程与临时端口由各自执行器管理，平台不扫描其他目录或端口；
 - 多个执行器工作目录或服务不能共享未显式登记的 session。
 
+S1 的开发 Run 可在共享 worktree 修改和验证文件，但不扩大 Codex `workspace-write` 对主仓
+`.git` 的访问。人在确认开发 Gate 时，由受信的平台进程将该 Work 的文件变化提交到已登记分支；
+这一步只产生本地 Commit，仍不触发 Push、PR/MR 或 Merge。
+
 ### 10.2 worktree 能解决什么，不能解决什么
 
 worktree 能隔离：
