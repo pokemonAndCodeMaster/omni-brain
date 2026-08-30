@@ -1,0 +1,254 @@
+---
+title: "质检平台-验收采样配额与任务选择设计"
+domain: ["manual_qa"]
+type: "synthesis"
+tags: ["人工质检", "验收采样", "配额", "Good Bad", "task_ids", "策略注册表"]
+created: 2026-06-28
+updated: 2026-07-06
+sources: 7
+status: active
+related_code: ["task.md", "data_schemas/migrations/V20260630_02__create_qc_daily_snapshot_table.sql"]
+affects_path: ["src/manual_qc/acceptance/sampler.py", "src/manual_qc/acceptance/services/assignment_service.py"]
+trigger_keywords: ["GroupSampler", "PersonalSampler", "RatioSampler", "采样配额", "任务选择", "Good Bad"]
+---
+
+> ✅ 印证修订：domain 由原始 `["ai_dlc","agent_evaluation","tooling"]` 改为本仓库 TAXONOMY 合法值 `["manual_qa"]`。
+
+# 质检平台验收采样配额与任务选择设计
+
+← 总入口：[[质检一站式平台人工质检模块整体架构]]。前端呈现：[[质检平台-人工质检验收中心前端设计]]。统计依据：[[质检平台-综合快照表设计]]。执行回查：[[质检平台-Delta调用与状态回查设计]]。现状来源：[[人工质检-⑧验收分配]]。
+
+## ① 组件概述
+
+验收采样配额与任务选择组件负责回答"今天这个组/这个人该抽多少 Good、多少 Bad、从哪些 task 抽"，位于质检平台整体架构的 **Service 层**，以 [[质检平台-综合快照表设计]] 聚合后的统计行为输入，输出 `SamplingQuota` 给 Repository 查询具体 task_ids，再由 `AssignmentService` 生成 preview 并通过 [[质检平台-Delta调用与状态回查设计]] 调用 DeltaClient。该组件遵循"算多少"与"取哪些"分离原则，使采样策略可纯数据测试。
+
+## ② 架构结构
+
+### Service 层目录结构（计划目标）
+
+```text
+src/manual_qc/acceptance/
+├── sampler.py              # 采样策略实现 + SAMPLER_REGISTRY 注册表
+├── pass_rules.py           # 通过打回规则（见 [[质检平台-通过打回规则与执行设计]]）
+├── models.py               # 仅放已形成复用的结构（可初期为空）
+└── services/
+    ├── assignment_service.py   # 验收分配 preview/execute
+    └── execution_service.py    # 通过打回 preview/execute
+```
+
+### 采样配额计算与任务选择架构图（Mermaid graph）
+
+```mermaid
+graph TD
+    Snap[(t_qc_daily_snapshot<br/>统计行)] -->|个人最小统计行| Sampler
+
+    subgraph 采样策略层
+        Sampler[Sampler 抽象基类]
+        Sampler --> Group[GroupSampler]
+        Sampler --> Personal[PersonalSampler]
+        Sampler --> Ratio[RatioSampler]
+        Registry[SAMPLER_REGISTRY<br/>名称/描述/实现唯一来源]
+        Group -.注册.-> Registry
+        Personal -.注册.-> Registry
+        Ratio -.注册.-> Registry
+    end
+
+    Sampler -->|输出 SamplingQuota<br/>维度键+good_count+bad_count| Repo[Repository]
+    Repo -->|按 stat_date/scene/annotator/<br/>Good-Bad/waiting_review 查询| Tasks[(Delta task_ids)]
+    Tasks -->|task_ids 列表| Service[AssignmentService]
+    Service -->|preview: 配额+分布+缺口+警告| Frontend[前端]
+    Service -->|execute: 复用 preview task_ids| DeltaClient[DeltaClient]
+    DeltaClient -.调用.-> Delta[(Delta 平台)]
+
+    Registry -.被前端 /samplers 读取.-> Frontend
+```
+
+架构图说明：Sampler 只负责"算配额"，不持有数据库连接；Repository 负责"取 task_ids"，仅在 preview 时选择一次；Service 编排 preview 与 execute，execute 复用 preview 返回的原 task_ids 不重新选择；`SAMPLER_REGISTRY` 是策略发现的唯一事实源，前端 `/samplers` 端点直接读取，不再维护 `SamplerName` Enum。
+
+### preview→execute 数据流时序图（Mermaid sequenceDiagram）
+
+```mermaid
+sequenceDiagram
+    participant FE as 前端
+    participant AS as AssignmentService
+    participant SP as Sampler
+    participant RP as Repository
+    participant DC as DeltaClient
+
+    FE->>AS: POST /preview (sampler_name, params)
+    AS->>SP: compute(snapshot_rows, params)
+    SP-->>AS: SamplingQuota(dim_key, good_count, bad_count)
+    AS->>RP: query_task_ids(quota, waiting_review)
+    RP-->>AS: task_ids[good], task_ids[bad]
+    AS-->>FE: preview(配额, 分布, 缺口, 警告)
+
+    FE->>AS: POST /execute (preview_id, task_ids)
+    AS->>RP: recheck_status(task_ids)  %% 重查当前状态
+    RP-->>AS: still_waiting_ids
+    AS->>DC: batch_assign(still_waiting_ids)
+    DC-->>AS: 即时成功/跳过/失败
+    AS-->>FE: execute 即时结果（实际量由后续回查刷新）
+```
+
+时序图说明：preview 与 execute 分两步；execute 必须先重查 task 状态，只保留 `waiting_review`，复用 preview 的 task_ids 不重新选择；即时返回不等同最终成功量，最终量由 [[质检平台-Delta调用与状态回查设计]] 的状态回查刷新到 `acceptance_allocated`。
+
+## ③ 数据表交互
+
+| 表名 | 用途 | 读写类型 | 关键字段 | SQL 文件 |
+|------|------|---------|---------|---------|
+| t_qc_daily_snapshot | 采样依据：读取个人最小统计行（日期/scene/当日组/标注员/组员数/Good-Bad 可用量）；回写 `acceptance_allocated`、`good_allocated`、`bad_allocated` 实际分配量 | 读写 | `stat_date`、`scene_name`、`group_name`、`annotator_id`、`annotation_total`、`annotation_submitted`、`good_allocated`、`bad_allocated`、`acceptance_allocated` | [`../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql) |
+
+> 说明：Sampler 仅读取统计行字段计算配额，不写库；Repository 也只读 Delta 侧 task_ids；实际分配量的 UPSERT 由 `AssignmentService` 在回查确认后写入 `t_qc_daily_snapshot`。维度键 `(stat_date, scene_name, group_name, annotator_id)` 与快照表 UNIQUE 约束一致。
+
+## ④ 子模块/文件/类级清单
+
+| 子模块/文件/类 | 一句话说明 |
+|---------------|-----------|
+| `Sampler`（基类） | 采样策略抽象，输入为个人最小统计行，输出为 `SamplingQuota`，不含数据库连接 |
+| `GroupSampler` | 按组采样：`min(组员数×90, 300)`，Good/Bad 各 50%，按 scene 比例覆盖 |
+| `PersonalSampler` | 按人采样：每人 90（Good/Bad 各 45），一侧不足由另一侧补足，人员独立计算 |
+| `RatioSampler` | 用户指定最终目标数与 Good 比例，用于临时业务，需校验总量/比例/范围 |
+| `SAMPLER_REGISTRY` | 名称、描述、实现的唯一来源；前端 `/samplers` 直接读取，不维护 `SamplerName` Enum |
+| `SamplingQuota` | 采样输出结构：维度键 + good_count + bad_count（无 DB 连接、无 task 状态） |
+| `AssignmentService` | 编排 preview（Sampler+Repository）与 execute（重查+DeltaClient），见本卡 ⑤ 段 |
+| `Repository.query_task_ids` | 按配额查询当前 `waiting_review` 且满足分类条件的 task_ids |
+
+## ⑤ 详细设计展开
+
+### 5.1 设计初衷
+
+旧脚本把配额公式、任务查询、验收员轮询、平台调用和通知揉在一起，策略难以测试。新设计将"算多少"和"取哪些 task"拆开：
+
+- Sampler 只根据快照计数计算配额；
+- Repository 根据配额查询具体 task_ids；
+- Service 生成 preview 并调用 DeltaClient。
+
+拆分后既保留快照作为采样依据，也承认执行必须落到 clip/task 级。
+
+> 📎 补充参考：[[人工质检-⑧验收分配]] 描述旧脚本中验收分配的现状实现，本卡是新平台设计，两者互补而非重复。
+
+### 5.2 输入与输出
+
+Sampler 输入为个人最小统计行：日期、scene、当日组、标注员、组员数、Good/Bad 可用量。
+
+Sampler 输出 `SamplingQuota`：同样的维度键 + good_count + bad_count。它不包含数据库连接和 task 状态。
+
+Repository 输入 quota，输出当前仍为 waiting_review 且满足分类条件的 task_ids。
+
+### 5.3 三种策略
+
+#### GroupSampler
+
+来源规则：每组目标量 `min(组员数 × 90, 300)`，Good/Bad 各 50%，按 scene 比例覆盖。
+
+步骤：
+
+1. 按组汇总可用量和活跃标注员数。
+2. 计算组总目标。
+3. 将目标拆为 Good/Bad；奇数余量的归属需在实现前固定并测试。
+4. 按各 scene 可用量比例分配配额。
+5. 处理取整余数，确保总和等于目标且单桶不超过可用量。
+6. 一侧不足时由另一侧补足。**旧版有补足逻辑**，来源：`data_check_debug/data_check/manual_label/batch_acceptance/assign_acceptance_task.py:500-510` 的 `in_group_simpling` 函数。
+
+##### 采样常量值（旧版源码）
+
+`assign_acceptance_task.py:36-39` 硬编码：
+
+```python
+ASSIGN_NUM_PER_SCREENER = 90  # 默认每名验收员的抽检数量
+ASSIGN_NUM_PER_GROUP = 300    # 默认每组的抽检数量
+GOOD_RATIO = 0.5              # good抽取比例
+```
+
+- `GOOD_RATIO = 0.5`：Good/Bad 各抽 50%
+- `ASSIGN_NUM_PER_GROUP = 300`：每组最多抽 300
+- `ASSIGN_NUM_PER_SCREENER = 90`：每人最多抽 90
+
+##### 补足逻辑（旧版源码）
+
+`assign_acceptance_task.py:500-510` 的补足规则：
+
+1. 先计算 `good_need_num = math.ceil(total_assign_num * good_ratio)`，`bad_need_num = total_assign_num - good_need_num`
+2. **判断哪侧少，先抽少的一侧，不足由多的一侧补足**：
+   - 若 `good_total_num >= bad_total_num`（Good 多 Bad 少）：
+     - 先抽 Bad：`bad_extract_num_actually = min(bad_total_num, bad_need_num)`
+     - Good 补足：`good_need_num = total_assign_num - bad_extract_num_actually`，`good_extract_num_actually = min(good_total_num, good_need_num)`
+   - 若 `good_total_num < bad_total_num`（Good 少 Bad 多）：
+     - 先抽 Good：`good_extract_num_actually = min(good_total_num, good_need_num)`
+     - Bad 补足：`bad_need_num = total_assign_num - good_extract_num_actually`，`bad_extract_num_actually = min(bad_total_num, bad_need_num)`
+3. **补足方向**：少的一侧先抽到自身可用量上限，差额由多的一侧补足（而非简单 Good 不足由 Bad 补 or 反之，而是双向动态补足）。
+
+> 本节事实来源见 [[质检平台-人工质检模块实施计划#待决疑问区]] 决策1/2。事实已填入，待人类决策（见计划卡决策1/2）。
+
+#### PersonalSampler
+
+每人目标 90，Good/Bad 各 45；一侧不足由另一侧补足。每个标注员独立计算，便于人员画像和公平覆盖。
+
+#### RatioSampler
+
+用户给最终目标数和 Good 比例，用于临时业务。必须校验总量非负、比例 0～1、筛选范围非空，并展示数据不足警告。
+
+> 📎 2026-07-06 首版已落地（合并自源仓库 A6）：Good 可用量取 `option_annotation.GOOD - good_allocated`，Bad 取剩余未分配可用量，二者严格守恒；一类不足时由另一类补足并给出警告，总量不足返回 shortage。实现与预览闭环见 [[人工质检验收分配预览闭环设计]]。
+
+### 5.4 比例分配与取整
+
+比例分配不能逐桶 `round()` 后任由总数漂移。建议：
+
+1. 计算每桶理论值；
+2. 先取整数部分；
+3. 按小数余数从大到小补足剩余名额；
+4. 同余数时按稳定维度键排序，保证测试可重复；
+5. 桶容量不足时把剩余名额继续分给有容量的桶。
+
+这是实现建议，不改变原业务目标。
+
+### 5.5 task 选择
+
+Repository 查询条件至少包含 stat_date 对应范围、scene_name、annotator_id、Good/Bad 分类和 waiting_review 状态。
+
+具体随机/稳定排序方式必须从旧脚本核实。无论采用何种方式，都只在 preview 时选择一次；execute 使用 preview 返回的原 task_ids，不重新选择。
+
+### 5.6 供应商与人员约束
+
+- 标注员与验收员不能来自同一供应商。
+- 未进组标注员不能静默丢弃，preview 返回警告和数量。
+- 非 ACTIVE 人员不参与新分配。
+- 验收员池和 e2e/VPD 轮询关系来自现有配置，后续由人力表/配置替代硬编码。
+
+### 5.7 注册表
+
+`SAMPLER_REGISTRY` 是名称、描述和实现的唯一来源；不再维护 `SamplerName` Enum。前端 `/samplers` 直接读取注册表。
+
+### 5.8 preview 与执行结果
+
+preview 展示预期配额、具体 task 数、按组/scene/人员分布、缺口和警告。execute 返回即时结果；实际成功量以后续回查刷新为准。
+
+### 5.9 测试矩阵
+
+- 正常 Good/Bad 充足；一侧不足；总量不足。
+- 多 scene 比例和取整余数。
+- 0 人组、未进组、非活跃人员、供应商冲突。
+- preview 后部分 task 状态变化。
+- 重复 execute 跳过已处理 task。
+
+## ⑥ 完成情况与 TODO
+
+**当前状态**：设计中
+
+- [x] 三种策略（GroupSampler / PersonalSampler / RatioSampler）业务规则已定稿
+- [x] `SAMPLER_REGISTRY` 替代 `SamplerName` Enum 的决策已确认
+- [x] preview→execute 两步拆分契约已确认（preview 选 task 一次，execute 复用）
+- [x] 数据表交互已绑定到 t_qc_daily_snapshot（SQL 已落地）
+- [ ] `src/manual_qc/acceptance/sampler.py` 代码实现未开始
+- [ ] GroupSampler 奇数余量归属规则 `[待人类补充]`
+- [x] GroupSampler 一侧不足补足逻辑旧版事实已填入 §5.3（assign_acceptance_task.py:500-510，少侧先抽+多侧补足），待人类决策（见 [[质检平台-人工质检模块实施计划#待决疑问区]] 决策1/2）
+- [x] 采样常量值（GOOD_RATIO=0.5 / ASSIGN_NUM_PER_GROUP=300 / ASSIGN_NUM_PER_SCREENER=90）已填入 §5.3（assign_acceptance_task.py:36-39），待人类决策（见 [[质检平台-人工质检模块实施计划#待决疑问区]] 决策1/2）
+- [ ] Repository task_ids 随机/稳定排序方式需从旧脚本核实 `[待人类补充]`
+- [ ] 验收员池配置从硬编码迁移到人力表/配置 `[待人类补充]`
+- [ ] 5.9 测试矩阵用例实现未开始
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]] | [[质检平台-采样与规则引擎设计]]
+
+> 🔗 上位枢纽：[[质检一站式平台人工质检模块整体架构]]

@@ -1,0 +1,476 @@
+---
+id: "MH-CPT-015"
+title: "人工质检人力管理体系设计"
+domain: ["manual_qa"]
+type: "concept"
+tags: ["quality_check_pipeline", "人力管理", "分组管理", "供应商", "SSO鉴权", "数据库设计", "SCD-Type2"]
+created: 2026-06-28
+updated: 2026-07-14
+status: active
+sources: 4
+related_code: ["data_schemas/postgresql_relational/t_data_check_screeners.sql", "data_schemas/postgresql_relational/t_data_check_screeners test.sql", "data_schemas/migrations/V20260714_01__replace_personnel_with_screeners.sql", "data_schemas/migrations/V20260714_01__replace_personnel_with_screeners test.sql", "src/manual_qc/personnel/repository.py", "src/manual_qc/snapshot/snapshot_service.py", ".artifacts/01_PLAN_20260714_000000.md"]
+affects_path: ["data_schemas/postgresql_relational/t_data_check_screeners*", "data_schemas/migrations/V20260714_01*", "src/manual_qc/personnel/repository.py", "src/manual_qc/snapshot/snapshot_service.py"]
+trigger_keywords: ["人力管理", "标注员", "验收员", "分组", "供应商", "FP", "TM", "高阶标注员", "人力页签", "SSO", "t_data_check_screeners", "t_personnel_op_log", "t_portal_permission", "SCD-Type2", "start_time", "end_time", "team_leader", "work_type", "ScreenerRepository", "ScreenerInfo", "ScreenerRow", "复合主键"]
+summary: "人工质检人力管理体系设计（V20260714_01 重设计）：t_data_check_screeners 替代 t_personnel，采用 SCD Type2 缓慢变更维度，复合主键 (employee_id, id)，start_time/end_time 有效期字段（end_time IS NULL = 当前有效行）。字段映射：name→user_name, role→work_type, supplier→company, current_group→team_leader, status:str→int(1=在职/0=离职), join_date→start_time, leave_date→end_time；移除 level/unit_price/updated_by。group_name 冗余来源由 t_personnel.current_group 改为 team_leader 字段。ScreenerRepository 替代 PersonnelRepository。t_personnel_op_log 表保留不变（DDL 文件已删，表由迁移历史保留）。QA ALL-PASS（141 passed）。"
+---
+
+> 🔗 上位枢纽：[[人工质检-Hub]] | [[质检一站式平台人工质检模块整体架构]]
+
+> ⚠️ 本仓库适配说明：本项目新建数据表的规范为——正式表建在 `app_gy1` 库的 `pnc_simulation` schema 下；同时在 `app_gy1` 库的 `data_common_4` schema 下建一张同名测试表。本卡中的 `t_data_check_screeners` / `t_personnel_op_log` / `t_portal_permission` 三张表实际落地以本规则为准。
+
+> 🔄 **V20260714_01 重设计（20260714 拍板，替换 t_personnel）**：原 `t_personnel` 表整体废弃，由 `t_data_check_screeners`（数据检查筛选人员表）替代。核心变更：
+> - **表名**：`t_personnel` → `t_data_check_screeners`
+> - **主键**：原复合主键 `(employee_id, join_date)` → 新复合主键 `(employee_id, id)`（id 为自增序列，employee_id 为 DWS 分布键最左列，满足 NORM-GAUSSDB-001 §3.1 分布键⊆主键约束）
+> - **有效期字段**：`join_date DATE` / `leave_date DATE` → `start_time timestamp(6)` / `end_time timestamp(6)`；`leave_date IS NULL` → `end_time IS NULL`（判定当前有效行，语义不变）
+> - **字段名/语义变更**：`name→user_name`、`role→work_type`（直接取值）、`supplier→company`、`current_group→team_leader`（**group_name 冗余来源改用 team_leader 字段**）
+> - **类型变更**：`status VARCHAR(16) 'ACTIVE'/'INACTIVE'` → `status int2 DEFAULT 1`（1=在职, 0=离职）
+> - **移除字段**：`level`、`unit_price`、`updated_by`（snapshot enriched 不再输出 level/unit_price）
+> - **新增字段**：`created_at`、`team_leader_id`、`skills(json)`、`sub_project_name`
+> - **SCD 封版逻辑**：旧记录 `UPDATE SET end_time=当天, status=0, updated_at=now() WHERE end_time IS NULL AND employee_id=%s`；新增记录 `INSERT (status=1, end_time=NULL, start_time=当天)`
+> - **分布键**：`HASH(employee_id)` 不变
+> - **op_log 表**：`t_personnel_op_log` 表**保留不变**（DDL 文件已物理删除，表本身由迁移历史保留，repository.py 中 op_log 方法保留，写入目标不变）
+> - **代码层**：`PersonnelRepository` → `ScreenerRepository`；`PersonnelRow` → `ScreenerRow`；`PersonnelInfo` → `ScreenerInfo`（`current_group` → `team_leader`）
+> - **snapshot_service.py 字段映射**：`info.current_group` → `info.team_leader`，即 `group_name=info.team_leader if info.team_leader else ""`
+> - **QA 验证**：141 passed / 0 failed（全量 `tests/manual_qc/`）
+> - **迁移脚本**：`V20260714_01__replace_personnel_with_screeners.sql`（幂等，DROP 旧表 + CREATE 新表）
+> - **设计参考**：`.artifacts/01_PLAN_20260714_000000.md`（完整设计决策）、`.artifacts/02_EXECUTION_LOG_20260714_000000.md`（变更清单）
+
+> 🔄 历史决策轨迹（保留供回溯）：
+> - v1（2026-06-28）：7 张表设计
+> - v2：简化为 3 张表，所有属性平铺到 t_personnel，历史变更靠 t_personnel_op_log 追踪
+> - V20260630_03（20260702）：t_personnel 采用 SCD Type2，复合主键 (employee_id, join_date)，去自增 id
+> - **V20260714_01（20260714，当前）**：t_personnel 整体替换为 t_data_check_screeners（见上方重设计说明）
+
+# 人工质检人力管理体系设计
+
+← [[质检一站式平台人工质检模块整体架构]] | [[人工质检-Hub]] | [[质检平台-综合快照表设计]]
+
+→ [[质检平台SSO鉴权接入方案]] | [[质检平台-人工质检前端页面与状态设计]] | [[质检平台-Repository与数据库访问设计]]
+
+> 人员同一时刻不能属于多个项目，使用单值 `project_name`。见 [[质检一站式平台Phase3前架构评审]]。
+
+> ⚠️ 关联经验与规范：[[PF-Scene短名误匹配项目前缀]]（snapshot_service._map_project_name 逻辑在 V20260714_01 适配后不变）
+
+---
+
+## ① 组件概述
+
+**一句话职责**：定义人工质检模块的人力分类体系（标注员 / 验收员 / 内部抽检员 三轨）、3 张数据表（t_data_check_screeners SCD Type2 人员主表 + t_personnel_op_log 操作记录 + t_portal_permission 权限）、分组管理机制、统计指标体系、前端人力页签与 SSO 鉴权预留。
+
+**在整体架构中的位置**：数据层 + 概念层。3 张表由 [[质检平台-Repository与数据库访问设计]] 的 `ScreenerRepository` 读写；`t_data_check_screeners.team_leader` 为 [[质检平台-综合快照表设计]] 的 `group_name` 冗余字段来源（查当前组须 `WHERE end_time IS NULL`）；`t_portal_permission` 为 [[质检平台SSO鉴权接入方案]] 的权限数据源；`t_data_check_screeners.employee_id` 被 `t_qc_daily_snapshot.employee_id` 逻辑引用（非物理 FK，复合主键无法被单列引用）。
+
+---
+
+## ② 架构结构
+
+### 物理落地文件
+
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| t_data_check_screeners 正式 SQL | [`data_schemas/postgresql_relational/t_data_check_screeners.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql) | schema=`pnc_simulation`，15 字段 + 复合主键 (employee_id, id) + 5 索引（2 基础 + 3 SCD 部分索引 WHERE end_time IS NULL）+ DISTRIBUTE BY HASH(employee_id) + 显式 CREATE SEQUENCE |
+| t_data_check_screeners 测试镜像 | [`data_schemas/postgresql_relational/t_data_check_screeners test.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners%20test.sql) | schema=`data_common_4`，结构与正式表完全一致 |
+| 迁移脚本（正式） | [`data_schemas/migrations/V20260714_01__replace_personnel_with_screeners.sql`](../../../data_schemas/migrations/V20260714_01__replace_personnel_with_screeners.sql) | 幂等迁移：CREATE SEQUENCE/TABLE/INDEX IF NOT EXISTS + 主键 DO 块 + COMMENT 覆盖写 + DROP TABLE t_personnel/t_personnel_op_log CASCADE |
+| 迁移脚本（测试镜像） | [`data_schemas/migrations/V20260714_01__replace_personnel_with_screeners test.sql`](../../../data_schemas/migrations/V20260714_01__replace_personnel_with_screeners%20test.sql) | schema=`data_common_4`，结构与正式迁移一致 |
+| 数据同步脚本 | [`scripts/sync_screeners_to_data_common_4.sql`](../../../scripts/sync_screeners_to_data_common_4.sql) | 幂等同步：TRUNCATE data_common_4 + INSERT SELECT FROM pnc_simulation |
+| Repository 代码 | [`src/manual_qc/personnel/repository.py`](../../../src/manual_qc/personnel/repository.py) | `ScreenerRepository` / `ScreenerRow` / `ScreenerInfo` / `OpLogEntry` |
+| 快照服务代码 | [`src/manual_qc/snapshot/snapshot_service.py`](../../../src/manual_qc/snapshot/snapshot_service.py) | `_enrich_with_personnel` 中 `group_name=info.team_leader` |
+| t_portal_permission 正式 SQL | [`data_schemas/postgresql_relational/t_portal_permission.sql`](../../../data_schemas/postgresql_relational/t_portal_permission.sql) | schema=`pnc_simulation`，8 字段 + 3 索引（本表未变更） |
+| t_portal_permission 测试镜像 | [`data_schemas/postgresql_relational/t_portal_permission test.sql`](../../../data_schemas/postgresql_relational/t_portal_permission%20test.sql) | schema=`data_common_4` |
+
+> ⚠️ **已删除文件**（V20260714_01）：`t_personnel.sql`、`t_personnel test.sql`、`t_personnel_op_log.sql`、`t_personnel_op_log test.sql` 4 个 DDL 文件已物理删除。`t_personnel_op_log` 表本身在数据库中由迁移历史保留（DDL 定义已含在 V20260630_01 历史迁移中），repository.py 中 op_log 相关方法保留，写入目标不变。
+
+### 三表关系图（Mermaid classDiagram）
+
+```mermaid
+classDiagram
+    class t_data_check_screeners {
+        +employee_id VARCHAR(30) PK(复合,分布键)
+        +id int4 PK(复合) DEFAULT nextval
+        +user_name VARCHAR(50)
+        +work_type VARCHAR(10)
+        +company VARCHAR(100)
+        +project_name VARCHAR(100)
+        +team_leader VARCHAR(50)  -- 语义替代 current_group
+        +status int2 DEFAULT 1    -- 1=在职, 0=离职
+        +start_time timestamp(6)  -- SCD2 有效期起始
+        +end_time timestamp(6)    -- SCD2 有效期结束 NULL=有效
+        +team_leader_id VARCHAR(30)
+        +skills json
+        +sub_project_name VARCHAR(500)
+        +created_at timestamptz(6)
+        +updated_at timestamptz(6)
+    }
+
+    class t_personnel_op_log {
+        +id SERIAL PK
+        +operated_at TIMESTAMPTZ
+        +operator_id VARCHAR(64)
+        +employee_id VARCHAR(64)  -- 逻辑引用 非FK
+        +action VARCHAR(32)
+        +changes JSONB
+    }
+
+    class t_portal_permission {
+        +id SERIAL PK
+        +employee_id VARCHAR(64) UNIQUE
+        +name VARCHAR(64)
+        +acceptance_access VARCHAR(16)
+        +personnel_access VARCHAR(16)
+        +is_admin BOOLEAN
+        +granted_by VARCHAR(64)
+        +updated_at TIMESTAMPTZ
+    }
+
+    class t_qc_daily_snapshot {
+        +employee_id VARCHAR(64)  -- 逻辑引用 非FK
+    }
+
+    t_personnel_op_log ..> t_data_check_screeners : employee_id 逻辑关联(非FK)
+    t_portal_permission ..> t_data_check_screeners : employee_id 逻辑关联(非FK)
+    t_qc_daily_snapshot ..> t_data_check_screeners : employee_id 逻辑关联(非FK)
+```
+
+**关系图说明**：
+- `t_data_check_screeners` 采用 **SCD Type2 缓慢变更维度**，复合主键 `(employee_id, id)`（id 为自增序列，employee_id 为 DWS 分布键最左列，满足 NORM-GAUSSDB-001 §3.1 分布键⊆主键约束）。同一工号可有多行（每次变更产生新行）。`start_time` 为加入当前身份的时间，`end_time` 为结束当前身份的时间（NULL=当前有效）。
+- `t_personnel_op_log.employee_id` 逻辑引用 `t_data_check_screeners.employee_id`，**非物理 FK**（复合主键无法被单列引用），由应用层保证一致性。记录人员变更动作（SCD Type2 变更的审计日志）。
+- `t_portal_permission.employee_id` 与 `t_data_check_screeners.employee_id` 逻辑关联但**非外键**（权限表独立于人员表，SSO JWT sub 直接匹配 employee_id）。
+- `t_qc_daily_snapshot.employee_id` 逻辑引用 `t_data_check_screeners.employee_id`（详见 [[质检平台-综合快照表设计]]）。
+
+### 人力分类与统计流向图（Mermaid graph）
+
+```mermaid
+graph TD
+    subgraph Class["人力分类体系"]
+        AN[标注员 ANNOTATOR<br/>FP/计件制]
+        AC[验收员 ACCEPTOR<br/>TM/固定工资]
+        IC[INTERNAL_CHECKER<br/>华为内部抽检员<br/>不在供应商体系]
+    end
+
+    subgraph Tables["3 张数据表"]
+        P[t_data_check_screeners<br/>SCD Type2 人员主表<br/>复合主键 employee_id+id]
+        L[t_personnel_op_log<br/>操作记录 审计日志<br/>employee_id 逻辑引用]
+        PM[t_portal_permission<br/>前端权限 SSO鉴权]
+    end
+
+    subgraph Use["分组 team_leader 的作用"]
+        S1[验收采样 GroupSampler]
+        S2[批量通过/打回]
+        S3[标效监控]
+        S4[快照聚合 group_name 冗余]
+    end
+
+    subgraph Stat["统计指标"]
+        SA[标注员指标<br/>从 t_qc_daily_snapshot 按 employee_id 聚合]
+        RA[验收员指标<br/>抽检一致率体系]
+    end
+
+    Class --> P
+    P --> L
+    P --> PM
+    P -->|team_leader| Use
+    P -->|employee_id| Stat
+```
+
+---
+
+## ③ 数据表交互
+
+| 表名 | 一句话用途 | SQL/设计卡链接 | 读写类型 | 关键字段 |
+|------|-----------|---------------|---------|---------|
+| `t_data_check_screeners` | SCD Type2 人员主表，复合主键 (employee_id, id)，同一工号多行 | [`data_schemas/postgresql_relational/t_data_check_screeners.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql)（本卡 ⑤ 段 §2.1 完整字段说明） | 读写 | employee_id/user_name/work_type/company/project_name/team_leader/status(int)/start_time/end_time/team_leader_id/skills/sub_project_name/created_at/updated_at |
+| `t_personnel_op_log` | 人员操作记录表（审计日志，记录 SCD Type2 变更动作） | DDL 已物理删除，表由 V20260630_01 迁移历史保留 · 本卡 ⑤ 段 §2.2 字段说明 | 写 | id/operated_at/operator_id/employee_id/action/changes |
+| `t_portal_permission` | 前端权限表（SSO 鉴权预留） | [`data_schemas/postgresql_relational/t_portal_permission.sql`](../../../data_schemas/postgresql_relational/t_portal_permission.sql)（本卡 ⑤ 段 §2.3 完整字段说明） | 读写 | id/employee_id/name/acceptance_access/personnel_access/is_admin/granted_by/updated_at |
+| `t_qc_daily_snapshot` | 快照表，按 employee_id 聚合统计标效 | [`data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql) · [[质检平台-综合快照表设计]] | 读 | employee_id（逻辑引用→t_data_check_screeners.employee_id）/annotation_submitted/good_passed/good_completed/bad_passed/bad_completed/option_annotation/option_acceptance |
+
+> **迁移脚本**：`V20260714_01__replace_personnel_with_screeners.sql` 创建新表 + DROP 旧表 t_personnel/t_personnel_op_log（幂等，由 DBA 在维护窗口执行）。
+
+---
+
+## ④ 子模块/文件级清单
+
+| 子模块/文件 | 一句话说明 |
+|------------|-----------|
+| `t_data_check_screeners` 表 | SCD Type2 人员主表，复合主键 (employee_id, id)，同一工号多行，承载工名/工作类型/公司/项目/组长/状态/有效期/技能/子项目 |
+| `t_personnel_op_log` 表 | 人员操作记录表，审计日志，记录 SCD Type2 变更动作（DDL 文件已删，表保留） |
+| `t_portal_permission` 表 | 前端权限表，SSO 鉴权预留，按模块等级授权 |
+| `ScreenerRepository` | 读写上述 3 表的 Repository 类，详见 [[质检平台-Repository与数据库访问设计]] |
+| `ScreenerRepository.create_or_transition` | 新增或变更人员（SCD Type2）：UPDATE 旧行 end_time+status=0 + INSERT 新行 status=1/end_time=NULL + INSERT op_log（同事务） |
+| `ScreenerRepository.get_current_groups` | 查当前有效人员（WHERE end_time IS NULL），返回 {employee_id: ScreenerInfo(team_leader, project_name)} |
+| `ScreenerInfo` | 精简信息 dataclass，字段 `team_leader` + `project_name`（替代旧 PersonnelInfo.current_group） |
+| `ScreenerRow` | t_data_check_screeners 行 dataclass（SCD Type2，自增 id 主键）；start_time/end_time 默认 None |
+| `OpLogEntry` | op_log 行 dataclass（保留不变，写入 t_personnel_op_log） |
+| `PersonnelService` | 人力管理编排，人员 CRUD/调组/操作日志/未进组预警（[待人类补充] 物理实现） |
+| 人力管理页签 | 前端 `/manual-qc/personnel`，详见 ⑤ 段 §5 |
+| SSO 鉴权中间件 | 详见 [[质检平台SSO鉴权接入方案]] |
+
+---
+
+## ⑤ 详细设计展开
+
+### 1. 人力分类体系
+
+```
+人工质检人力
+├── 标注员 (ANNOTATOR, FP/计件制)
+│   └── STANDARD / SENIOR（注：V20260714_01 移除 level 字段，等级不再入库）
+└── 验收员 (ACCEPTOR, TM/固定工资)
+    └── (附) INTERNAL_CHECKER 华为内部员工 — 用于抽检验收员质量，不在供应商体系
+```
+
+> ⚠️ **V20260714_01 变更**：原 `level VARCHAR(16)` 字段已移除，等级（STANDARD/SENIOR/N/A）不再入库；`role VARCHAR(20)` 改为 `work_type VARCHAR(10)` 直接取值。`unit_price` 字段已移除，计件单价不再入库。
+
+#### 关键业务规则
+
+| 规则 | 说明 | 执行位置 |
+|------|------|---------|
+| **供应商约束** | 同一任务的标注员和验收员不能来自同一供应商（company） | `AssignmentService.validate_supplier_conflict()` |
+| **分组仅针对标注员** | 验收员不分组；INTERNAL_CHECKER 不分组 | DB 约束：`team_leader` 只对 ANNOTATOR 有意义 |
+| **未进组预警** | 活跃标注员 `team_leader = ''` 的需要前端高亮 | `PersonnelService.get_ungrouped_annotators()` [待人类补充] |
+| **一人单项目** | `project_name VARCHAR(100)`（原 VARCHAR(64)，NULL 性变为可空）；调项目时记录 PROJECT_CHANGE 日志 | DB 单值字段 + 普通索引 |
+
+### 2. 数据库设计（3张表）
+
+> ⚠️ **变更记录**：v1 设计为 7 张表，v2 简化为 3 张表，所有属性平铺到 t_personnel，历史变更靠 t_personnel_op_log 追踪。v3（V20260630_03）t_personnel 采用 SCD Type2，复合主键 (employee_id, join_date)。**v4（V20260714_01，当前）t_personnel 整体替换为 t_data_check_screeners**，复合主键 (employee_id, id)，start_time/end_time 有效期，字段映射见 §2.1。
+
+#### 2.1 t_data_check_screeners — 人员主表（SCD Type2，复合主键 employee_id + id）
+
+> 物理文件：[`data_schemas/postgresql_relational/t_data_check_screeners.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql)（schema=`pnc_simulation`，测试镜像 schema=`data_common_4`，DISTRIBUTE BY HASH(employee_id)，显式 CREATE SEQUENCE `t_data_check_screeners_id_seq`）
+
+**SCD Type2 设计说明**：
+- **复合主键**：`(employee_id, id)`（employee_id 为 DWS 分布键最左列，满足 NORM-GAUSSDB-001 §3.1/§3.2；id 为自增序列 `nextval('t_data_check_screeners_id_seq'::regclass)`）。同一工号可有多行，每行代表该工号的一段身份有效期。
+- **有效期字段**：`start_time timestamp(6)`（加入当前项目/组/身份的时间）、`end_time timestamp(6)`（结束当前项目/组/身份的时间，NULL=当前有效行）。
+- **查询模式**：
+  - 查现状（当前有效人员）：`WHERE end_time IS NULL`
+  - 查历史（某日人员快照）：`WHERE start_time <= 查询日 AND (end_time IS NULL OR end_time > 查询日)`
+- **变更操作（SCD 封版）**：人员信息变更（切换组/项目/角色/工号）时，**同事务内**执行：
+  1. `UPDATE` 旧行 `SET end_time = 当前日期, status = 0, updated_at = now() WHERE end_time IS NULL AND employee_id = %s`（封版旧行）
+  2. `INSERT` 新行（`start_time = 当前日期, status = 1, end_time = NULL`，新身份字段）
+  3. `INSERT` t_personnel_op_log 记录变更动作
+- **工号变更特殊处理**：工号变更视为"旧人离场 + 新人入场"（旧工号行设 end_time，新工号行 INSERT，op_log 记录工号映射关系）。
+
+**ScreenerRepository.create_or_transition 封版 SQL 原文快照**（`src/manual_qc/personnel/repository.py`）：
+```python
+update_old_sql = (
+    "UPDATE t_data_check_screeners "
+    "SET end_time = %s, status = 0, updated_at = now() "
+    "WHERE end_time IS NULL AND employee_id = %s"
+)
+```
+
+**get_current_groups SQL 原文快照**：
+```sql
+SELECT employee_id, team_leader, project_name
+FROM t_data_check_screeners
+WHERE end_time IS NULL AND employee_id = ANY(%s)
+```
+
+**ScreenerRow dataclass 原文快照**（含 QA 缺陷 1 修复：start_time/end_time 默认 None）：
+```python
+@dataclass
+class ScreenerRow:
+    """t_data_check_screeners 行（SCD Type2，自增 id 主键）。"""
+    employee_id: str
+    user_name: str
+    work_type: str
+    company: Optional[str]
+    project_name: Optional[str]
+    team_leader: Optional[str]
+    status: int  # 1=在职, 0=离职
+    start_time: Optional[Any] = None  # timestamp
+    end_time: Optional[Any] = None    # timestamp, NULL=当前有效
+    team_leader_id: Optional[str] = None
+    skills: Optional[Any] = None      # json
+    sub_project_name: Optional[str] = None
+
+@dataclass
+class ScreenerInfo:
+    """人员精简信息（get_current_groups 返回值）。"""
+    team_leader: str
+    project_name: str
+```
+
+**完整字段说明**（对照物理 DDL）：
+
+| #   | 字段名              | 类型            | 约束              | 默认值        | 说明                                                            |
+| --- | ---------------- | ------------- | --------------- | ---------- | ------------------------------------------------------------- |
+| 1   | `id`             | int4          | NOT NULL, PK(复合) | nextval(seq) | 自增主键之一（复合主键 (employee_id, id) 的第二列，分布键为 employee_id） |
+| 2   | `user_name`      | varchar(50)   | NOT NULL        | —          | 姓名（替代 t_personnel.name）                                       |
+| 3   | `employee_id`    | varchar(30)   | NOT NULL, PK(复合), 分布键 | — | 工号（外包供应商工号 or 华为工号），与 id 共同构成复合主键（SCD Type2 后同一工号多行） |
+| 4   | `team_leader`    | varchar(50)   | NULL            | —          | 组长姓名（**语义替代 t_personnel.current_group**，为 group_name 冗余来源） |
+| 5   | `company`        | varchar(100)  | NULL            | —          | 所属公司（替代 t_personnel.supplier）                                  |
+| 6   | `project_name`   | varchar(100)  | NULL            | —          | 当前所属的唯一项目（单值，架构护栏1：禁 TEXT[] 数组；原 NOT NULL → 可空） |
+| 7   | `work_type`      | varchar(10)   | NOT NULL        | —          | 工作类型（替代 t_personnel.role，直接取值）                             |
+| 8   | `status`         | int2          | NOT NULL        | 1          | 状态：1=在职，0=离职（替代 t_personnel.status VARCHAR 'ACTIVE'/'INACTIVE'） |
+| 9   | `created_at`     | timestamptz(6) | NOT NULL       | now()      | 创建时间（新增字段，禁 TRIGGER，DEFAULT now()）                          |
+| 10  | `updated_at`     | timestamptz(6) | NOT NULL       | now()      | 最后修改时间（禁 TRIGGER，应用层 UPDATE 须手动拼 updated_at=now()）        |
+| 11  | `team_leader_id` | varchar(30)   | NULL            | —          | 组长工号/ID（新增字段）                                                |
+| 12  | `start_time`     | timestamp(6)  | NULL            | —          | SCD Type2 有效期起始：加入当前项目/组/身份的时间（替代 t_personnel.join_date） |
+| 13  | `end_time`       | timestamp(6)  | NULL            | —          | SCD Type2 有效期结束：结束当前项目/组/身份的时间（NULL=当前有效行，替代 t_personnel.leave_date） |
+| 14  | `skills`         | json          | NULL            | —          | 擅长的领域（新增字段）                                                  |
+| 15  | `sub_project_name` | varchar(500) | NULL            | —          | 标注项目子类型，如仿真/小障碍物（新增字段）                                      |
+
+> 注：原 t_personnel 的 `level`、`unit_price`、`updated_by` 三字段已移除；原 `join_date DATE NOT NULL`（PK 复合）改为 `start_time timestamp(6)` NULL（不再是主键一部分，主键改含自增 id）。
+
+**索引设计说明**（物理文件，5 个索引：2 基础 + 3 SCD 部分索引）：
+
+| 索引名 | 索引定义 | 用途 |
+|--------|---------|------|
+| `idx_screeners_employee_id` | `(employee_id)` btree | 按工号查询（基础索引，沿用 Navicat 导出） |
+| `idx_screeners_project_name` | `(project_name)` btree | 按项目筛选（基础索引，沿用 Navicat 导出） |
+| `idx_screeners_active_employee` | `(employee_id) WHERE end_time IS NULL` | SCD 部分索引：按工号查当前有效行（快照刷新用） |
+| `idx_screeners_active_team` | `(team_leader) WHERE end_time IS NULL` | SCD 部分索引：按组长查当前有效成员、未进组预警 |
+| `idx_screeners_active_project` | `(project_name) WHERE end_time IS NULL` | SCD 部分索引：按项目筛选当前有效人员 |
+
+**典型查询**：
+
+```sql
+-- 查某组所有当前有效成员 —— 必须加 WHERE end_time IS NULL
+SELECT employee_id, user_name, work_type, company, project_name,
+       team_leader, status, start_time, end_time, team_leader_id,
+       skills, sub_project_name
+FROM t_data_check_screeners
+WHERE end_time IS NULL AND team_leader = %s;
+
+-- 查某工号的当前有效行（快照刷新用）
+SELECT employee_id, team_leader, project_name FROM t_data_check_screeners
+WHERE end_time IS NULL AND employee_id = ANY(%s);
+
+-- 查某日的人员历史快照
+SELECT * FROM t_data_check_screeners
+WHERE employee_id = %s AND start_time <= '2026-06-15'
+AND (end_time IS NULL OR end_time > '2026-06-15');
+```
+
+#### 2.2 t_personnel_op_log — 操作记录表（保留不变）
+
+> ⚠️ **V20260714_01 状态**：DDL 文件已物理删除，但表本身在数据库中由 V20260630_01 迁移历史保留。repository.py 中 `append_op_log` 方法保留，写入目标 `t_personnel_op_log` 不变。
+
+**完整字段说明**（V20260630_03 定义，未变更）：
+
+| # | 字段名 | 类型 | 约束 | 默认值 | 说明 |
+|---|--------|------|------|--------|------|
+| 1 | `id` | SERIAL | PRIMARY KEY | — | 主键自增ID（分布键） |
+| 2 | `operated_at` | TIMESTAMPTZ | NOT NULL | now() | 操作时间（禁 TRIGGER，由应用层写入或 DEFAULT now()） |
+| 3 | `operator_id` | VARCHAR(64) | NOT NULL | — | 操作人工号 |
+| 4 | `employee_id` | VARCHAR(64) | NOT NULL | — | 被操作人员工号，逻辑引用 t_data_check_screeners.employee_id（非物理 FK） |
+| 5 | `action` | VARCHAR(32) | NOT NULL | — | 操作类型：ADD / UPDATE / DEACTIVATE / GROUP_CHANGE / PROJECT_CHANGE / REACTIVATE |
+| 6 | `changes` | JSONB | NULL | — | 变更明细 JSONB |
+
+**用途**：SCD Type2 变更审计——记录每次 UPDATE 旧行 + INSERT 新行的变更动作；如需历史状态重建，结合 t_data_check_screeners 的 SCD Type2 有效期 + op_log 按时间顺序回放。
+
+#### 2.3 t_portal_permission — 前端权限表（SSO 鉴权预留，未变更）
+
+> 物理文件：[`data_schemas/postgresql_relational/t_portal_permission.sql`](../../../data_schemas/postgresql_relational/t_portal_permission.sql)（schema=`pnc_simulation`，测试镜像 schema=`data_common_4`）
+
+**完整字段说明**：
+
+| # | 字段名 | 类型 | 约束 | 默认值 | 说明 |
+|---|--------|------|------|--------|------|
+| 1 | `id` | SERIAL | PRIMARY KEY | — | 主键自增ID |
+| 2 | `employee_id` | VARCHAR(64) | NOT NULL UNIQUE | — | 工号，来自 SSO JWT sub 字段，唯一 |
+| 3 | `name` | VARCHAR(64) | NOT NULL | — | 冗余姓名 |
+| 4 | `acceptance_access` | VARCHAR(16) | NOT NULL | `'NONE'` | 验收模块权限等级：NONE / VIEW / OPERATE / EXECUTE（架构护栏6） |
+| 5 | `personnel_access` | VARCHAR(16) | NOT NULL | `'NONE'` | 人力管理模块权限等级：NONE / VIEW / MANAGE（架构护栏6） |
+| 6 | `is_admin` | BOOLEAN | NOT NULL | FALSE | 超级管理员 |
+| 7 | `granted_by` | VARCHAR(64) | NULL | — | 授权人工号 |
+| 8 | `updated_at` | TIMESTAMPTZ | NOT NULL | now() | 最后修改时间 |
+
+**扩展方式**：模块内新增功能映射到既有等级，无需改表；只有出现新的独立业务模块时才新增一个模块权限列。后端必须校验权限，前端隐藏按钮只用于改善交互，不能作为安全边界。
+
+### 3. 分组（team_leader）的作用
+
+分组是标注员维度的核心管理手段，`t_data_check_screeners.team_leader` 是当前组长名（直接字段，非 FK）：
+
+| 使用场景 | 说明 |
+|---------|------|
+| 验收采样 | `GroupSampler` 按组采样，每组 min(人数×90, 300) 条 |
+| 批量通过/打回 | 以组为最小执行单位，一次操作覆盖一组所有人 |
+| 标效监控 | 按组 GROUP BY 统计效率，与按人统计互补 |
+| 快照聚合 | `t_qc_daily_snapshot.group_name` 冗余自 `t_data_check_screeners.team_leader`（**V20260714_01：来源字段由 current_group 改为 team_leader**） |
+
+> ⚠️ 护栏：执行 GroupSampler 之前，必须先检查 `team_leader = ''` 的标注员数量，有未进组成员时应给前端提示，而不是直接 skip。
+
+> ⚠️ **snapshot_service.py 字段映射原文快照**（`src/manual_qc/snapshot/snapshot_service.py` `_merge_with_personnel`）：
+> ```python
+> group_name = info.team_leader if info.team_leader else ""
+> ```
+
+### 4. 统计指标体系
+
+> 标注员和验收员的统计不在 `t_data_check_screeners` 表中存储，而是通过 `t_qc_daily_snapshot` 按不同维度聚合查询实现（详见 [[质检平台-综合快照表设计]]）。
+
+#### 4.1 标注员指标
+
+从 `t_qc_daily_snapshot` 按 `employee_id` 聚合：总提交量、标效（件/天）、整体通过率、Good 通过率、Bad 通过率、各选项分布、各选项通过率、任务内排名。
+
+#### 4.2 验收员指标（抽检一致率体系）
+
+验收员的质量代理指标 = **抽检一致率**（华为内部员工定期抽检验收结果）：一致率 = 抽检中"验收员判断与抽检员判断一致"的比例。
+
+### 5. 前端人力管理页签设计
+
+```
+人工质检
+└── 人力管理  /manual-qc/personnel
+    ├── 概览页     — 人力分布饼图、项目配比、⚠️ 未进组预警横幅
+    ├── 标注员页   — 标注员列表（含过滤）+ 点击展开个人画像
+    ├── 验收员页   — 验收员列表 + 抽检统计
+    └── 分组管理页 — 组列表、查看组员、调整组别、批量移组
+```
+
+> ⚠️ **V20260714_01 前端影响**：原 `level` / `unit_price` 列需从人力概览/画像移除；`role` 列改为 `work_type`；`supplier` 列改为 `company`；`current_group` 列改为 `team_leader`；`status` 显示从 'ACTIVE'/'INACTIVE' 改为 在职/离职。[待人类补充前端适配]
+
+### 6. SSO 鉴权接入设计
+
+> 详见 [[质检平台SSO鉴权接入方案]]。真实公司 SSO 参数仍待提供，模块权限和 mock 接入方案已冻结。
+
+简要流程：
+1. 用户访问平台 → 跳转公司 SSO 登录页
+2. 用户输入工号+密码 → SSO 颁发 JWT Token（含工号 sub 字段）
+3. 前端存储 Token → 后续请求 Header: `Authorization: Bearer <token>`
+4. 后端中间件验证 JWT 签名 → 提取工号 → 查 `t_portal_permission`
+5. `is_admin=TRUE` → 直接放行；其他 → 按 `acceptance_access` / `personnel_access` 的模块等级判断权限
+
+**当前阶段**：鉴权中间件预留骨架（`src/api/auth.py`），不接入真实 SSO，开发阶段用固定工号 mock。
+
+---
+
+## ⑥ 完成情况与 TODO
+
+**当前状态**：3 张表中 `t_data_check_screeners` DDL 已重设计落地（V20260714_01，正式表 + 测试镜像 + 迁移脚本三件套），QA ALL-PASS（141 passed）；`t_personnel_op_log` DDL 文件已删但表保留；`t_portal_permission` 未变更。ScreenerRepository / ScreenerRow / ScreenerInfo 已物理实现并通过 UT+E2E。
+
+**TODO 清单**：
+- [x] 人力分类体系冻结
+- [x] 3 张表结构设计冻结（t_data_check_screeners 15 字段 SCD Type2 / t_personnel_op_log 6 字段 / t_portal_permission 8 字段）
+- [x] **t_data_check_screeners SCD Type2 设计**（V20260714_01：复合主键 (employee_id, id)，部分索引 WHERE end_time IS NULL）
+- [x] **t_data_check_screeners 正式建表 SQL 落地**（[`t_data_check_screeners.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql)）
+- [x] **t_data_check_screeners 测试镜像 SQL 落地**（[`t_data_check_screeners test.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners%20test.sql)）
+- [x] **迁移脚本落地**（[`V20260714_01__replace_personnel_with_screeners.sql`](../../../data_schemas/migrations/V20260714_01__replace_personnel_with_screeners.sql) + 测试镜像）
+- [x] **数据同步脚本落地**（[`sync_screeners_to_data_common_4.sql`](../../../scripts/sync_screeners_to_data_common_4.sql)）
+- [x] **索引设计落地**（t_data_check_screeners 5 索引：2 基础 + 3 SCD 部分索引）
+- [x] **ScreenerRepository 物理实现**（create_or_transition SCD 封版：UPDATE + INSERT + INSERT op_log 同事务，已通过 UT）
+- [x] **ScreenerRow / ScreenerInfo dataclass 实现**（含 QA 缺陷 1 修复：start_time/end_time 默认 None）
+- [x] **snapshot_service.py 字段映射适配**（group_name=info.team_leader）
+- [x] **QA 全量验证**（`APP_ENV=test python -m pytest tests/manual_qc/ -v` → 141 passed / 0 failed）
+- [x] **旧表 DDL 物理删除**（t_personnel.sql / t_personnel test.sql / t_personnel_op_log.sql / t_personnel_op_log test.sql 4 文件）
+- [x] **t_qc_daily_snapshot.sql 注释引用更新**（t_personnel → t_data_check_screeners）
+- [x] 分组机制与统计指标体系冻结
+- [x] 前端人力页签设计冻结
+- [x] SSO 鉴权预留设计冻结
+- [ ] `PersonnelService` 物理实现（人员 CRUD/调组/操作日志/未进组预警）[待人类补充]
+- [ ] SCD Type2 变更 + op_log 同事务的事务 context 设计 [待人类补充]
+- [ ] 真实公司 SSO 参数接入 [待人类补充]
+- [ ] INTERNAL_CHECKER 抽检一致率计算逻辑实现 [待人类补充]
+- [ ] 前端人力页签适配新字段（移除 level/unit_price 列，role→work_type，supplier→company，current_group→team_leader，status 显示改 在职/离职）[待人类补充]
+
+---
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]]
+
+> 🔗 上位枢纽：[[人工质检-Hub]] | [[质检一站式平台人工质检模块整体架构]]
+> 🔗 快照表 group_name 来源：[[质检平台-综合快照表设计]]
+> 🔗 Repository 层：[[质检平台-Repository与数据库访问设计]]
+> 🔗 SSO 鉴权：[[质检平台SSO鉴权接入方案]]
+> 🔗 snapshot_service 适配避坑：[[PF-Scene短名误匹配项目前缀]]

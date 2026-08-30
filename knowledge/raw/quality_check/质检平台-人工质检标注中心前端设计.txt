@@ -1,0 +1,35 @@
+---
+title: "质检平台-人工质检标注中心前端设计"
+domain: ["manual_qa"]
+type: "synthesis"
+tags: ["人工质检", "标注中心", "标注进度", "标效", "Good Bad"]
+created: 2026-07-05
+updated: 2026-07-06
+sources: 4
+status: active
+related_code: ["demo/quality-check-platform.html"]
+affects_path: ["demo/quality-check-platform.html", "src/frontend/src/features/manual-qc/"]
+trigger_keywords: ["标注中心", "标注作业", "日标效", "Bad Top5", "标注详细看板"]
+---
+
+> ✅ 印证修订：domain 由原始 `["ai_dlc", "agent_evaluation", "tooling"]` 改为本仓库 TAXONOMY 合法值 `["manual_qa"]`。
+
+# 质检平台人工质检标注中心前端设计
+
+← 人工总览：[[人工质检总览信息架构]]。交付事实：[[人工质检-交付任务与行动项机制]]。验收下游：[[质检平台-人工质检验收中心前端设计]]。
+
+## 页面任务
+
+标注中心是标注作业与分析工作台，不是只读报表。它承接交付中心中进入标注阶段的任务，支持任务分配、进度跟踪、日标效分析、Good/Bad 分布、Bad Top5 归因和风险处理。
+
+## 任务队列
+
+默认按优先级、目标交付日和风险排序。每行至少显示：任务总数、已分配数/比例、已完成数/比例、当日标效、7 日标效趋势、Good/Bad 数量与比例、Bad Top5 原因占比、预计完成时间和当前偏差。
+
+## 单任务工作区
+
+标签为：总览｜任务分配｜日进度与标效｜Good/Bad 分析｜Bad 原因与行动项。从总览任务行进入时 URL 携带 `task`，直接打开该任务总览。
+
+## 操作边界
+
+任务分配、责任人和计划时间修改可在本中心执行；影响交付阶段的重大状态推进需二次确认并写审计记录。

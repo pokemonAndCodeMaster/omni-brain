@@ -1,0 +1,274 @@
+---
+title: "质检平台-后端分层与组件边界设计"
+domain: ["manual_qa"]
+type: "synthesis"
+tags: ["人工质检", "后端架构", "FastAPI", "Service", "Repository", "高内聚低耦合"]
+created: 2026-06-28
+updated: 2026-06-30
+sources: 8
+status: active
+related_code: ["task.md", "src/api/app.py", "src/api/deps.py", "src/database/postgresql.py", "src/manual_qc/"]
+affects_path: ["src/api/", "src/manual_qc/", "src/database/"]
+trigger_keywords: ["后端分层", "组件边界", "Router", "Service", "Repository", "DeltaClient", "依赖方向"]
+---
+
+> ✅ 印证修订：domain 由原始 `["ai_dlc","tooling"]` 改为本仓库 TAXONOMY 合法值 `["manual_qa"]`。
+
+# 质检平台后端分层与组件边界设计
+
+← 总入口：[[质检一站式平台人工质检模块整体架构]]。相关：[[质检平台-领域模型层设计]]、[[质检平台-Repository与数据库访问设计]]、[[质检平台-Delta调用与状态回查设计]]。
+
+---
+
+## ① 组件概述
+
+**一句话职责**：定义人工质检平台后端的四层简单结构（HTTP 边界 → 应用编排 → 纯规则 → 数据/外部调用）与各组件的职责边界，确保 Router 不写 SQL、Sampler/Rule 不碰数据库、Service 是唯一知道完整用例顺序的组件、Repository 是唯一编写 SQL 的组件。
+
+**在整体架构中的位置**：架构规范层（跨层约束）。本卡不交付具体代码，而是为 `src/api/` 与 `src/manual_qc/` 的所有组件卡提供分层约束与依赖方向规则，是 [[质检平台-Repository与数据库访问设计]]、[[质检平台-验收采样配额与任务选择设计]]、[[质检平台-通过打回规则与执行设计]] 等组件卡的共同上位规范。
+
+---
+
+## ② 架构结构
+
+### 目标目录结构
+
+```text
+src/api/
+├── app.py
+├── auth.py
+├── deps.py
+└── schemas/
+    ├── acceptance.py
+    └── personnel.py
+
+src/manual_qc/
+├── repository.py
+├── delta_client.py
+├── acceptance/
+│   ├── models.py          # 仅稳定复用结构
+│   ├── sampler.py
+│   ├── pass_rules.py
+│   ├── services/
+│   │   ├── assignment_service.py
+│   │   ├── stat_service.py
+│   │   └── execution_service.py
+│   └── router.py
+└── personnel/
+    ├── models.py
+    ├── services/personnel_service.py
+    └── router.py
+```
+
+> ❓ 待人类 Review：本仓库 `src/manual_qc/` 当前不存在，`src/api/` 是否采用与本卡一致的目录结构需在 Phase 3 实现前核对。`src/database/postgresql.py` 与 `src/database/manager.py` 的实际文件名以本仓库 [[src_database_数据库连接器模块]]、[[PostgreSQL数据库公共模块]] 为准。
+
+### 分层架构图（Mermaid graph）
+
+```mermaid
+graph TD
+    subgraph HTTP["① HTTP 边界层"]
+        Router[Router<br/>读取请求/Depends注入/调用Service/映射响应]
+        Schema[Pydantic Schema<br/>HTTP字段/范围校验/OpenAPI文档]
+        Auth[Auth Middleware<br/>JWT验证/权限校验]
+    end
+
+    subgraph APP["② 应用编排层（Service）"]
+        AS[AssignmentService<br/>验收分配编排]
+        SS[StatService<br/>统计聚合编排]
+        ES[ExecutionService<br/>通过打回执行编排]
+        PS[PersonnelService<br/>人力管理编排]
+    end
+
+    subgraph RULE["③ 纯规则层"]
+        Sampler[Sampler<br/>输入计数输出配额]
+        PassRule[PassRule<br/>输入指标输出决定]
+    end
+
+    subgraph DATA["④ 数据/外部调用层"]
+        Repo[Repository<br/>参数化SQL/行映射/单库事务]
+        Delta[DeltaClient<br/>请求封装/超时/响应解析]
+        DB[(src/database<br/>连接池/健康检查)]
+        DELTA[(Delta 平台)]
+    end
+
+    Router --> AS
+    Router --> ES
+    Router --> PS
+    Schema --> Router
+    Auth --> Router
+
+    AS --> Sampler
+    AS --> Repo
+    AS --> Delta
+    SS --> Repo
+    ES --> PassRule
+    ES --> Repo
+    ES --> Delta
+    PS --> Repo
+
+    Repo --> DB
+    Delta --> DELTA
+
+    cfg[src/config] -.-> Auth
+    cfg -.-> Repo
+    cfg -.-> Delta
+```
+
+**分层图说明**：
+- **① HTTP 边界层**：Router 仅负责读取请求、`Depends` 注入、调用 Service、映射响应；Pydantic Schema 仅负责 HTTP 字段与范围校验；Auth Middleware 负责 JWT 验证与权限校验。此层**禁止**出现 SQL、采样算法、通过率判断。
+- **② 应用编排层（Service）**：Service 是唯一知道完整用例顺序的组件，串联快照查询、采样、task 查询、权限校验后的执行。此层**禁止**自己实现 SQL 或随机算法。
+- **③ 纯规则层**：Sampler 输入最小单元计数输出配额，PassRule 输入指标输出决定和解释。此层**禁止**查询数据库、调用 API、写快照、发请求，单测无需 FastAPI/数据库/网络。
+- **④ 数据/外部调用层**：Repository 集中所有参数化 SQL 与行映射，DeltaClient 封装 Delta 平台请求。Repository 通过构造参数接收 `PostgresConnector`，**禁止**自行创建连接池；DeltaClient **禁止**采样、规则判断、本地 SQL。
+
+### 依赖方向（文字版）
+
+```text
+Router → Service → Sampler/Rule
+                 → Repository → src/database
+                 → DeltaClient → Delta平台
+
+src/config → deps / src/database / DeltaClient
+```
+
+规则层不反向 import Router、Service、Repository。Repository 通过构造参数接收 `PostgresConnector`，不得自行创建连接池。
+
+---
+
+## ③ 数据表交互
+
+本卡为架构规范层，不直接操作数据表，但定义了所有组件对数据表的访问约束：
+
+| 约束 | 适用组件 | 说明 |
+|------|---------|------|
+| 唯一允许编写 SQL | Repository | Service/Router/Sampler/Rule 禁止拼接 SQL |
+| 不把游标泄漏给 Service | Repository | 查询结果在 Repository 边界映射成用例所需结构 |
+| 不修改 Delta 任务状态 | StatService | StatService 只从任务级记录聚合并 UPSERT 快照 |
+| 外部写操作经 DeltaClient | ExecutionService/AssignmentService | `batch_assign`/`task_rollback` 等外部写接口不在 Repository |
+| 人员变更 + op_log 同事务 | PersonnelService → ScreenerRepository | 修改人员属性（SCD 封版 create_or_transition）与写操作记录需同一连接事务 |
+
+涉及的数据表与 SQL 文件链接详见各组件卡：
+- 快照表 `t_qc_daily_snapshot`：[`data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql) · [[质检平台-综合快照表设计]]
+- 人员表 `t_data_check_screeners`：[`data_schemas/postgresql_relational/t_data_check_screeners.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql) · [[人工质检-人力管理体系设计]] §2.1
+- 操作记录表 `t_personnel_op_log`：[`data_schemas/postgresql_relational/t_personnel_op_log.sql`](../../../data_schemas/postgresql_relational/t_personnel_op_log.sql) · [[人工质检-人力管理体系设计]] §2.2
+- 权限表 `t_portal_permission`：[`data_schemas/postgresql_relational/t_portal_permission.sql`](../../../data_schemas/postgresql_relational/t_portal_permission.sql) · [[人工质检-人力管理体系设计]] §2.3
+
+---
+
+## ④ 子模块/类级清单
+
+| 子模块/文件 | 一句话说明 |
+|------------|-----------|
+| `src/api/app.py` | FastAPI 启停与共享资源关闭 |
+| `src/api/deps.py` | 构造 Repository/DeltaClient/Service，便于测试覆盖 |
+| `src/api/auth.py` | JWT 验证与权限校验中间件 |
+| `src/api/schemas/acceptance.py` | 验收模块 HTTP 请求/响应 Schema |
+| `src/api/schemas/personnel.py` | 人力模块 HTTP 请求/响应 Schema |
+| `src/manual_qc/repository.py` | 共享 Repository 文件（3 个内聚类），详见 [[质检平台-Repository与数据库访问设计]] |
+| `src/manual_qc/delta_client.py` | Delta 平台请求封装，详见 [[质检平台-Delta调用与状态回查设计]] |
+| `src/manual_qc/acceptance/models.py` | 验收模块稳定复用结构，详见 [[质检平台-领域模型层设计]] |
+| `src/manual_qc/acceptance/sampler.py` | 采样纯规则，详见 [[质检平台-验收采样配额与任务选择设计]] |
+| `src/manual_qc/acceptance/pass_rules.py` | 通过打回纯规则，详见 [[质检平台-通过打回规则与执行设计]] |
+| `src/manual_qc/acceptance/services/assignment_service.py` | 验收分配编排 |
+| `src/manual_qc/acceptance/services/stat_service.py` | 统计聚合编排（快照刷新） |
+| `src/manual_qc/acceptance/services/execution_service.py` | 通过打回执行编排 |
+| `src/manual_qc/acceptance/router.py` | 验收模块路由 |
+| `src/manual_qc/personnel/models.py` | 人力模块稳定复用结构 |
+| `src/manual_qc/personnel/services/personnel_service.py` | 人力管理编排 |
+| `src/manual_qc/personnel/router.py` | 人力模块路由 |
+
+---
+
+## ⑤ 详细设计展开
+
+### 1. 初衷
+
+来源项目的能力散落在批处理脚本、数据库工具、Delta API 调用和看板中。新平台需要把它们串成可从前端调用的用例，但不能把所有逻辑塞进 Router，也不应为小模块照搬完整 DDD/六边形架构。
+
+因此采用四层简单结构：HTTP 边界、应用编排、纯规则、数据/外部调用。
+
+### 2. 组件职责
+
+| 组件 | 应该做 | 不应该做 |
+|---|---|---|
+| Router | 读取请求、Depends 注入、调用 Service、映射响应 | SQL、采样算法、通过率判断 |
+| Pydantic Schema | HTTP 字段、范围校验、OpenAPI 文档 | 数据库行模型、平台 SDK 调用 |
+| AssignmentService | 串联快照、采样、task 查询、权限后的执行 | 自己实现 SQL 或随机算法 |
+| StatService | 从任务级记录聚合并 UPSERT 快照 | 修改 Delta 任务状态 |
+| ExecutionService | 预览规则结论、确认、调用 Delta、触发/等待回查 | 在 Router 中散落阈值分支 |
+| PersonnelService | 人员 CRUD、调组、操作日志、未进组预警 | 统计 SQL 复制到每个页面 |
+| Sampler | 输入最小单元计数，输出配额 | 查询数据库、调用 API |
+| PassRule | 输入指标，输出决定和解释 | 写快照、发请求 |
+| Repository | 参数化 SQL、行映射、单库事务 | 决定业务上是否允许执行 |
+| DeltaClient | 请求封装、超时、响应解析 | 采样、规则判断、本地 SQL |
+
+### 3. 为什么不用 ports/adapters/domain 套件
+
+这些模式适合多个可替换基础设施、复杂领域状态机或大团队并行开发。当前只有一个 PostgreSQL 公共模块、一个 Delta 平台和少量规则；提前创建接口目录会增加导航成本，并把简单调用包装成多层转发。
+
+当前替代方案：
+
+- 外部平台封装直称 `delta_client.py`；
+- 数据访问集中在共享 `repository.py` 的多个小类；
+- 数据结构就近定义，复用后移到模块 `models.py`；
+- 单元测试通过构造参数注入 fake repository/client，不要求先定义 Protocol。
+
+当出现第二个可替换平台或测试替身难以注入时，再抽接口，不以"未来可能"作为现在的目录成本。
+
+### 4. Service 的编排边界
+
+以验收分配为例：
+
+1. Router 完成 Schema 校验和权限依赖。
+2. AssignmentService 查询快照。
+3. Sampler 计算配额。
+4. AcceptanceTaskRepository 查询 task_ids。
+5. preview 只返回，不产生外部副作用。
+6. execute 重查状态，再调用 DeltaClient。
+7. Service 返回即时成功/跳过/失败；实际成功量由后续回查刷新。
+
+Service 是唯一知道完整用例顺序的组件，这正是其高内聚点。
+
+### 5. 生命周期与配置
+
+- `src/api/app.py` 管理 FastAPI 启停和共享资源关闭。
+- `src/api/deps.py` 构造 Repository、DeltaClient、Service，便于测试覆盖。
+- `src/config` 提供数据库名、Delta 基址、超时和 mock 开关；密钥只从环境变量进入。
+- `src/database` 继续管理连接池和健康检查。
+
+### 6. 完成标准
+
+- Router 不出现 SQL 和阈值计算。
+- Sampler/Rule 单测无需 FastAPI、数据库或网络。
+- Service 可注入 fake Repository/DeltaClient。
+- 所有外部写操作均有后端权限校验和状态重查。
+- import 检查、API 冒烟和三条端到端示例通过。
+
+> 📎 补充参考：[[FastAPI后端API层架构]]、[[Router_API_View与Python业务编排指南]] 包含本仓库已有的 API 层架构实践，与本卡描述的目录结构可能存在差异，请人类判断是否合并。
+
+> 🔄 关联新梳理（20260629）：本卡描述的后端四层边界（HTTP/应用编排/纯规则/数据外部调用）已在 [[验收前置条件-快照刷新四级实现契约]] 中具化为 StatService（应用编排层）+ Repository（数据访问层）+ Airflow DAG（调度入口）的 Task 级实现契约。旧版5大架构问题及规避策略详见 [[PF-旧版验收代码架构问题与改进策略]]。
+
+---
+
+## ⑥ 完成情况与 TODO
+
+**当前状态**：设计中（规范层，无独立代码交付）。四层边界与组件职责表已冻结，作为所有组件卡的共同上位规范。`src/manual_qc/` 物理目录待 Phase 3 落地。
+
+**TODO 清单**：
+- [x] 四层结构定义冻结（HTTP / 应用编排 / 纯规则 / 数据外部调用）
+- [x] 组件职责表冻结（10 个组件的应该做/不应该做）
+- [x] 依赖方向规则冻结（规则层不反向 import，Repository 不自建连接池）
+- [x] 目标目录结构冻结（`src/api/` + `src/manual_qc/`）
+- [x] 分层架构 Mermaid 图补齐
+- [ ] `src/api/` 实际目录结构核对（待人类 Review）
+- [ ] `src/manual_qc/` 物理目录创建
+- [ ] `src/database/` 实际文件名核对（[[src_database_数据库连接器模块]]）
+- [ ] import 检查 / API 冒烟 / 三条端到端示例验证
+
+---
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]]
+
+> 🔗 上位枢纽：[[质检一站式平台人工质检模块整体架构]]
+> 🔗 具化实现契约：[[验收前置条件-快照刷新四级实现契约]]
+> 🔗 旧版避坑：[[PF-旧版验收代码架构问题与改进策略]]

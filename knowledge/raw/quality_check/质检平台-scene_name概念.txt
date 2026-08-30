@@ -1,0 +1,206 @@
+---
+title: "质检平台-scene_name概念"
+domain: ["manual_qa"]
+type: "concept"
+tags: ["quality_check_pipeline", "scene_name", "任务组", "批次管理", "数据采集"]
+created: 2026-06-28
+updated: 2026-06-30
+status: active
+sources: 2
+related_code: ["src/manual_qc/"]
+affects_path: ["src/manual_qc/", "wiki/quality_portal/"]
+trigger_keywords: ["scene_name", "任务组", "场景名", "批次", "clip", "最小管理单元", "任务粒度"]
+---
+
+> ✅ 印证修订：domain 由原始 `["ai_dlc","agent_evaluation"]` 改为本仓库 TAXONOMY 合法值 `["manual_qa"]`。
+
+# scene_name 概念说明
+
+> scene_name 是人工质检流程中最重要的数据组织概念，理解它是理解整个质检流程的前提。
+
+← [[质检一站式平台人工质检模块整体架构]] | [[人工质检-Hub]] | [[质检平台-综合快照表设计]]
+
+→ [[质检平台-验收采样配额与任务选择设计]] | [[质检平台-通过打回规则与执行设计]]
+
+> Phase 3 前评审保持本卡的层级定义：`scene_name` 是管理范围，`clip/task` 才是可采样、可执行，并可在重复操作前按任务状态检查的操作单元。见 [[质检一站式平台Phase3前架构评审]]。
+
+---
+
+## ① 组件概述
+
+**一句话职责**：定义人工质检流程中"任务组（批次）"的抽象标识 `scene_name`，它是上游送入人工质检的一批同类场景/同次采集/同次挖掘数据的统一挂载名，是质检流程的最小管理单元（区别于最小操作单元 clip/task）。
+
+**在整体架构中的位置**：概念层。本卡不交付代码，而是为 [[质检平台-综合快照表设计]]、[[质检平台-验收采样配额与任务选择设计]]、[[质检平台-通过打回规则与执行设计]] 等组件卡提供"scene_name 是什么、与 clip/task 的层级关系、如何作为快照表维度键"的共同概念基础。
+
+---
+
+## ② 架构结构
+
+### 概念层级结构
+
+本卡为概念层卡片，无独立目录/文件结构。其概念在以下组件中落地：
+
+| 落地位置 | 承载形式 | 说明 |
+|---------|---------|------|
+| `t_qc_daily_snapshot.scene_name` | 维度键字段（VARCHAR(256)） | 快照表联合唯一键的组成部分，详见 [[质检平台-综合快照表设计]] §2 |
+| `src/manual_qc/acceptance/sampler.py` | GroupSampler 比例分配维度 | 按 scene_name 分配抽样数量，详见 [[质检平台-验收采样配额与任务选择设计]] §5 |
+| `src/manual_qc/acceptance/pass_rules.py` | 规则判定范围 | 批量通过/打回以 scene_name 为范围，详见 [[质检平台-通过打回规则与执行设计]] |
+| Delta 原始表 `task_name` | 上游字段 | scene_name 来自 Delta 任务元数据，在部分历史代码和 Delta API 中也叫 `task_name` |
+
+### 概念层级关系图（Mermaid graph）
+
+```mermaid
+graph TD
+    SN[scene_name<br/>任务组/批次<br/>质检最小管理单元]
+    Clip[clip<br/>片段<br/>标注最小操作单元]
+    Task[task<br/>Delta task_id<br/>clip 的别名]
+    Anno[标注员<br/>employee_id → t_data_check_screeners]
+    Group[组<br/>group_name ← t_data_check_screeners.team_leader]
+
+    SN --> Clip
+    Clip -.->|对应| Task
+    Clip --> Anno
+    Anno --> Group
+
+    SN -->|作为维度键| Snap[t_qc_daily_snapshot]
+    Snap -->|联合唯一键| Dim["stat_date × scene_name × group_name × annotator_id"]
+```
+
+**层级图说明**：
+- `scene_name` 是**管理范围**，`clip/task` 才是**可采样、可执行**的操作单元。
+- 一个 scene_name 下包含多个 clip；每个 clip 是一条独立标注任务（对应 Delta 中的一个 task）。
+- 一个 clip 只属于一个标注员；标注员所在组用于按组聚合统计。
+- 快照表以 `(stat_date, scene_name, group_name, annotator_id)` 为联合唯一键，scene_name 是主要维度键之一。
+
+---
+
+## ③ 数据表交互
+
+本卡为概念层卡片，**无直接数据表交互**。scene_name 作为字段/概念在以下表中承载：
+
+| 表名 | 承载形式 | SQL/设计卡链接 |
+|------|---------|---------------|
+| `t_qc_daily_snapshot` | `scene_name VARCHAR(256) NOT NULL`，联合唯一键组成部分 | [`data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql) · [[质检平台-综合快照表设计]] §2 |
+| Delta 原始表 `ods_t_label_screening_task_datalake` | `task_name` 字段（与 scene_name 含义相同，是上游任务组名） | [[质检平台-综合快照表设计]] §9 |
+
+> scene_name 的提取逻辑（来自 [[验收前置条件-快照刷新四级实现契约]] Task 4）：e2e 项目 `SPLIT_PART(task_name, '_', 2)`，vpd 项目 `SPLIT_PART(task_name, '_', 3)`（参照存量 `AppGy1Model.query_all_tasks` 逻辑）。
+
+---
+
+## ④ 子模块/文件级清单
+
+本卡为概念层卡片，无独立子模块。相关落地组件：
+
+| 组件 | 一句话说明 |
+|------|-----------|
+| `t_qc_daily_snapshot.scene_name` | 快照表维度键，承载 scene_name 概念 |
+| `GroupSampler` | 按 scene_name 比例分配抽样数量，详见 [[质检平台-验收采样配额与任务选择设计]] |
+| `ExecutionService` | 批量通过/打回以 scene_name 为范围，详见 [[质检平台-通过打回规则与执行设计]] |
+| `StatService._extract_scene_name` | 从 Delta `task_name` 提取 scene_name 的逻辑（e2e/vpd 项目不同 SPLIT_PART 位置） |
+
+---
+
+## ⑤ 详细设计展开
+
+### 1. scene_name 是什么
+
+scene_name 是**上游送入人工质检的任务组（批次）的抽象标识**。
+
+上游采集或挖掘数据时，一般一批数据会一起送到人工质检流水线，这一批数据：
+- 通常是**同一类场景**（如城区直道跟车场景、VPD入库场景）
+- 或者是**同一批次采集**（如某次采集活动的数据）
+- 或者是**同一次挖掘**的数据（如某次从大库挖掘出的小样本）
+
+这批数据进入 Delta 系统后，会统一挂在一个 **scene_name** 下，该 scene_name 就是这批数据的"任务组名"。
+
+### 2. 最小管理单元
+
+标注/验收的**最小操作单元**是 **clip（片段）**，每个 clip 是一条独立的标注任务（对应 Delta 中的一个 task）。
+
+但**质检流程的最小管理单元**是 **scene_name**：
+- 分配验收时，按 scene_name 来组织数据
+- 统计通过率时，按 scene_name 来汇总
+- 快照表中，scene_name 是主要维度键
+- 批量通过/打回时，以 scene_name 为范围
+
+```
+scene_name: "城区高速_2026Q2_batch03"
+    ├── clip_0001  → annotator: 张三 → behavior: A (Good)
+    ├── clip_0002  → annotator: 张三 → behavior: B (Bad-行为1)
+    ├── clip_0003  → annotator: 李四 → behavior: A (Good)
+    ├── ...
+    └── clip_2400  → annotator: 王五 → behavior: A (Good)
+```
+
+### 3. 与其他字段的关系
+
+| 概念 | 存储字段 | 说明 |
+|------|---------|------|
+| scene_name | `scene_name VARCHAR(256)` | 任务组标识，来自 Delta 任务元数据 |
+| clip | clip_id | 最小标注单元，多个 clip 属于同一 scene_name |
+| task | Delta task_id | 在 Delta 系统中 task ≈ clip 的别名 |
+| 标注员 | employee_id → t_data_check_screeners | 一个 clip 只属于一个标注员 |
+| 组 | group_name（来自 t_data_check_screeners.team_leader）| 标注员所在组，用于按组聚合统计 |
+
+### 4. 快照表如何使用 scene_name
+
+`t_qc_daily_snapshot` 以 `(stat_date, scene_name, group_name, annotator_id)` 为联合唯一键。
+
+典型查询场景：
+```sql
+-- 查某个 scene_name 下当天所有组的统计（从个人最小行聚合）
+SELECT group_name,
+       SUM(annotation_submitted) AS annotation_submitted,
+       SUM(acceptance_allocated) AS acceptance_allocated
+FROM t_qc_daily_snapshot
+WHERE stat_date = '2026-06-28'
+  AND scene_name = '城区高速_2026Q2_batch03'
+GROUP BY group_name
+ORDER BY group_name;
+
+-- 查某个 scene_name 下所有标注员的个人统计（用于标注员画像）
+SELECT * FROM t_qc_daily_snapshot
+WHERE stat_date = '2026-06-28' AND scene_name = '城区高速_2026Q2_batch03'
+ORDER BY annotator_id;
+```
+
+### 5. 在采样中的作用
+
+采样时，GroupSampler 按 scene_name 比例分配抽取数量：
+
+```
+scene_name A 组下有 3 个 scene:
+  city_batch01: 800 clips → 应抽 80/300 × total = 比例份额
+  city_batch02: 1000 clips → 应抽 100/300 × total
+  city_batch03: 1200 clips → 应抽 120/300 × total
+```
+
+即：确保每个 scene 都能被抽到，避免某个 scene 全部被跳过而没有验收。
+
+### 6. 注意事项
+
+> ⚠️ scene_name 是来自 Delta 的原始字段名，在部分历史代码和 Delta API 中也叫 `task_name`（含义相同，是上游任务组的名称）。在本项目中统一使用 `scene_name`。
+
+> ⚠️ scene_name 不是 clip 的名字，也不是 Delta task_id。它是比 task 更高一层的"任务组"概念。
+
+---
+
+## ⑥ 完成情况与 TODO
+
+**当前状态**：已冻结（概念层，无独立代码交付）。scene_name 的定义、与 clip/task 的层级关系、在快照表/采样/通过打回中的承载形式均已明确。
+
+**TODO 清单**：
+- [x] scene_name 概念定义冻结
+- [x] 与 clip/task 的层级关系明确
+- [x] 在快照表中的维度键角色明确
+- [x] 在采样中的比例分配作用明确
+- [x] 从 Delta `task_name` 提取 scene_name 的逻辑明确（e2e/vpd 项目 SPLIT_PART 位置不同）
+- [ ] 无（概念层无后续 TODO）
+
+---
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]]
+
+> 🔗 上位枢纽：[[质检一站式平台人工质检模块整体架构]]
