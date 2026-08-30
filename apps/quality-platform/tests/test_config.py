@@ -1,0 +1,289 @@
+from __future__ import annotations
+
+import pickle
+from pathlib import Path
+
+import pytest
+
+from src.config import ConfigManager, ConfigurationError
+from src.api.schemas.view_config import DashboardConfig
+
+
+def write_fixture(tmp_path: Path, yaml_text: str, env_text: str = "") -> ConfigManager:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "base.yaml").write_text(yaml_text, encoding="utf-8")
+    env_file = tmp_path / ".env"
+    env_file.write_text(env_text, encoding="utf-8")
+    return ConfigManager(
+        config_dir=config_dir,
+        env_file=env_file,
+        project_root=tmp_path,
+    )
+
+
+BASE = """
+database:
+  default: primary
+  connections:
+    primary:
+      driver: postgresql
+      host: ${TEST_DB_HOST:.runtime/socket}
+      port: ${TEST_DB_PORT:55432}
+      database: quality_lab
+      user: quality_lab
+      password: ${TEST_DB_PASSWORD:}
+      schema: manual_qc_lab
+"""
+
+
+def test_environment_overrides_dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TEST_DB_PORT", "6000")
+    manager = write_fixture(tmp_path, BASE, "TEST_DB_PORT=5999\n")
+    connection = manager.get_database_by_alias("primary")
+    assert connection["port"] == 6000
+    assert connection["host"] == str((tmp_path / ".runtime/socket").resolve())
+
+
+def test_missing_required_variable_is_explicit(tmp_path: Path) -> None:
+    with pytest.raises(ConfigurationError, match="REQUIRED_SECRET"):
+        write_fixture(tmp_path, BASE.replace("${TEST_DB_PASSWORD:}", "${REQUIRED_SECRET}"))
+
+
+def test_failed_reload_keeps_old_snapshot(tmp_path: Path) -> None:
+    manager = write_fixture(tmp_path, BASE)
+    config_path = tmp_path / "config/base.yaml"
+    config_path.write_text("database: [broken", encoding="utf-8")
+    with pytest.raises(ConfigurationError):
+        manager.reload()
+    assert manager.get_database_by_alias()["database"] == "quality_lab"
+
+
+def test_unknown_alias_lists_available_values(tmp_path: Path) -> None:
+    manager = write_fixture(tmp_path, BASE)
+    with pytest.raises(ConfigurationError, match="primary"):
+        manager.get_database_by_alias("missing")
+
+
+def test_database_alias_mapping_and_named_lookup(tmp_path: Path) -> None:
+    manager = write_fixture(
+        tmp_path,
+        BASE.replace(
+            "  default: primary",
+            "  default: portal\n  aliases:\n    portal: primary",
+        ),
+    )
+    assert manager.get_database_config("primary")["database"] == "quality_lab"
+    assert manager.get_database_by_alias("portal")["alias"] == "primary"
+
+
+def test_pickle_reloads_from_same_sources(tmp_path: Path) -> None:
+    manager = write_fixture(tmp_path, BASE)
+    restored = pickle.loads(pickle.dumps(manager))
+    assert restored.get_database_by_alias()["database"] == "quality_lab"
+
+
+def test_dashboard_config_accepts_chart_and_metric_cards() -> None:
+    config = DashboardConfig.model_validate(
+        {
+            "schemaVersion": "dashboard-v1",
+            "cards": [
+                {
+                    "id": "overview-annotation",
+                    "kind": "metric",
+                    "title": "标注产出",
+                    "metricId": "annotation_quality",
+                    "jumpTarget": "annotation-quality",
+                    "style": {},
+                    "layout": {"x": 0, "y": 0, "w": 4, "h": 4},
+                },
+                {
+                    "id": "daily-completion",
+                    "kind": "chart",
+                    "title": "每日完成",
+                    "query": {
+                        "sourceId": "manual-qc",
+                        "dimensionId": "stat_date",
+                        "measureIds": [
+                            "accept_completed",
+                            "completion_rate",
+                        ],
+                    },
+                    "style": {"chartType": "combo"},
+                    "layout": {"x": 4, "y": 0, "w": 8, "h": 6},
+                },
+            ],
+        }
+    )
+
+    assert [card.kind for card in config.cards] == ["metric", "chart"]
+    assert config.cards[1].style.chart_type == "combo"
+
+
+def test_dashboard_config_accepts_composable_metric_card() -> None:
+    config = DashboardConfig.model_validate(
+        {
+            "schemaVersion": "dashboard-v2",
+            "cards": [
+                {
+                    "id": "overview-annotation",
+                    "kind": "metric",
+                    "origin": {
+                        "type": "system-preset",
+                        "presetId": "manual-qc.annotation-overview",
+                        "presetVersion": 2,
+                    },
+                    "title": "标注产出",
+                    "query": {"scopeMode": "inherit-page", "filters": []},
+                    "blocks": [
+                        {
+                            "id": "submitted",
+                            "kind": "metric-value",
+                            "metric": {"id": "annotation.submitted"},
+                            "label": "标注提交",
+                            "emphasis": "primary",
+                            "width": "full",
+                            "style": {},
+                        },
+                        {
+                            "id": "by-project",
+                            "kind": "breakdown",
+                            "dimension": "project",
+                            "metrics": [
+                                {"id": "annotation.submitted"},
+                                {"id": "annotation.good_rate"},
+                            ],
+                            "limit": 8,
+                            "width": "full",
+                        },
+                    ],
+                    "action": {
+                        "type": "jump",
+                        "targetCardId": "annotation-quality",
+                    },
+                    "style": {},
+                    "layout": {"x": 0, "y": 0, "w": 4, "h": 4},
+                }
+            ],
+        }
+    )
+
+    card = config.cards[0]
+    assert card.kind == "metric"
+    assert card.blocks is not None
+    assert [block.kind for block in card.blocks] == [
+        "metric-value",
+        "breakdown",
+    ]
+    persisted = config.model_dump(
+        mode="json",
+        by_alias=True,
+        exclude_none=True,
+    )
+    persisted_card = persisted["cards"][0]
+    assert "metricId" not in persisted_card
+    assert "jumpTarget" not in persisted_card
+    assert "valueSize" not in persisted_card["style"]
+
+
+def test_dashboard_config_accepts_multi_layer_chart_card() -> None:
+    config = DashboardConfig.model_validate(
+        {
+            "schemaVersion": "dashboard-v2",
+            "cards": [
+                {
+                    "id": "acceptance-progress",
+                    "kind": "chart",
+                    "origin": {
+                        "type": "system-preset",
+                        "presetId": "manual-qc.acceptance-progress",
+                        "presetVersion": 2,
+                    },
+                    "title": "验收分配与完成",
+                    "baseQuery": {
+                        "sourceId": "manual_qc.snapshot.v20260709",
+                        "scopeMode": "inherit-page",
+                        "categoryDimension": "date",
+                        "timeGrain": "day",
+                        "questionLabels": [],
+                        "filters": [],
+                    },
+                    "axes": [
+                        {
+                            "id": "count-axis",
+                            "side": "left",
+                            "unit": "count",
+                            "label": "数量",
+                            "minimum": 0,
+                            "maximum": None,
+                        },
+                        {
+                            "id": "rate-axis",
+                            "side": "right",
+                            "unit": "percent",
+                            "label": "占比",
+                            "minimum": 0,
+                            "maximum": 100,
+                        },
+                    ],
+                    "layers": [
+                        {
+                            "id": "allocated",
+                            "label": "验收分配量",
+                            "metric": {"id": "acceptance.allocated"},
+                            "renderAs": "bar",
+                            "axisId": "count-axis",
+                            "splitBy": None,
+                            "filters": [],
+                            "stackGroup": None,
+                            "style": {},
+                        },
+                        {
+                            "id": "completion-rate",
+                            "label": "验收完成率",
+                            "metric": {"id": "acceptance.completion_rate"},
+                            "renderAs": "line",
+                            "axisId": "rate-axis",
+                            "splitBy": None,
+                            "filters": [],
+                            "stackGroup": None,
+                            "style": {},
+                        },
+                    ],
+                    "presentation": {
+                        "showLegend": True,
+                        "legendPosition": "top",
+                        "categorySort": "natural",
+                        "categoryLimit": 31,
+                        "orientation": "vertical",
+                        "fontScale": "medium",
+                    },
+                    "layout": {"x": 0, "y": 0, "w": 8, "h": 7},
+                }
+            ],
+        }
+    )
+
+    card = config.cards[0]
+    assert card.kind == "chart"
+    assert card.layers is not None
+    assert [layer.axis_id for layer in card.layers] == [
+        "count-axis",
+        "rate-axis",
+    ]
+    persisted = config.model_dump(
+        mode="json",
+        by_alias=True,
+        exclude_none=True,
+    )
+    persisted_card = persisted["cards"][0]
+    assert "query" not in persisted_card
+    assert "style" not in persisted_card
+
+
+def test_reload_can_switch_env_file_atomically(tmp_path: Path) -> None:
+    manager = write_fixture(tmp_path, BASE, "TEST_DB_PORT=55432\n")
+    alternative = tmp_path / ".env.alternative"
+    alternative.write_text("TEST_DB_PORT=6001\n", encoding="utf-8")
+    manager.reload(alternative)
+    assert manager.get_database_by_alias()["port"] == 6001

@@ -1,0 +1,265 @@
+.collab-page,
+.collab-main-stack,
+.collab-side-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.collab-heading,
+.collab-toolbar,
+.section-heading,
+.collab-heading-actions,
+.section-actions,
+.message-composer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.collab-heading,
+.collab-toolbar,
+.section-heading {
+  justify-content: space-between;
+}
+
+.collab-heading h2,
+.collab-heading p,
+.original-card p {
+  margin: 0;
+}
+
+.collab-heading h2 {
+  margin-top: 3px;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.collab-heading > div > p:last-child {
+  margin-top: 7px;
+  color: var(--color-muted);
+}
+
+.collab-eyebrow {
+  color: var(--color-primary);
+  font: 800 10px var(--font-mono);
+  letter-spacing: 0.12em;
+}
+
+.collab-count {
+  padding: 6px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: white;
+  color: var(--color-muted);
+  font: 10px var(--font-mono);
+}
+
+.collab-split,
+.collab-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(290px, 0.34fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.collab-split-narrow {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+}
+
+.collab-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.collab-panel > .idea-capture {
+  padding: 17px;
+}
+
+.collab-sticky-card {
+  position: sticky;
+  top: calc(var(--topbar-height) + 24px);
+}
+
+.collab-toolbar,
+.section-heading {
+  min-height: 52px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-line-subtle);
+}
+
+.collab-toolbar > div,
+.requirement-toolbar > div {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.collab-toolbar .select-field {
+  min-width: 120px;
+}
+
+.requirement-toolbar .field {
+  width: 210px;
+}
+
+.collab-section {
+  min-width: 0;
+  padding: 16px;
+}
+
+.collab-section > .section-heading:first-child {
+  min-height: auto;
+  margin: -16px -16px 16px;
+}
+
+.section-heading div {
+  display: grid;
+}
+
+.section-heading span {
+  color: var(--color-muted);
+  font-size: 10px;
+}
+
+.original-card p {
+  color: var(--color-ink-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-composer {
+  align-items: flex-end;
+  margin-top: 10px;
+  padding-top: 13px;
+  border-top: 1px solid var(--color-line-subtle);
+}
+
+.message-field {
+  display: grid;
+  flex: 1;
+  gap: 5px;
+  color: var(--color-ink-secondary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.message-field textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.collab-field-label {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+  color: var(--color-ink-secondary);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.section-actions {
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.collab-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  white-space: pre-wrap;
+}
+
+.collab-loading {
+  padding: 54px 20px;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.create-requirement {
+  display: grid;
+  gap: 12px;
+}
+
+.requirement-list {
+  display: grid;
+}
+
+.requirement-list > button {
+  display: grid;
+  gap: 9px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line-subtle);
+  background: white;
+  color: var(--color-ink);
+  text-align: left;
+}
+
+.requirement-list > button:hover {
+  background: var(--color-primary-soft);
+}
+
+.requirement-title,
+.requirement-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.requirement-title {
+  justify-content: space-between;
+}
+
+.requirement-meta {
+  color: var(--color-muted);
+  font: 10px var(--font-mono);
+}
+
+.requirement-status {
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font: 10px var(--font-mono);
+}
+
+.requirement-status.status-accepted {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.requirement-status.status-rejected,
+.requirement-status.status-merged {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+@media (max-width: 1040px) {
+  .collab-split,
+  .collab-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .collab-sticky-card {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .collab-heading,
+  .collab-toolbar,
+  .requirement-toolbar > div,
+  .message-composer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .requirement-toolbar .field,
+  .collab-toolbar .select-field {
+    width: 100%;
+  }
+}
