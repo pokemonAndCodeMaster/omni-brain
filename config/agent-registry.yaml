@@ -1,7 +1,7 @@
 schema_version: '0.1'
 source:
-  repository: ../omni-brain-harness
-  revision: release/harness
+  repository: .
+  revision: HEAD
   manifest: harness.yaml
 
 agents:

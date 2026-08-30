@@ -1,8 +1,8 @@
 # 质量与 AI 协作平台接力报告
 
 > 更新时间：2026-08-30
-> 仓库：`/home/yyh/project/quality-platform-lab`
-> 分支：`feature/agent-workbench-opencode-v1`
+> 主线目录：`/home/yyh/project/omni-brain/apps/quality-platform`
+> 分支：`main`
 > 功能基线：协作平台 S0、Codex/OpenCode 双执行器与本地 Chromium 验收
 
 ## 1. 当前结论
@@ -184,7 +184,7 @@ manual_qc_lab.t_collab_decision
 首次准备：
 
 ```bash
-cd /home/yyh/project/quality-platform-lab
+cd /home/yyh/project/omni-brain/apps/quality-platform
 cp .env.example .env
 python -m venv .venv
 .venv/bin/python -m pip install -e '.[dev]'
@@ -203,7 +203,7 @@ scripts/postgres.sh init
 另开终端启动前端：
 
 ```bash
-cd /home/yyh/project/quality-platform-lab/src/frontend
+cd /home/yyh/project/omni-brain/apps/quality-platform/src/frontend
 npm install
 npm run dev
 ```
@@ -211,7 +211,7 @@ npm run dev
 状态检查：
 
 ```bash
-cd /home/yyh/project/quality-platform-lab
+cd /home/yyh/project/omni-brain/apps/quality-platform
 scripts/postgres.sh status
 curl http://127.0.0.1:8000/api/health
 ```
@@ -228,7 +228,7 @@ Windows Navicat 使用 `127.0.0.1:55432`、数据库/用户 `quality_lab`。密�
 运行：
 
 ```bash
-cd /home/yyh/project/quality-platform-lab
+cd /home/yyh/project/omni-brain/apps/quality-platform
 .venv/bin/pytest
 
 cd src/frontend

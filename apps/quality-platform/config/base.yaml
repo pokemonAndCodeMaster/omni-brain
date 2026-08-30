@@ -1,5 +1,5 @@
 app:
-  name: Quality Platform Lab
+  name: Omni-Brain Quality & AI Collaboration Platform
   environment: local
   schema_version: collaboration-s0-v1
 
@@ -27,8 +27,8 @@ object_storage:
   mode: disabled
 
 agent_runtime:
-  registry_path: ${OMNI_AGENT_REGISTRY:../omni-brain/config/agent-registry.yaml}
-  worktree_root: ${OMNI_RUN_ROOT:../.omni-brain-runs}
+  registry_path: ${OMNI_AGENT_REGISTRY:../../config/agent-registry.yaml}
+  worktree_root: ${OMNI_RUN_ROOT:../../../.omni-brain-runs}
   artifact_root: ${OMNI_RUN_ARTIFACT_ROOT:.runtime/agent-runs}
   codex:
     command: ${CODEX_COMMAND:codex}

@@ -166,3 +166,9 @@
 - 新材料覆盖一站式质检平台、人工质检、验收、ConfigManager、数据库、快照、前端源码和工程导读，是后续知识摄入与本地能力复刻的优先来源。
 - 因材料含生产连接和认证信息，原件保持本地受限并加入 `.gitignore`；规范知识和实验代码只消费接口、行为、边界和陷阱，不复制秘密值。
 - 逐文件完整性、主题、用途和敏感级别登记到任务案 `quality-materials-knowledge-and-replication`；后续先处理与 `raw/quality_check/` 的重复、补充、冲突和现实形态，再进入规范知识与代码。
+
+## [2026-08-30] publish | 已认证质检知识进入产品主线
+
+- 将用户认证参考 `experiment/reader-first-knowledge-v1@fa8438b` 的 33 篇正式知识与产品视图收编到 `knowledge/published/quality-check/`；内容保持原版本，不以本次目录迁移改写事实。
+- 根 `knowledge/index.md` 成为全局入口，显式区分已发布规范知识、不可变原始资料和 `eval/` 中的实验/评分证据。
+- Agent 注册表改为从当前主线 `harness.yaml` 读取能力，并以主线 HEAD 建立 Run worktree，使知识、Skills、产品代码和评测资产处于同一可追溯版本。

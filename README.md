@@ -12,7 +12,9 @@
 4. 把稳定的新知识、规则、经验和验证方法安全回收到长期资产；
 5. 换会话、模型或 Codex/OpenCode 宿主后，仍能依靠项目内 Harness 工作。
 
-完整质检平台是长期验证场景，不是当前交付物。Omni-Brain 当前要建设的是支持知识、流程、软件和后续 Agent 能力持续形成与演进的基座。
+Omni-Brain 当前以**团队 AI 协作与交付中枢**作为正式产品宿主：同一主线保存 Idea、Requirement、
+Agent/Skill、Run、知识、评测和产品代码。人工质检是首个已经运行的领域模块和验证场景，后续领域
+能力逐步进入同一平台，而不是再形成长期平行实验仓。
 
 ## 一条复利闭环
 
@@ -67,14 +69,16 @@ Markdown / OKF + Git：规范知识、产品视图、审查与回滚
 真实任务、认证参考和跨模型 Trial：证明是否有效
 ```
 
-当前不自研模型运行时，不以图数据库或向量数据库作为知识真相源，也不建设大规模多 Agent 或微服务。Agent 控制面复用现有质检平台的 Vue3、FastAPI 和 PostgreSQL，只封装 OpenCode CLI、Git worktree 与运行证据，不接管模型运行时；Docker、资源级调度和远程执行仍等待真实瓶颈再评估。
+当前不自研模型运行时，不以图数据库或向量数据库作为知识真相源，也不建设大规模多 Agent 或微服务。Agent 控制面使用主线内 `apps/quality-platform` 的 Vue3、FastAPI 和 PostgreSQL，封装 Codex/OpenCode CLI、Git worktree 与运行证据，不接管模型运行时；Docker、资源级调度和远程执行仍等待真实瓶颈再评估。
 
-## Agent 能力工作台 v0.1
+## 团队 AI 协作与交付平台
 
-工作台宿主位于 `/home/yyh/project/quality-platform-lab`，直接扩展现有 Vue3 一站式平台，不再维护本仓的 React 页面。当前最薄纵切提供 Agent 能力目录、OpenCode 启动、Run 历史、session、结果和按需增量 trace；评测与进化仍是后续纵切。
+正式宿主位于本仓 `apps/quality-platform`。当前 S0 提供 Idea、candidate/accepted Requirement、
+不可覆盖 Revision、人机时间线、Agent 能力目录、Codex/OpenCode 启动、Run 历史、session、
+结果和按需增量 trace。工作、Git 交付、正式评测与进化属于后续纵切。
 
 ```bash
-cd /home/yyh/project/quality-platform-lab
+cd /home/yyh/project/omni-brain/apps/quality-platform
 scripts/postgres.sh init
 .venv/bin/python -m src.cli migrate
 .venv/bin/uvicorn src.api.app:create_app --factory --port 8000
@@ -84,18 +88,26 @@ npm install
 npm run dev
 ```
 
-浏览器打开 `http://127.0.0.1:5173/ai/agents` 或 `/ai/runs`。Agent 定义仍由本仓 `config/agent-registry.yaml` 与发布 Harness 管理；Run 元数据和规范事件写入质检平台现有 PostgreSQL，完整产物留在 `.runtime/agent-runs/`。运行现场位于 `/home/yyh/project/.omni-brain-runs/<run-id>/`。Git worktree 只隔离代码和文件，当前仍不隔离 CPU、内存、网络或凭证，也没有内建用户鉴权。具体边界和验证证据见 [`Agent 能力工作台 v0.1`](docs/specs/agent-workbench-v0.md)。
+浏览器打开 `http://127.0.0.1:5173/ai/ideas`、`/ai/requirements`、`/ai/agents` 或
+`/ai/runs`。Agent 定义由主线 `config/agent-registry.yaml` 与 `harness.yaml` 管理；Run
+元数据和规范事件写入平台 PostgreSQL，完整产物留在应用 `.runtime/agent-runs/`。运行现场位于
+`/home/yyh/project/.omni-brain-runs/<run-id>/`。Git worktree 只隔离代码和文件，当前仍不隔离
+CPU、内存、网络或凭证，也没有内建用户鉴权。S0 边界见
+[`团队 AI 协作平台 S0 R2`](docs/specs/team-ai-collaboration-s0-r2.md)。
 
-## 两个仓库角色
+## 一个主线，短期实验分支
 
-| 仓库 | 角色 |
-|---|---|
-| `omni-brain` | 设计与实践仓：Blueprint、讨论、研究、认证参考、私有 Eval 和 Trial 证据 |
-| `omni-brain-harness` | 精简发布与实验仓：独立 Harness Release、领域知识集成分支、根规则、Skills、工具和公开能力状态 |
+平台代码、规范知识、Agent/Skill、评测资产、需求与设计统一进入 `omni-brain/main`。已认证的
+历史资产以可追溯子树保留来源：平台位于 `apps/quality-platform`，可移植 Harness 快照位于
+`packages/harness`，正式质检知识位于 `knowledge/published/quality-check`。
 
-设计仓中的强模型参考答案和私有评分不能进入候选 Harness。候选模型必须只依靠待发布能力和用户授权的真实材料完成任务。
+实验 branch/worktree 只承担隔离运行，不再成为长期产品入口。一个实验只有通过相应门禁后，才把
+业务需求、实现、规范知识和必要评测证据晋升主线；失败 Trial 保留最小审计和引用，不把整个现场
+复制进产品路径。强模型参考答案和私有评分仍不得进入候选模型可见上下文。
 
-当前 `/home/yyh/project/omni-brain-harness` 是空知识的可移植 M1 Harness Release；质检知识集成版单独检出到 `/home/yyh/project/omni-brain-harness-quality-check-v1`。两者共享 Git 历史，但发布身份和用途不同。
+`/home/yyh/project/quality-platform-lab`、`/home/yyh/project/omni-brain-harness` 和
+`/home/yyh/project/omni-brain-harness-quality-check-v1` 现只作为历史来源与迁移校验现场；新的正式
+开发从本仓主线开始，不再把它们当成并列产品仓。
 
 ## 目录导航
 
@@ -106,10 +118,13 @@ docs/now.md              当前工作台与下一动作
 docs/briefings/          面向外部讨论的项目说明包
 docs/specs/              已批准或待验证的具体切片方案
 docs/research/           开源项目和技术选项的一手研究
+apps/quality-platform/   Vue3 + FastAPI + PostgreSQL 的正式产品宿主
+packages/harness/        已发布 Harness 的可追溯快照与独立回归
 knowledge/raw/           不可变原始材料
-knowledge/               当前设计仓的知识资产
+knowledge/published/     已认证并可直接消费的规范知识包
+knowledge/               全局知识入口、原料、规范知识与知识变化记录
 eval/STATUS.md           用例、参考成果、Trial 与动态状态总账
-.agents/skills/          设计仓当前保留的实验性工作协议
+.agents/skills/          当前主线可调用的已验证/受控 Skills
 scripts/                 确定性工具；多项历史脚本仍是占位实现
 workspaces/              可恢复任务和研究工作区
 AGENTS.md                本项目 Agent 操作契约

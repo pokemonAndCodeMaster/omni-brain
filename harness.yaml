@@ -1,0 +1,147 @@
+schema_version: '0.4'
+name: omni-brain
+release_channel: main
+release_id: omni-brain-main
+release_branch: main
+release_date: '2026-08-30'
+roadmap: docs/harness-roadmap.md
+
+current_stage:
+  id: M4
+  status: integrated_release_with_scoped_verification_through_m4_and_local_review
+  outcome: 从知识摄入、可信查询、知识驱动开发到代码知识回写与本地软件审查形成可移植的受控能力链
+
+runtime:
+  primary: opencode
+  adapter: native_file_conventions
+  instructions: AGENTS.md
+  skills_root: .agents/skills
+  opencode_specific_config_required: false
+
+capabilities:
+  knowledge_base:
+    adoption: verified_at_quality_check_incremental_and_reader_refactor_slices
+    entrypoints:
+      - knowledge/index.md
+      - knowledge/published/quality-check/index.md
+      - knowledge/published/quality-check/knowledge-domains.yaml
+    limits:
+      - 当前正式知识只覆盖质检领域，人工质检验收深度最高
+      - 当前生产代码、数据、外部系统、人员责任和规则延续仍须直接证据核验
+      - 其他领域尚未形成同等深度的规范知识包
+      - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
+  knowledge_ingestion:
+    adoption: verified_at_cross_model_incremental_slice
+    entrypoints:
+      - .agents/skills/ingest-knowledge/SKILL.md
+      - scripts/ingestion_workspace.py
+      - scripts/knowledge_check.py
+    limits:
+      - 宽范围完整整理把不重复叙述文档作为独立审阅单元；完全重复仍合并，代码与配置按有界依赖组阅读
+      - 读后发现、必要细节、知识归属和正文表达仍由 Agent 语义完成；工具只能校验来源、顺序、唯一归属、真实标题和一致性
+      - 完整模式的来源追溯页从已校验发现和正文落点重建，不由模型维护第二份路径清单
+      - 新摄入案继承正式知识和领域配置的父版本快照；create/update/merge 与父路径关系及候选差异可检查
+      - 聚焦问题召回只使用关键词、标题、正文命中和有限 import，不包含向量或完整代码图
+      - 隔离运行支持现场只读引用和私有可写副本；环境绑定结果不能冒充固定基线
+      - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
+      - 只读检查不判断业务真伪或内容充分性
+      - 聚焦代码、宽范围完整整理和增量融合均有当前内容证据；证据仍限于固定真实材料和少量模型运行
+      - 增量融合已经在认证父知识与后来材料上通过两个独立模型重放：父知识保留、原位融合、入口语义同步和候选差异均有内容证据
+      - 人工批准、正式知识发布与干净消费已经完成；本 Release 不预装领域知识
+      - 跨领域、OpenCode 实际宿主、部分批准、发布回滚和过程成本优化仍未验证
+  knowledge_query_and_context:
+    adoption: verified_at_quality_check_trusted_query_slices
+    entrypoints:
+      - .agents/skills/answer-from-knowledge/SKILL.md
+      - .agents/skills/answer-from-knowledge/scripts/knowledge_route.py
+      - knowledge/index.md
+    limits:
+      - 当前只使用入口链接路由、产品视图、规范页和必要的有界 rg，不包含 FTS、向量、图查询或 Web UI
+      - 入口路由器只对受治理链接的标题与上下文做确定性排序，不读取原料、不回答问题、不持久化索引或状态
+      - 普通问答不创建持久状态；答案状态、最低充分范围和任务上下文仍由 Agent 语义判断
+      - 确定性路由在十个质检问法上主入口通过；固定较弱模型在新的人员权限与交付状态问题上实际调用路由、零宽泛搜索并取得完整内容结果
+      - 证据限于当前中文 Markdown、单一宿主/模型、单一质检领域和最多三篇规范页；第二领域、OpenCode、大规模知识与精确源码联查仍未验证
+  knowledge_guided_development:
+    adoption: verified_at_four_manual_qc_development_and_one_trusted_context_composite_slice
+    dependencies:
+      - knowledge_query_and_context
+    entrypoints:
+      - .agents/skills/develop-with-knowledge/SKILL.md
+      - .agents/skills/answer-from-knowledge/scripts/knowledge_route.py
+    limits:
+      - 已在验收配额页面、问题选项只读 SQL 性能、验收分配缺口算法和缺口详情交互四类用例上完成成功重放；证据覆盖两种宿主/模型组合，领域仍限于同一人工质检系统
+      - 分配缺口用例中盲测候选反证并纠正了首轮参考口径；这证明参考可被运行和领域语义推翻，不证明任意业务规则都能自动裁决
+      - 本地 CSV 单事务写库取得正向证据，但仍存在不完整指标输入问题，不计入已验证切片
+      - 真实页面出现与页面交互必须分别取证；最终知识变化交接仍有被弱模型跳过的记录
+      - 缺口详情同题对照中，修订后的来源追踪、短运行探针、完整键盘焦点证据和逐项交付映射补齐了全部固定检查；本结论不包含题目公式或固定数值
+      - 详情 Trial 的工具调用仍偏多；可复用浏览器证据工具只有在另一交互任务复现该成本后才进入实现
+      - 不包含自动上下文组装、环境管理或正式知识自动发布
+      - 确定性知识入口路由已经接入开发 Skill；“验收未完成量”复合 Trial 中较弱模型只读两篇正式知识后停止，并完成真实代码、最大组合与超限拒绝、API 与 Edge 用户旅程
+      - 复合 Trial 的模型页面验证曾使用默认两日 Scope，四级固定值由独立评测补齐；当前规则已要求 API、SQL 与页面显式使用同一 Scope
+      - 复合 Trial 的知识变化候选仍缺精确正式 owner；代码到规范知识发布仍属于 human-review-required
+      - 低风险局部修改不应被机械升级为完整流程
+  local_work_review:
+    adoption: verified_at_deepseek_software_review_positive_mismatch_no_trigger_slice
+    dependencies: []
+    entrypoints:
+      - .agents/skills/review-work/SKILL.md
+      - .agents/skills/review-work/references/software-development.md
+    limits:
+      - 当前只实现本地 Markdown 审查的软件开发分支；知识摄入、方案和 Harness 修改的专属内容尚未验证
+      - OpenCode DeepSeek 正向报告已达到人工反馈收敛的认证参考接受线；任务错位在身份阶段停止且不读取产品实现，简单状态查询不触发审查单
+      - 不调用模型 API，不自动收集证据，不替代需求澄清或方案形成；原始任务、Diff 和验证记录仍由宿主会话定向读取
+      - 简单问答和局部低风险修改不创建持久审查单
+  independent_delivery_verification:
+    adoption: implemented_unverified_candidate
+    dependencies:
+      - knowledge_guided_development
+      - local_work_review
+    entrypoints:
+      - .opencode/agents/delivery-reviewer.md
+      - .agents/skills/review-work/references/independent-delivery-check.md
+    limits:
+      - 只用于跨层、公共能力、多消费者或含强范围关闭条件的复杂施工，不给局部低风险任务增加固定流程
+      - OpenCode 使用只读原生 subagent；其他宿主需要等价的新上下文，当前没有额外模型 API 或后台编排器
+      - 复核者只返回反例和证据，不修改代码或审查单，也不替代人工验收
+      - 当前仅完成实现与契约测试，尚待复杂开发 Trial 证明能阻止错误完成声明
+  solution_formation:
+    adoption: verified_at_deepseek_complex_solution_and_routing_slice
+    dependencies: []
+    entrypoints:
+      - .agents/skills/form-solution/SKILL.md
+      - .agents/skills/form-solution/references/software-solution.md
+      - .opencode/agents/r1-requirements-reviewer.md
+    limits:
+      - 当前只实现复杂软件开发诉求的 R1 需求与 R2 方案形成，方案批准前不实施代码
+      - R1 优先使用用户输入和最低产品入口，R1 通过后才按方案问题定向读取当前实现
+      - 需求语义、方案质量和人工批准仍由模型与用户判断，没有确定性评分器代替内容审查
+      - OpenCode DeepSeek 在同一复杂前后端用例的两个独立重放中均达到冻结接受线，需求忠实、业务模块归属、数据完整性、接口责任、结构化 XLSX 与不实施边界通过关键要求
+      - 最终候选已通过简单局部修改不触发方案流程、缺少批准证据时有界停止两项路由回归
+      - 证据仍限于单一人工质检系统、单一复杂用例与 OpenCode DeepSeek；尚未验证第二领域、其他弱模型和实际开发交接结果
+      - R2 定向查证约 25–40 次源码读取且生成延迟偏高，来源效率与响应速度尚未优化
+      - OpenCode 的 R1 限知 Agent 已实现但尚未取得目标 Trial 证据；验证前只作为受控实验入口，不自动外推到其他宿主
+  knowledge_writeback:
+    adoption: verified_at_manual_qc_same_system_adjacent_writeback_slice
+    dependencies:
+      - knowledge_base
+      - knowledge_ingestion
+      - knowledge_guided_development
+    entrypoints:
+      - .agents/skills/ingest-knowledge/SKILL.md
+      - scripts/ingestion_workspace.py
+      - scripts/knowledge_check.py
+    limits:
+      - 固定代码变化先形成读者问题，区分同一系统更新与新系统接入，再按业务语义、软件结构、兼容、公共能力、证据和导航原位更新既有 owner
+      - 已在验收未完成量相邻增量中由固定较弱模型达到冻结内容接受线；来源 root、branch、HEAD、parent，指标组合边界、旧列配置机制和真实运行范围均被正确内化
+      - 候选必须停在人工审查前，不自动发布正式知识；工具检查归属、身份、旧事实和结构，业务真伪仍由直接证据、模型与人共同判断
+      - 外部契约与数据库状态密集型保留集尚未通过：精确常量、类型/范围、代表性状态值和夹具变换可能被模型压缩，发布前必须与直接源码和固定报告人工核对
+      - 证据仅限有完整父知识、固定 Git 来源和验证报告的同一质检系统相邻增量；跨系统、缺少报告、删除退役、冲突改写、第二领域和 OpenCode 实际宿主尚未验证
+
+promotion_policy:
+  allowed:
+    - 真实纵向能力已经产生用户可用结果
+    - 下一实验已确认用户流程、边界、技术选项和验收
+  forbidden:
+    - 仅存在于设计仓库的方案
+    - 手工答案、stub、合成测试或不存在工具的能力声明
+    - 依赖当前聊天历史或构建者临场能力才能理解的状态

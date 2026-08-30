@@ -1,6 +1,7 @@
-# Quality Platform Lab
+# Omni-Brain 质量与 AI 协作平台
 
-质量与 AI 协作平台的本地实验工程。当前同时保留人工质检数据链，并新增团队 Idea、候选/正式 Requirement、人机时间线和 Codex/OpenCode 双执行器的 S0 纵切。
+Omni-Brain 主线内的 Vue3 + FastAPI + PostgreSQL 产品应用。当前同时提供团队 Idea、候选/正式
+Requirement、人机时间线、Codex/OpenCode 双执行器和人工质检数据链。
 
 工程目录和快照字段以原始质检平台资料中的当前实现为基线，不再使用早期实验自定义的 `quality_platform_lab` 包或 `lab-v1` 字段集。
 
@@ -30,6 +31,7 @@
 ## 快速开始
 
 ```bash
+cd /home/yyh/project/omni-brain/apps/quality-platform
 cp .env.example .env
 python -m venv .venv
 .venv/bin/python -m pip install -e '.[dev]'
@@ -58,7 +60,9 @@ Agent 入口：
 - `http://127.0.0.1:5173/ai/agents`：能力目录与启动入口；
 - `http://127.0.0.1:5173/ai/runs`：轻量 Run 列表和按需详情/trace。
 
-Agent Runtime 同时支持 `codex exec --json` 与 `opencode run --format json`。开发、方案和
+Agent Runtime 从主线根目录的 `config/agent-registry.yaml` 与 `harness.yaml` 读取已登记能力，
+并以同一个主线版本建立 Run worktree。它同时支持 `codex exec --json` 与
+`opencode run --format json`。开发、方案和
 协作动作默认 Codex，评测/对照默认 OpenCode；能力允许时可以显式切换。OpenCode 默认
 使用本机随机端口，也可通过 `OPENCODE_ENDPOINT` 连接已登记 server。worktree 只隔离
 代码和文件，不充当进程、端口或租户隔离；S0 仍是单仓单写入、单执行并发。
