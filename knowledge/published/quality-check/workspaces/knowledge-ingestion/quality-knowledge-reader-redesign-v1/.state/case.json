@@ -1,0 +1,242 @@
+{
+  "schema_version": "1.3",
+  "id": "quality-knowledge-reader-redesign-v1",
+  "mode": "focused",
+  "goal": "让没有摄入过程背景的读者从一个入口理解质检领域全貌，按自顶向下的知识地图进入人工质检和验收，并在单篇卡片中清楚看见定位、结构、重点、覆盖范围与待确认事项。",
+  "target_reader": "需要学习质检、人工质检或验收，或据此继续业务和开发工作的读者",
+  "boundaries": [
+    "只形成三个可审查样板；不新增业务事实，不覆盖正式 knowledge/，不批量修改其他卡片。"
+  ],
+  "sources": [
+    {
+      "id": "current-knowledge",
+      "root": "/home/yyh/project/omni-brain-harness-quality-check-v1/knowledge",
+      "kind": "local_git",
+      "git": {
+        "root": "/home/yyh/project/omni-brain-harness-quality-check-v1",
+        "commit": "900cf851865bcea9a959d795cf2c127f2c8094e1",
+        "scope": "knowledge",
+        "dirty": false
+      },
+      "file_count": 33,
+      "fingerprint": "5f5ec31d4cb0e59cce87d02f671137d51b3951a0e544588a798375d97f4c49ab"
+    }
+  ],
+  "baseline": {
+    "files": [
+      {
+        "path": "config/knowledge-domains.yaml",
+        "sha256": "efcd6840ddeb7fed93c2616f84db60c88c59ff4a5dfeaaa8da0f247a7a006226",
+        "bytes": 777
+      },
+      {
+        "path": "knowledge/capabilities/database-access.md",
+        "sha256": "5d41f295c2ea7559a1e4713b4ce91d862d5b5649fc8fc6ff89aa2310f753840a",
+        "bytes": 4811
+      },
+      {
+        "path": "knowledge/capabilities/index.md",
+        "sha256": "6a4902e3658330c3f701f8cb5864329a9cf8355f8816549cfbc6bc5714d84c2c",
+        "bytes": 652
+      },
+      {
+        "path": "knowledge/capabilities/object-storage.md",
+        "sha256": "e65c11a69d71c40fe13c05571baa7c9907ce4c96fff4cc67f176c057f29cab50",
+        "bytes": 1998
+      },
+      {
+        "path": "knowledge/capabilities/quality-data-workbench.md",
+        "sha256": "ae8268c4cac2971a6373b5b3fcad8d319ee1f59f1f991bcf40ba9796d74b41c0",
+        "bytes": 1943
+      },
+      {
+        "path": "knowledge/domains/index.md",
+        "sha256": "02b265a1485f68c27e947d643fa389a27abd6845938c02ed7d3fdcf50d3d99d8",
+        "bytes": 329
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/conclusion-and-execution.md",
+        "sha256": "07ebe42bf38ac13445a9e00a64a9903f6dfe7d26ab593e5b2703a57819ad6006",
+        "bytes": 5760
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/data-flow-and-state.md",
+        "sha256": "019f5317fb0df0b0ee5ed8c3ac4f61f9bcbfac364e9efa6359d94ae801ce4bd0",
+        "bytes": 7897
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/implementation-map.md",
+        "sha256": "3f5e95985e8fa97a0295df5b3bf950c1e0e4abb30ff8338700c3a5029b531e17",
+        "bytes": 5476
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/lifecycle.md",
+        "sha256": "5529c8437168fd0ceedb2078972bc0e35a1b5340b082c4fd6629537d8fdb2bce",
+        "bytes": 7650
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/open-questions.md",
+        "sha256": "3e23041666e36672873be8737c9c79446025c787a012ce66b86f5a483b915274",
+        "bytes": 4831
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/overview.md",
+        "sha256": "ed38ccca184833cc3f35313edab31714a474a61da1fb1093cd9bb184e542090e",
+        "bytes": 5594
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/python-architecture-and-implementation.md",
+        "sha256": "d19feebe77144b21a26a144b0bb22d2a9936983c194ecc357c200ceb3521ed9f",
+        "bytes": 11262
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/sampling-and-assignment.md",
+        "sha256": "28bded8c02a0d720ae8c3c3b76dd22914f4922cb3d062d1ec688d71b4a2f454b",
+        "bytes": 8020
+      },
+      {
+        "path": "knowledge/domains/quality/manual/acceptance/system-architecture.md",
+        "sha256": "c5be68676d83700c9e53b4275c51b2876bede32a251c523626b8fe5c74eca1e3",
+        "bytes": 12382
+      },
+      {
+        "path": "knowledge/domains/quality/manual/delivery-management.md",
+        "sha256": "771d6f9f4de476beab2ca19fee73d49a38b3c695a95d89d48ec0a6a6f8fbbc84",
+        "bytes": 2682
+      },
+      {
+        "path": "knowledge/domains/quality/manual/overview.md",
+        "sha256": "1c371c8319f92c15a183e8873453d12aa7cfd1f15bfbf6a252a41cfe178be23a",
+        "bytes": 6366
+      },
+      {
+        "path": "knowledge/domains/quality/manual/personnel-and-permissions.md",
+        "sha256": "2b713de532b46bf79a42491d53d655ce9c5c4fc834b77a976d594669ca3da471",
+        "bytes": 1778
+      },
+      {
+        "path": "knowledge/domains/quality/manual/platform-and-module-map.md",
+        "sha256": "f13bf075415a063e39dcd0f220e3aff79e7daf3e3ed089b17ed9a832b46095be",
+        "bytes": 4862
+      },
+      {
+        "path": "knowledge/domains/quality/overview.md",
+        "sha256": "7cd3a1274bf0facfac907824966ad07efd564a58147754dc464df56ebfad970b",
+        "bytes": 3620
+      },
+      {
+        "path": "knowledge/index.md",
+        "sha256": "53b113801105ac1b9ae68c023eb6d82476077e2cd24fb4251f46430e0ea3c3f8",
+        "bytes": 7334
+      },
+      {
+        "path": "knowledge/log.md",
+        "sha256": "05e97771537d0ae552ca0fba801d8b560e92a561bd7985335b1646334df02916",
+        "bytes": 1867
+      },
+      {
+        "path": "knowledge/sources/current-prototype.md",
+        "sha256": "4d9172c8a9fd73569cac349a4516c1ea18a4c2392e969519be9fba9ebd5790af",
+        "bytes": 2749
+      },
+      {
+        "path": "knowledge/sources/historical-pipeline.md",
+        "sha256": "e8811aff6e18d1cc4071faa07cd68ed7a5b50be9f0aa3f623074e5ade6fd74ca",
+        "bytes": 2017
+      },
+      {
+        "path": "knowledge/sources/human-decisions.md",
+        "sha256": "d9c3c94ce8861bfad056fc973f42f7a57f70263b14b25b5bc39b7098d315032f",
+        "bytes": 1892
+      },
+      {
+        "path": "knowledge/sources/index.md",
+        "sha256": "59eb628a32d52b96a1d3a732283b1f4755ec10247af81cc5b089acb9e66d1d5d",
+        "bytes": 41336
+      },
+      {
+        "path": "knowledge/sources/target-design.md",
+        "sha256": "3ef24c043130c60432358660ae6050ce96fdbd47ea7b198e820e75702e4b67b8",
+        "bytes": 2226
+      },
+      {
+        "path": "knowledge/systems/index.md",
+        "sha256": "e0202e8909f6a30cb7a814bc75f319a58f4c3079d758d629a33ac1d321d6d0aa",
+        "bytes": 89
+      },
+      {
+        "path": "knowledge/systems/manual-qc-acceptance-prototype.md",
+        "sha256": "a5e210c3a9044b45e91a8dc16bc38ebcad97c42a6857b1022d71623627d4895a",
+        "bytes": 6888
+      },
+      {
+        "path": "knowledge/views/by-domain/index.md",
+        "sha256": "aa11430c64f85a4f825cf9a062cc3c01b381a41b76a464503a046a718e0d48a6",
+        "bytes": 54
+      },
+      {
+        "path": "knowledge/views/by-domain/quality.md",
+        "sha256": "2a21cfdc8e4421a52ec877cfb8f46f15ae708043483de7b8f50c0456614ad19a",
+        "bytes": 4195
+      },
+      {
+        "path": "knowledge/views/by-journey/index.md",
+        "sha256": "6794714f271d3202d61a154276d4d25f26036e11b99b333f4797b33b31c12c0d",
+        "bytes": 73
+      },
+      {
+        "path": "knowledge/views/by-journey/manual-qc-acceptance.md",
+        "sha256": "a7fa512ded5a699c032b11a88b72b04a87a919394d93abeb79c7aabf49b48042",
+        "bytes": 5145
+      },
+      {
+        "path": "knowledge/views/index.md",
+        "sha256": "331c27799975513b495eb60f1e62cc28d47b5e8fef71858b8f48115242d39112",
+        "bytes": 371
+      }
+    ],
+    "file_count": 34,
+    "substantive_file_count": 24,
+    "fingerprint": "41b6b092de26f487671c19d6c41223002aefee87c9564a4339e113a8dbf9cddc"
+  },
+  "questions": [
+    {
+      "id": "q-001",
+      "text": "怎样重构总入口、质检领域全貌和人工质检验收总览，使知识层级、默认阅读顺序、问题快捷入口和已知未知边界清晰且不暴露摄入过程黑话？",
+      "status": "working",
+      "summary": "",
+      "missing": [],
+      "expected_units": [],
+      "knowledge_paths": [],
+      "requires_run": false,
+      "run_ids": [],
+      "pending_run_ids": [],
+      "integrated_run_ids": [],
+      "evidence": [],
+      "query_terms": [],
+      "candidate_queue": [],
+      "active_packet": [],
+      "dismissed_packets": [],
+      "candidate_closure": null,
+      "next_action": "规划本问题的知识单元并取得第一小批直接来源",
+      "updated_at": "2026-08-09T11:30:15Z"
+    }
+  ],
+  "stage": "focused",
+  "cursor": {
+    "item_type": null,
+    "item_id": null
+  },
+  "material_groups": [],
+  "findings": [],
+  "topics": [],
+  "plan_review": {
+    "passed": false,
+    "lenses": {},
+    "not_applicable": {},
+    "issues": []
+  },
+  "created_at": "2026-08-09T11:30:15Z",
+  "updated_at": "2026-08-09T11:30:15Z",
+  "next_action": "为 q-001 规划一至三个知识单元，再取得第一小批直接来源"
+}

@@ -1,0 +1,76 @@
+schema_version: '0.4'
+name: omni-brain-harness
+release_channel: release
+release_date: '2026-08-03'
+roadmap: docs/roadmap.md
+
+current_stage:
+  id: M2
+  status: designing_query_and_context_from_published_knowledge
+  outcome: 用户能从正式知识与当前事实源获得正确、最低充分且边界清楚的答案和任务上下文
+
+runtime:
+  primary: opencode
+  adapter: native_file_conventions
+  instructions: AGENTS.md
+  skills_root: .agents/skills
+  opencode_specific_config_required: false
+
+capabilities:
+  task_case:
+    adoption: verified_at_recovery_and_atomic_answer_slices
+    entrypoints:
+      - .agents/skills/task-knowledge-prep/SKILL.md
+      - scripts/task_case.py
+    limits:
+      - 尚缺跨模型和跨领域稳定证据
+      - 语义准备度仍由 Agent 和人判断
+  local_git_source_run:
+    adoption: implemented_l1_local_git_slice
+    entrypoints:
+      - scripts/source_run.py
+    limits:
+      - 只记录显式本地 Git 范围、版本和覆盖
+      - 不理解或摄入知识语义
+  knowledge_base:
+    adoption: verified_at_published_quality_knowledge_slice
+    entrypoints:
+      - knowledge/index.md
+      - config/knowledge-domains.yaml
+    limits:
+      - 已发布人工质检与验收规范知识、领域视图和工作旅程
+      - 已发布内容只在固定材料、代码版本和明确人工决定范围内可信，不代表生产系统现状
+      - 目录名和领域地图是 Omni-Brain 约定，不是 OKF 标准 taxonomy
+  knowledge_ingestion:
+    adoption: verified_at_cross_model_incremental_published_slice
+    entrypoints:
+      - .agents/skills/ingest-knowledge/SKILL.md
+      - scripts/ingestion_workspace.py
+      - scripts/knowledge_check.py
+    limits:
+      - 宽范围完整整理把不重复叙述文档作为独立审阅单元；完全重复仍合并，代码与配置按有界依赖组阅读
+      - 读后发现、必要细节、知识归属和正文表达仍由 Agent 语义完成；工具只能校验来源、顺序、唯一归属、真实标题和一致性
+      - 完整模式的来源追溯页从已校验发现和正文落点重建，不由模型维护第二份路径清单
+      - 新摄入案继承正式知识和领域配置的父版本快照；create/update/merge 与父路径关系及候选差异可检查
+      - 聚焦问题召回只使用关键词、标题、正文命中和有限 import，不包含向量或完整代码图
+      - 隔离运行支持现场只读引用和私有可写副本；环境绑定结果不能冒充固定基线
+      - 只有实际作用于来源项目的运行才能作为其证据，Harness 自身测试不能冒充来源实现结果
+      - 只读检查不判断业务真伪或内容充分性
+      - 聚焦代码、宽范围完整整理和增量融合均有当前内容证据
+      - 人工批准、正式发布、正式消费和两个独立模型的同用例重放已完成；跨领域、OpenCode 和过程成本优化仍未验证
+  knowledge_query_and_context:
+    adoption: provisional_direct_markdown_baseline
+    entrypoints:
+      - knowledge/index.md
+    limits:
+      - 当前只有文件导航和定向事实源读取
+      - 没有 FTS、向量、图查询或自动上下文组装
+
+promotion_policy:
+  allowed:
+    - 真实纵向能力已经产生用户可用结果
+    - 下一实验已确认用户流程、边界、技术选项和验收
+  forbidden:
+    - 仅存在于设计仓库的方案
+    - 手工答案、stub、合成测试或不存在工具的能力声明
+    - 依赖当前聊天历史或构建者临场能力才能理解的状态

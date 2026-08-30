@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ingest Knowledge"
+  short_description: "Turn bounded messy sources into governed knowledge"
+  default_prompt: "Use $ingest-knowledge to organize these bounded sources into traceable canonical knowledge and product views, choosing complete or focused mode from my request."
