@@ -42,8 +42,12 @@ function save() {
   <div class="metadata-form">
     <label><span>Owner</span><input v-model="owner" class="field" /></label>
     <label><span>Reviewer</span><input v-model="reviewer" class="field" /></label>
-    <label><span>开始</span><input v-model="start" class="field" type="datetime-local" /></label>
-    <label><span>结束</span><input v-model="end" class="field" type="datetime-local" /></label>
+    <label class="metadata-wide">
+      <span>开始</span><input v-model="start" class="field" type="datetime-local" />
+    </label>
+    <label class="metadata-wide">
+      <span>结束</span><input v-model="end" class="field" type="datetime-local" />
+    </label>
     <button
       class="button"
       type="button"
@@ -72,6 +76,10 @@ function save() {
   min-width: 0;
 }
 
+.metadata-form .metadata-wide {
+  grid-column: 1 / -1;
+}
+
 .metadata-form label span {
   color: var(--color-muted);
   font-size: 9px;
@@ -88,6 +96,10 @@ function save() {
   }
 
   .metadata-form button {
+    grid-column: auto;
+  }
+
+  .metadata-form .metadata-wide {
     grid-column: auto;
   }
 }
