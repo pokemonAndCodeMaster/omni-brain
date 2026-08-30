@@ -3,7 +3,7 @@
 > 更新时间：2026-08-30
 > 主线目录：`/home/yyh/project/omni-brain/apps/quality-platform`
 > 分支：`main`
-> 功能基线：协作平台 S0、Codex/OpenCode 双执行器与本地 Chromium 验收
+> 功能基线：协作平台 S1、Codex/OpenCode 双执行器、受管 Work 闭环与本地 Chromium 验收
 
 ## 1. 当前结论
 
@@ -26,9 +26,10 @@
 `admin`。Agent Runtime 通过统一 Adapter 同时接入 Codex 与 OpenCode，列表保持摘要读取，
 只有选中具体 Run 才加载 prompt、结果与增量 trace。
 
-产品终稿和 S0 R2 已由用户批准。S0 仍不包含 Work、Git 自动化、认证、Docker、远程
-Worker、正式 EvalCase/Judge 或进化 Loop；下一纵切是 S1 固定开发闭环，不再重新讨论
-Proposal 独立对象、S0 身份或双执行器是否引入。
+产品终稿、S0 R2 与 S1 R2 已由用户批准。S1 已实现 accepted Requirement → 共享 worktree
+Work → 固定六步计划 → Codex/OpenCode Run → Git/验证/审查证据 → 人工接受的最薄闭环。
+首个真实 Work 已走到人工接受前，尚未由用户接受。认证、Docker、远程 Worker、正式
+EvalCase/Judge、进化 Loop 与自动 Push/PR/Merge 仍不在本切片。
 
 ## 2. 后续模型的阅读顺序
 
@@ -53,6 +54,7 @@ http://127.0.0.1:5173/ai/ideas
 http://127.0.0.1:5173/ai/requirements
 http://127.0.0.1:5173/ai/agents
 http://127.0.0.1:5173/ai/runs
+http://127.0.0.1:5173/ai/works
 ```
 
 页面从上到下包括：
@@ -69,6 +71,8 @@ http://127.0.0.1:5173/ai/runs
    保存 Revision，并由 admin 接纳、驳回、延期、合并或重开。
 7. **能力与 Runs：** 显示 Codex/OpenCode 健康、能力默认执行器和轻量历史；进入 Run
    后才读取具体输入、结果、失败原因与规范事件。
+8. **Work：** 从 accepted + NEXT Requirement 创建共享 worktree 和固定计划，逐步启动、
+   重试并人工确认 Run，保存 Git/验证/审查证据，最后由人接受或要求修订。
 
 顶部范围作用于全页。表头聚合筛选默认只影响任务表，只有日期、单个项目或单个任务等
 可以无损表达的条件，才允许显式提升到全页或统计卡片。
@@ -99,6 +103,7 @@ src/manual_qc/analysis/        指标目录、受控查询、动态问题选项
 src/portal/                    视图配置保存
 src/agent_runtime/             Codex/OpenCode Adapter、Run 元数据/事件、worktree
 src/collaboration/             Idea、Requirement、Revision、Decision 与派生时间线
+src/work/                      Work、固定计划、Gate、证据与人工决定
 src/api/routers/               FastAPI 路由
 src/api/schemas/               Pydantic HTTP / 配置契约
 ```
@@ -138,6 +143,9 @@ src/frontend/src/features/agent-runtime/
 
 src/frontend/src/features/collaboration/
   Idea/Requirement 摘要、详情、时间线、R1 编辑和评审
+
+src/frontend/src/features/work/
+  Work 摘要、固定计划、Run 历史、责任/时间盒、交付证据与人工接受
 ```
 
 通用组件只负责呈现和交互；人工质检指标、问题选项语义和预设留在人工质检 feature。
@@ -157,6 +165,11 @@ manual_qc_lab.t_collab_requirement_revision
 manual_qc_lab.t_collab_thread
 manual_qc_lab.t_collab_thread_entry
 manual_qc_lab.t_collab_decision
+manual_qc_lab.t_collab_work
+manual_qc_lab.t_collab_work_plan
+manual_qc_lab.t_collab_plan_step
+manual_qc_lab.t_collab_work_evidence
+manual_qc_lab.t_collab_work_decision
 ```
 
 当前确定性种子：
@@ -239,8 +252,8 @@ npm run build
 
 当前基线：
 
-- Python：24 项通过；
-- Vue/Vitest：34 项通过；
+- Python：45 项通过；
+- Vue/Vitest：38 项通过；
 - `vue-tsc`：通过；
 - Vite 生产构建：通过，仍有单 bundle 超过 500 kB 的警告；
 - OpenCode 真实纵链：`run-20260829-154845-cd07a9` 成功，session、worktree、最终文本和
@@ -258,12 +271,21 @@ npm run build
 - OpenCode 对照 Run `run-20260830-041237-59dfb6` 暴露单行 JSON 超过默认 64 KiB 的
   Adapter 缺陷，失败原因原样保存；流上限提高到有界 16 MiB 后，
   `run-20260830-041949-740b63` 成功并回填 session、42 个事件和最终文本；
-- Playwright Chromium 1.58.0 已在 1440、1024、390、320 四档宽度验收 6 条协作路由，
+- 首个真实 S1 Work `work-20260830-060651-5cb1fa` 已完成知识、方案、开发和验证 Gate；
+  Codex 开发 Run 为 `run-20260830-061827-314aa8`，OpenCode 验证 Run 为
+  `run-20260830-065128-653dc1`。开发文件变化由受信的平台进程提交到 Work 分支，Agent
+  不获得主仓 Git 元数据写权限；平台未 Push、创建 PR/MR 或 Merge；
+- OpenCode 验证真实观察到未列入白名单的复合 Bash 被显式 deny；允许的后端测试、
+  38 项前端、类型检查和生产构建命令可以运行；`--auto` 只处理 ask，不能覆盖显式 deny；
+- Playwright Chromium 1.58.0 已在 1440、1024、390、320 四档宽度验收 6 条 S0 协作路由，
   24/24 个路由—视口组合通过；无横向溢出、未命名控件、小于 32px 的可见点击目标、
   控制台/Page Error 或 4xx/5xx；
 - 20/20 项真实交互通过：Idea/Requirement/Run/Agent 主路径、移动导航、跳过导航、
   可见键盘焦点、对话框入焦、Esc 关闭和焦点归还；本机证据位于被忽略的
   `.runtime/e2e-collaboration/`；
+- S1 的 Work 列表、Work 详情、来源 Requirement 与 Run 详情在 1440、390、320 三档
+  共 12 个路由—视口组合通过；无横向溢出或控制台/Page Error，Requirement → Work → Run
+  键盘路径通过。证据位于被忽略的 `.runtime/screenshots/mainline-s1-final-20260830/`；
 - 真实页面：5 张图表、24 个任务、首个任务展开得到 14 个日期；
 - 图表卡增高一格时，卡片、内容区、ECharts 容器和 canvas 同步增加 58px。
 
@@ -292,7 +314,7 @@ V1 配置类型和旧四级 API 仍承担迁移、回退或顶部范围数据职
 
 ### 9.1 产品边界
 
-人工质检仍是**只读分析工作台**；AI 协作当前只到 S0，尚未实现：
+人工质检仍是**只读分析工作台**；AI 协作已到 S1，尚未实现：
 
 - 验收覆盖矩阵；
 - 预期分配与实际分配缺口定位；
@@ -300,10 +322,9 @@ V1 配置类型和旧四级 API 仍承担迁移、回退或顶部范围数据职
 - 执行前预览和人工确认；
 - 任务下发、部分失败、重试、执行结果和状态回查；
 - 多用户权限、共享视图和冲突合并。
-- Work、WorkPlan 与标准开发闭环；
-- Commit/Push/PR/MR 关联和交付审查包；
 - 正式 EvalCase、Judge 和能力进化；
 - Docker、远程 Worker、Lease 与对象存储。
+- 平台自动 Push/PR/MR/Merge（S1 有本地 Commit 和人工回填的 PR/MR 引用）；
 
 ### 9.2 技术边界
 
@@ -329,10 +350,10 @@ V1 配置类型和旧四级 API 仍承担迁移、回退或顶部范围数据职
 
 ## 10. 下一步
 
-协作平台下一步已经批准为 S1：从 accepted Requirement 创建 Work 和固定
-`standard_development_v1`，默认用 Codex 做方案/开发、OpenCode 做评测/对照，并回填
-worktree、分支、Commit、验证、审查和人工接受。Agent 可以 Commit；Push/创建 PR(MR)
-必须人工确认，Merge 始终人工。
+协作平台 S1 已实现并完成真实纵链，当前唯一产品门是用户在 Work 页面完成 R1 验收：核对最终
+Commit、验证/审查证据后选择“接受交付”或“要求修订”。S1 接受后再把下一条能力登记为
+Requirement；优先候选是历史实验资产晋升和首个消费正式知识的真实开发任务，不直接跳到通用
+工作流 DSL、远程 Worker 或自动进化。
 
 以下人工质检候选仍未单独排期。
 
