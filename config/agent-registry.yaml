@@ -9,6 +9,8 @@ agents:
     name: 知识问答 Agent
     category: 知识管理
     description: 从正式知识入口回答已有事实、缺口、冲突和任务上下文。
+    default_executor: codex
+    supported_executors: [codex, opencode]
     capability_keys:
       - knowledge_query_and_context
     examples:
@@ -19,6 +21,8 @@ agents:
     name: 知识建设 Agent
     category: 知识管理
     description: 将有界材料整理为可浏览、可追溯、可审查的候选知识。
+    default_executor: codex
+    supported_executors: [codex, opencode]
     capability_keys:
       - knowledge_ingestion
       - knowledge_writeback
@@ -30,6 +34,8 @@ agents:
     name: 方案形成 Agent
     category: 软件开发
     description: 从复杂诉求形成可审需求与可施工方案，在批准前保持产品代码不变。
+    default_executor: codex
+    supported_executors: [codex, opencode]
     capability_keys:
       - solution_formation
     examples:
@@ -39,6 +45,8 @@ agents:
     name: 知识驱动开发 Agent
     category: 软件开发
     description: 使用正式知识与当前源码完成开发、真实验证和知识变化交接。
+    default_executor: codex
+    supported_executors: [codex, opencode]
     capability_keys:
       - knowledge_guided_development
     examples:
@@ -48,6 +56,8 @@ agents:
     name: 工作审查 Agent
     category: 质量与治理
     description: 审查已完成的软件工作，对齐原始任务、实现变化和真实证据。
+    default_executor: opencode
+    supported_executors: [opencode, codex]
     capability_keys:
       - local_work_review
       - independent_delivery_verification
