@@ -1,0 +1,297 @@
+---
+title: "质检平台-数据结构组织设计"
+domain: ["manual_qa"]
+type: "synthesis"
+tags: ["quality_check_pipeline", "架构设计", "数据结构", "就近定义", "高内聚低耦合"]
+created: 2026-06-28
+updated: 2026-06-30
+status: active
+sources: 3
+related_code: ["task.md", "implementation_plan.md"]
+affects_path: ["src/manual_qc/", "src/api/schemas/"]
+trigger_keywords: ["领域模型", "domain layer", "dataclass", "models.py", "DTO", "Pydantic", "数据结构放哪里", "高内聚低耦合"]
+---
+
+> ✅ 印证修订：domain 由原始 `["ai_dlc","agent_evaluation","tooling"]` 改为本仓库 TAXONOMY 合法值 `["manual_qa"]`（本仓库无 ai_dlc/agent_evaluation/tooling 枚举）。卡片 title 与文件名不一致（文件名"领域模型层设计"，title"数据结构组织设计"），保留原 title 以维持双链稳定性。
+
+# 质检平台数据结构组织设计
+
+> 当前方案不强制建立集中式 `domain/` 目录，采用"组件内就近定义，出现稳定复用后再上移"。
+
+← [[质检一站式平台人工质检模块整体架构]] | [[质检平台-综合快照表设计]] | [[质检平台-采样与规则引擎设计]] | [[质检一站式平台Phase3前架构评审]]
+
+→ [[质检平台-后端分层与组件边界设计]] | [[质检平台-API契约与前端交互设计]]
+
+## ① 组件概述
+
+领域模型层组件负责回答"质检平台后端的 dataclass / Pydantic / Enum 等数据结构应该放在哪里、何时上移、如何隔离前后端契约"，位于质检平台整体架构的 **Service 层（数据结构组织规范）**，为 [[质检平台-后端分层与组件边界设计]]、[[质检平台-API契约与前端交互设计]]、[[质检平台-验收采样配额与任务选择设计]]、[[质检平台-通过打回规则与执行设计]] 等组件提供数据结构放置与演进规则。该组件不强制建立集中式 `domain/` 目录，采用"组件内就近定义，出现稳定复用后再上移"策略，避免混合四种变化速度不同的结构。
+
+## ② 架构结构
+
+### 后端目录结构（计划目标）
+
+```text
+src/manual_qc/
+├── repository.py
+├── delta_client.py
+├── acceptance/
+│   ├── models.py        # 仅放已形成复用的结构，可初期为空或不存在
+│   ├── sampler.py
+│   ├── pass_rules.py
+│   └── services/
+└── personnel/
+    ├── models.py
+    └── services/
+
+src/api/schemas/
+├── acceptance.py
+└── personnel.py
+```
+
+### 领域模型类图（Mermaid classDiagram）
+
+```mermaid
+classDiagram
+    direction LR
+
+    class Sampler {
+        <<abstract>>
+        +compute(snapshot_rows, params) SamplingQuota
+    }
+    class GroupSampler {
+        +compute(snapshot_rows, params) SamplingQuota
+    }
+    class PersonalSampler {
+        +compute(snapshot_rows, params) SamplingQuota
+    }
+    class RatioSampler {
+        +compute(snapshot_rows, params) SamplingQuota
+    }
+    class SamplingQuota {
+        +str stat_date
+        +str scene_name
+        +str group_name
+        +int annotator_id
+        +int good_count
+        +int bad_count
+    }
+
+    class PassRule {
+        <<abstract>>
+        +evaluate(metrics) Decision
+    }
+    class RateBasedPassRule {
+        +evaluate(metrics) Decision
+    }
+    class Decision {
+        <<enumeration>>
+        PASS
+        REJECT
+        PENDING
+    }
+    class RuleDetails {
+        +float completion_rate
+        +float good_pass_rate
+        +float bad_pass_rate
+        +float total_pass_rate
+        +dict thresholds
+        +str rule_name
+    }
+
+    class SnapshotRow {
+        +str stat_date
+        +str scene_name
+        +str group_name
+        +int annotator_id
+        +int annotation_total
+        +int annotation_submitted
+        +int good_allocated
+        +int good_passed
+        +int bad_allocated
+        +int bad_passed
+        +str conclusion
+        +bool is_executed
+    }
+
+    class Personnel {
+        +int id
+        +str employee_id
+        +str name
+        +str role
+        +str level
+        +str status
+    }
+
+    class AcceptancePreviewRequest {
+        +str sampler_name
+        +dict params
+    }
+    class AcceptancePreviewResponse {
+        +SamplingQuota quota
+        +dict distribution
+        +list warnings
+    }
+
+    Sampler <|-- GroupSampler
+    Sampler <|-- PersonalSampler
+    Sampler <|-- RatioSampler
+    Sampler ..> SamplingQuota : outputs
+    Sampler ..> SnapshotRow : reads
+
+    PassRule <|-- RateBasedPassRule
+    PassRule ..> Decision : outputs
+    PassRule ..> RuleDetails : outputs
+    PassRule ..> SnapshotRow : reads via metrics
+
+    AcceptancePreviewRequest ..> SamplingQuota : references
+    AcceptancePreviewResponse ..> SamplingQuota : contains
+
+    note for Sampler "放置: acceptance/sampler.py\n上移门槛: 被 Service 和其他规则稳定复用时→acceptance/models.py"
+    note for PassRule "放置: acceptance/pass_rules.py\n上移门槛: 多个 Service 均依赖时上移"
+    note for SnapshotRow "放置: repository.py 附近或 acceptance/models.py\n上移门槛: Repository 与多个 Service 共同依赖时上移"
+    note for Personnel "放置: personnel/models.py\n不跨到 acceptance; 需要的少量字段通过查询结果或专用结构传递"
+    note for AcceptancePreviewRequest "放置: api/schemas/acceptance.py\n不上移到内部业务模型"
+end
+```
+
+类图说明：图中数据结构按"就近定义"原则分布在 4 个位置——采样器私有结构在 `acceptance/sampler.py`、规则判定结构在 `acceptance/pass_rules.py`、快照行映射在 `repository.py` 附近或 `acceptance/models.py`、人员结构在 `personnel/models.py`、HTTP 请求响应在 `api/schemas/*.py`。`SamplingQuota`、`Decision`、`RuleDetails`、`SnapshotRow` 是当前已识别的稳定结构；`AcceptancePreviewRequest/Response` 属于 API Schema 层，与内部业务模型隔离。上移门槛：至少两个组件实际使用、字段语义稳定、上移能减少重复而不是扩大依赖。
+
+### 前后端契约分层架构（Mermaid graph）
+
+```mermaid
+graph TD
+    subgraph 前端
+        TS[前端 TypeScript]
+    end
+    subgraph 契约层
+        Schema["api/schemas/*.py<br/>(Pydantic)"]
+    end
+    subgraph 业务层
+        Internal["Service / sampler / pass_rules<br/>内部 Python 结构(dataclass)"]
+    end
+    subgraph 数据层
+        DB[(数据库行映射)]
+    end
+
+    TS <-->|JSON / OpenAPI| Schema
+    Schema <-->|Router 显式转换| Internal
+    Internal <-->|Repository 映射| DB
+
+    note1["内部模型围绕计算优化<br/>API Schema 围绕用户交互与兼容性演进<br/>两者不因字段偶然相似而绑死"]
+    style note1 fill:#fffbe6
+```
+
+分层说明：后端 dataclass 不直接给前端使用，中间通过 `api/schemas/*.py`（Pydantic）与 Router 显式转换隔离。这样内部模型可以围绕计算优化，API Schema 可以围绕用户交互和兼容性演进，两者不会因字段偶然相似而被绑死。
+
+## ③ 数据表交互
+
+| 表名 | 用途 | 读写类型 | 关键字段 | SQL 文件 |
+|------|------|---------|---------|---------|
+| t_qc_daily_snapshot | `SnapshotRow` 结构映射该表行，供 Sampler/PassRule 读取统计指标 | 读 | `stat_date`、`scene_name`、`group_name`、`annotator_id`、`annotation_total`、`annotation_submitted`、`good_allocated`、`good_passed`、`bad_allocated`、`bad_passed`、`conclusion`、`is_executed` | [`../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql) |
+| t_data_check_screeners | `ScreenerRow` 结构映射该表行，供人力组件读取人员信息（V20260714_01 替换自 t_personnel，原 `Personnel` 结构已废弃） | 读 | `id`、`employee_id`、`user_name`、`work_type`、`status` | [`../../../data_schemas/postgresql_relational/t_data_check_screeners.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql) |
+| t_personnel_op_log | 操作记录表，由人力 Service 写入审计日志 | 写 | `operator_id`、`personnel_id`、`action`、`changes` | [`../../../data_schemas/postgresql_relational/t_personnel_op_log.sql`](../../../data_schemas/postgresql_relational/t_personnel_op_log.sql) |
+| t_portal_permission | 权限结构映射该表行，供鉴权组件读取模块等级 | 读 | `employee_id`、`name`、`acceptance_access`、`personnel_access`、`is_admin` | [`../../../data_schemas/postgresql_relational/t_portal_permission.sql`](../../../data_schemas/postgresql_relational/t_portal_permission.sql) |
+
+> 说明：领域模型层本身不直接操作数据库，而是定义数据结构映射；实际读写由 [[质检平台-Repository与数据库访问设计]] 的 Repository 层执行。`SnapshotRow` / `Personnel` 等结构是数据库行在 Python 侧的映射，字段与 SQL DDL 一致。
+
+## ④ 子模块/文件/类级清单
+
+| 子模块/文件/类 | 一句话说明 |
+|---------------|-----------|
+| `acceptance/sampler.py` 内的 `SamplingQuota` | 采样输出结构，首次放置于此；被 Service 和其他规则稳定复用时上移到 `acceptance/models.py` |
+| `acceptance/pass_rules.py` 内的 `Decision` / `RuleDetails` | 通过打回判定结果结构，首次放置于此；多个 Service 均依赖时上移 |
+| `acceptance/models.py` | 仅放已形成复用的结构，可初期为空或不存在 |
+| `repository.py` 附近的 `SnapshotRow` | 快照数据库行映射；Repository 与多个 Service 共同依赖时上移到 `acceptance/models.py` |
+| `personnel/models.py` 内的 `Personnel` | 人员结构，不跨到 acceptance；需要的少量字段通过查询结果或专用结构传递 |
+| `api/schemas/acceptance.py` | 验收相关 HTTP 请求/响应（Pydantic），不上移到内部业务模型 |
+| `api/schemas/personnel.py` | 人力相关 HTTP 请求/响应（Pydantic），不上移到内部业务模型 |
+| `SAMPLER_REGISTRY` | 采样策略注册表，名称唯一来源，取代 `SamplerName` Enum |
+| `RULE_REGISTRY` | 规则注册表，名称唯一来源，取代 `RuleName` Enum |
+
+## ⑤ 详细设计展开
+
+### 5.1 为什么不使用集中式 domain 目录
+
+`domain/` 是领域驱动设计中的常见组织方式，但不是 Python 或 FastAPI 项目的标准结构。原方案把枚举、数据库行、采样配置、预览响应都放入 `domain/models.py`，会混合四种变化速度不同的结构：
+
+- 数据库表字段随 migration 变化；
+- 采样/规则输入随算法变化；
+- Service 内部结果随用例变化；
+- API 请求响应随前端交互变化。
+
+集中放置不等于低耦合。低耦合的关键是一个组件只依赖它真正需要的最小结构，而不是所有组件都 import 同一个大文件。
+
+### 5.2 放置规则
+
+| 结构 | 首次放置位置 | 何时上移 |
+|---|---|---|
+| 采样器私有参数/中间结果 | `acceptance/sampler.py` | 被 Service 和其他规则稳定复用时移到 `acceptance/models.py` |
+| 通过/打回判定结果 | `acceptance/pass_rules.py` | 多个 Service 均依赖时上移 |
+| 快照数据库行映射 | `manual_qc/repository.py` 附近或 `acceptance/models.py` | Repository 与多个 Service 共同依赖时上移 |
+| 人员结构 | `personnel/models.py` | 不跨到 acceptance；需要的少量字段通过查询结果或专用结构传递 |
+| HTTP 请求/响应 | `api/schemas/acceptance.py`、`personnel.py` | 不上移到内部业务模型 |
+
+上移门槛：至少两个组件实际使用、字段语义稳定、上移能减少重复而不是扩大依赖。
+
+### 5.3 前后端契约
+
+后端 dataclass 不直接给前端使用：
+
+```text
+前端 TypeScript
+    ↕ JSON / OpenAPI
+api/schemas/*.py（Pydantic）
+    ↕ Router 显式转换
+Service / sampler / pass_rules 的内部 Python 结构
+```
+
+这样内部模型可以围绕计算优化，API Schema 可以围绕用户交互和兼容性演进，两者不会因字段偶然相似而被绑死。
+
+### 5.4 保留 Enum 的范围
+
+适合 Enum：人员角色、题型、快照结论等封闭业务状态。
+
+不再建立 `SamplerName`、`RuleName` Enum，因为名称已经由 `SAMPLER_REGISTRY`、`RULE_REGISTRY` 维护。注册表是策略发现和校验的唯一事实源。
+
+### 5.5 建议目录
+
+```text
+src/manual_qc/
+├── repository.py
+├── delta_client.py
+├── acceptance/
+│   ├── models.py        # 仅放已形成复用的结构，可初期为空或不存在
+│   ├── sampler.py
+│   ├── pass_rules.py
+│   └── services/
+└── personnel/
+    ├── models.py
+    └── services/
+
+src/api/schemas/
+├── acceptance.py
+└── personnel.py
+```
+
+> 护栏：不要因为一个结构"未来可能复用"就提前上移；先在所属组件内定义，真实重复出现后再重构。
+
+## ⑥ 完成情况与 TODO
+
+**当前状态**：设计中（规范层，无独立代码交付）
+
+- [x] "组件内就近定义，稳定复用后再上移"原则已定稿
+- [x] 四种变化速度不同的结构已识别（DB 行 / 采样规则输入 / Service 内部结果 / API 请求响应）
+- [x] 放置规则表（5 类结构 × 首次位置 × 上移门槛）已定稿
+- [x] 前后端契约分层（TS ↔ Pydantic ↔ 内部结构）已定稿
+- [x] 保留 Enum 范围已确认（封闭业务状态用 Enum；SamplerName/RuleName 由注册表取代）
+- [x] 数据表交互已绑定到 4 张表（SQL 已落地）
+- [ ] `acceptance/models.py` 是否需要创建待实际复用出现后决定
+- [ ] `personnel/models.py` 代码实现未开始
+- [ ] `api/schemas/acceptance.py` / `api/schemas/personnel.py` 代码实现未开始
+- [ ] 具体结构的上移决策待各组件实现后回顾
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]]
+
+> 🔗 上位枢纽：[[质检一站式平台人工质检模块整体架构]]

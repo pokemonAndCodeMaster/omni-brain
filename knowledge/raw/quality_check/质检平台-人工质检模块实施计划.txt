@@ -1,0 +1,666 @@
+---
+title: "质检平台-人工质检模块实施计划"
+domain: ["manual_qa"]
+type: "synthesis"
+tags: ["质检平台", "实施计划", "Phase", "路线图", "完成情况", "实现契约", "拆解清单", "风险", "进度交互中枢", "Delta契约摘要", "待决疑问"]
+created: 2026-06-30
+updated: 2026-07-03
+status: active
+sources: 6
+source: "合并自 实施路线与当前进度 / 快照刷新四级实现契约 / 验收全流程拆解框架 + 旧版源码(data_check_debug)Delta接口事实提取"
+related_code:
+  - "src/manual_qc/repository.py"
+  - "src/manual_qc/service.py"
+  - "src/manual_qc/__init__.py"
+  - "data_schemas/migrations/V20260630_01__create_personnel_and_permission_tables.sql"
+  - "data_schemas/migrations/V20260630_02__create_qc_daily_snapshot_table.sql"
+  - "data_schemas/migrations/V20260630_03__redesign_qc_snapshot_and_personnel.sql"
+  - "data_schemas/migrations/V20260714_01__replace_personnel_with_screeners.sql"
+  - "data_schemas/postgresql_relational/t_data_check_screeners.sql"
+  - "data_schemas/postgresql_relational/t_portal_permission.sql"
+  - "data_schemas/postgresql_relational/t_qc_daily_snapshot.sql"
+affects_path: ["src/manual_qc/", "data_schemas/postgresql_relational/", "data_schemas/migrations/"]
+trigger_keywords: ["实施计划", "路线图", "Phase 2.5", "Phase 3", "完成情况", "四级契约", "拆解清单", "下一步", "风险", "进度交互中枢", "Delta契约摘要", "待决疑问", "已闭合结论"]
+summary: "质检平台人工质检模块实施计划总卡（进度交互中枢）：Phase 0~5 全景路线图、精确完成情况矩阵（文件/字段/方法级）、事实源偏差修正、Delta接口契约摘要、待决疑问区（详背景模式）、已闭合结论、风险更新。合并自原 3 张 plan 卡，作为唯一实施计划事实源与人类交互决策入口。"
+---
+
+# 质检平台-人工质检模块实施计划
+
+> 本卡是人工质检模块唯一的实施计划事实源与**进度交互中枢**，合并自原 3 张 plan 卡（[[质检平台-实施路线与当前进度]] / [[验收前置条件-快照刷新四级实现契约]] / [[SYN-验收全流程细化后续拆解框架]]）。原 3 卡已标记废弃重定向，保留为历史归档。
+>
+> 本卡定位为"进度交互中枢 + 摘要"：人类在此卡可看懂所有进展细节（文件/字段/方法级）、所有待决疑问的完整背景（含旧版源码事实），并直接在卡内交互决策。Delta 接口契约全文不在本卡展开，见 §5 摘要表 + 链接到组件卡全文。
+
+← 架构总入口：[[质检一站式平台人工质检模块整体架构]]
+
+> 🔄 **V20260714_01 适配说明（20260714，t_personnel → t_data_check_screeners）**：本卡正文 §2~§3 中 `t_personnel` / `PersonnelRepository` / `PersonnelRow` / `PersonnelInfo` / `current_group` / `leave_date` 等符号均为 V20260630_03 时期描述。实际落地状态：
+> - `t_personnel` → `t_data_check_screeners`（15 字段 5 索引，复合 PK (employee_id, id)）
+> - `PersonnelRepository` → `ScreenerRepository`；`PersonnelRow` → `ScreenerRow`；`PersonnelInfo` → `ScreenerInfo`（`current_group` → `team_leader`）
+> - `leave_date IS NULL` → `end_time IS NULL`；`join_date` → `start_time`
+> - 代码物理路径：`src/manual_qc/personnel/repository.py`（实际落地在 personnel/ 子包，非原设计的 `src/manual_qc/repository.py`）
+> - ScreenerRepository 已物理实现并 QA ALL-PASS（141 passed）
+> - §4 事实源偏差修正区为历史记录，保留原符号不动；权威定义见 [[人工质检-人力管理体系设计]] §2.1
+
+## 双向链接索引（相关组件卡）
+
+| #   | 组件卡                         | 本卡引用位置             | 用途                           |
+| --- | --------------------------- | ------------------ | ---------------------------- |
+| 1   | [[质检平台-综合快照表设计]]            | 完成情况矩阵 / 疑问2       | t_qc_daily_snapshot DDL 与字段集 |
+| 2   | [[人工质检-人力管理体系设计]]           | 完成情况矩阵             | t_data_check_screeners SCD Type2 设计（V20260714_01 替换自 t_personnel）     |
+| 3   | [[质检平台-Repository与数据库访问设计]] | 完成情况矩阵 / 代码骨架      | Repository 分层与陷阱卡            |
+| 4   | [[质检平台-Delta调用与状态回查设计]]     | Delta契约摘要表 / 疑问2/5 | Delta 接口全文（回链目标）             |
+| 5   | [[质检平台-通过打回规则与执行设计]]        | 疑问4 / 决策3/5        | 通过打回规则与执行                    |
+| 6   | [[质检平台-验收采样配额与任务选择设计]]      | 疑问4 / 决策1/2        | 采样配额与任务选择                    |
+| 7   | [[人工质检-标注验收执行三阶段流程]]        | 已闭合结论(疑问3)         | 执行范围架构护栏                     |
+| 8   | [[验收前置条件-快照刷新四级实现契约]]       | 完成情况矩阵 / 代码骨架      | 快照刷新四级契约                     |
+
+> 动态权威：仓库根目录 `task.md`、`implementation_plan.md`（如存在）。本卡方便沿知识图谱阅读，不取代 `task.md`。状态变化先更新 `task.md`，再同步本卡摘要，避免两套进度事实源。
+
+---
+
+## §1 元信息与整体路线图
+
+人工质检模块按 Phase 0~5 推进，从知识调研到联调验证，整体脉络如下：
+
+```mermaid
+gantt
+    title 人工质检模块实施路线图
+    dateFormat YYYY-MM-DD
+    axisFormat %m-%d
+
+    section Phase 0 调研
+    知识调研 (38/38 卡摄入)           :done, p0, 2026-06-20, 2026-06-26
+
+    section Phase 1 设计
+    架构设计 + 组件分卡 + 两轮评审     :done, p1, 2026-06-26, 2026-06-28
+
+    section Phase 2 DDL
+    数据库 DDL 设计验证 (PG16.14)     :done, p2, 2026-06-28, 2026-06-29
+
+    section Phase 2.5 契约冻结
+    实现前契约冻结                    :active, p25, 2026-06-29, 2026-06-30
+
+    section Phase 3 后端
+    3A 纯规则                         :p3a, after p25, 3d
+    3B 统计只读链                     :p3b, after p3a, 3d
+    3C 验收分配闭环                   :p3c, after p3b, 4d
+    3D 通过/打回闭环                  :p3d, after p3c, 4d
+    3E 人力与权限                     :p3e, after p3d, 3d
+
+    section Phase 4 前端
+    Vue3 页面实现                     :p4, after p3e, 7d
+
+    section Phase 5 联调
+    端到端联调验证                    :p5, after p4, 5d
+```
+
+**路线图核心脉络**：
+
+1. **Phase 0 知识调研**：完成本项目人工质检流程卡 38/38 摄入，建立完整知识图谱。
+2. **Phase 1 架构设计**：完成总卡、组件分卡、两轮评审决策，确立"一枢纽 + 一 Plan + N 组件卡"知识体系。
+3. **Phase 2 数据库 DDL**：完成 4 张表的设计验证，migration 在 PostgreSQL 16.14 空实例执行通过。
+4. **Phase 2.5 实现前契约冻结**：冻结粒度、权限、目录边界；Delta 真实字段已从旧版源码（`data_check_debug/data_check`）提取并写入组件卡（见 §5）。本卡即 Phase 2.5 的核心交付物之一。
+5. **Phase 3 后端 Python**：按 3A→3B→3C→3D→3E 五级纵切顺序推进（详见 §2.3）。
+6. **Phase 4 前端 Vue3**：已有页面与状态设计，无业务页面实现，按 [[质检平台-人工质检前端页面与状态设计]] 落地。
+7. **Phase 5 联调验证**：以用户链路为准进行端到端联调，不以"Swagger 能打开"代替端到端成功。
+
+---
+
+## §2 精确完成情况矩阵
+
+### 2.1 各 Phase 完成状态
+
+| Phase | 内容        | 当前状态     | 证据                                                                                                                                   |
+| ----- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 0     | 知识调研      | ✅ 完成     | 本项目人工质检流程卡 38/38 摄入                                                                                                                  |
+| 1     | 架构设计      | ✅ 完成当前版  | 总卡、组件分卡、两轮评审决策                                                                                                                       |
+| 2     | 数据库 DDL   | ✅ 完成设计验证 | 3 份 migration 在 PostgreSQL 16.14 空实例执行通过；4 张表 SQL 已落地 `data_schemas/postgresql_relational/`                                          |
+| 2.5   | 实现前契约冻结   | 🟡 进行中   | 粒度、权限、目录边界已定；repository.py/service.py 契约骨架已落地（冻结）；Delta 调用层、通过打回执行层、采样配额层事实已填入组件卡但待人类决策（见 §6）                                        |
+| 3     | 后端 Python | 🟡 骨架已落地 | `src/manual_qc/` 含 `__init__.py`(638B) / `repository.py`(14347B, 359行) / `service.py`(4424B, 107行)，方法体均为 `raise NotImplementedError` |
+| 4     | 前端 Vue3   | ❌ 未开始    | 已有页面与状态设计，无业务页面实现                                                                                                                    |
+| 5     | 联调验证      | ❌ 未开始    | 等待后端、前端和测试环境                                                                                                                         |
+
+### 2.2 各组件完成状态矩阵
+
+| 层级         | 组件         | 设计卡                         | 完成状态                               | 备注                                                                           |
+| ---------- | ---------- | --------------------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
+| 数据层        | 综合快照表      | [[质检平台-综合快照表设计]]            | ✅ 设计完成 / DDL 已落地（V20260630_03 重设计） | t_qc_daily_snapshot 26字段7索引                                                  |
+| 数据层        | 人力管理三表     | [[人工质检-人力管理体系设计]]           | ✅ 设计完成 / DDL 已落地（V20260714_01 重设计） | t_data_check_screeners 15字段5索引 / t_personnel_op_log（表保留，DDL 已删）/ t_portal_permission 8字段3索引 |
+| Repository | 数据库访问      | [[质检平台-Repository与数据库访问设计]] | 🟡 契约骨架已冻结 / 方法体未实现                | repository.py(359行)：10 dataclass + 16 方法签名，`raise NotImplementedError`       |
+| Service    | 统计聚合       | [[验收前置条件-快照刷新四级实现契约]]       | 🟡 契约骨架已冻结 / 方法体未实现                | service.py(107行)：StatService + PROJECT_MAP + 4 方法签名                          |
+| Service    | 采样配额       | [[质检平台-验收采样配额与任务选择设计]]      | 🟡 设计完成 / 旧版事实已填入 / 待人类决策          | 见 §6 决策1/2                                                                   |
+| Service    | 通过打回规则     | [[质检平台-通过打回规则与执行设计]]        | 🟡 设计完成 / 旧版事实已填入 / 待人类决策          | 见 §6 决策3/5                                                                   |
+| Service    | Delta 调用   | [[质检平台-Delta调用与状态回查设计]]     | 🟡 设计完成 / Delta 契约全文已填入 / 待人类决策    | 见 §5 / §6 疑问2                                                                |
+| DAG        | Airflow 调度 | [[验收前置条件-快照刷新四级实现契约]]       | ❌ 未实现                              | qc_snapshot_refresh.py                                                       |
+| API        | FastAPI 路由 | [[质检平台-API契约与前端交互设计]]       | 🟡 设计完成 / 未实现                      | 权限校验接入待定                                                                     |
+| 前端         | Vue3 页面    | [[质检平台-人工质检前端页面与状态设计]]      | 🟡 设计完成 / 未实现                      | —                                                                            |
+| 鉴权         | SSO 接入     | [[质检平台SSO鉴权接入方案]]           | 🟡 设计完成 / 未实现                      | mock 阶段                                                                      |
+| 概念         | scene_name | [[质检平台-scene_name概念]]       | ✅ 概念冻结                             | —                                                                            |
+| 后端分层       | 组件边界       | [[质检平台-后端分层与组件边界设计]]        | ✅ 分层原则冻结                           | —                                                                            |
+
+### 2.3 代码骨架精确描述
+
+#### repository.py（359 行，14347 字节）
+
+**文件路径**：`src/manual_qc/repository.py`
+**关联陷阱卡**：PIT-PGC-001（写操作禁 `execute_query`，用 `execute_values`）/ PF-DB-015（`.get('database')` 访问）/ PF-LEGACY-ACCEPTANCE-CODE-ARCH（禁 f-string 拼 SQL，禁临时表）
+
+**10 个 dataclass**：
+
+| # | dataclass | 用途 | 关键字段 |
+|---|-----------|------|---------|
+| 1 | `SnapshotRow` | t_qc_daily_snapshot 个人最小行 | stat_date/scene_name/group_name/employee_id/project_name/annotation_*/option_annotation/acceptance_*/good_*/bad_*/option_acceptance |
+| 2 | `SnapshotFilter` | 快照查询过滤 | stat_date_start/end/scene_name/group_name/employee_id/project_name（全可选） |
+| 3 | `SnapshotDim` | 分布键 | stat_date/scene_name/group_name/employee_id |
+| 4 | `ExecutionFields` | 执行确认字段集（UPSERT 禁触碰） | execution(JSONB)/confirmed_by/confirmed_at/executed_by/executed_at/good_conclusion/bad_conclusion |
+| 5 | `GroupAggregateRow` | 按组聚合 | stat_date/scene_name/group_name + 计数 |
+| 6 | `SceneAggregateRow` | 按场景聚合 | stat_date/scene_name + 计数 |
+| 7 | `ProjectAggregateRow` | 按项目聚合（V20260630_03 新增） | stat_date/project_name + 计数 |
+| 8 | `ScreenerRow`（V20260714_01 改名自 PersonnelRow） | t_data_check_screeners 行（SCD Type2） | employee_id/user_name/work_type/company/project_name/team_leader/status(int)/start_time/end_time/team_leader_id/skills/sub_project_name |
+| 9 | `ScreenerInfo`（V20260714_01 改名自 PersonnelInfo） | 精简信息（get_current_groups 返回） | team_leader/project_name |
+| 10 | `OpLogEntry` | 操作日志条目 | operated_at/operator_id/employee_id/action/changes(JSONB) |
+
+**16 个方法签名**（方法体均为 `raise NotImplementedError("Phase 3 待实现")`）：
+
+| 类 | # | 方法 | 关键约束 |
+|----|---|------|---------|
+| SnapshotRepository | 1 | `__init__(pg_connector)` | DatabaseConfig 必须 `.get('database')` |
+| | 2 | `fetch_annotation_raw(stat_date_range) -> List[Dict]` | JOIN sdobject 表，scene_name 经 SPLIT_PART 提取 |
+| | 3 | `fetch_acceptance_raw(stat_date_range) -> List[Dict]` | task_status IN (67,68,69,70) |
+| | 4 | `upsert_many(rows: List[SnapshotRow]) -> int` | execute_values，UPDATE SET 仅统计列，显式 updated_at=now() |
+| | 5 | `list_minimum_rows(filters) -> List[SnapshotRow]` | 参数化 SQL |
+| | 6 | `aggregate_by_group(filters) -> List[GroupAggregateRow]` | 通过率先求和再相除 |
+| | 7 | `aggregate_by_scene(filters) -> List[SceneAggregateRow]` | 通过率先求和再相除 |
+| | 8 | `aggregate_by_project(filters) -> List[ProjectAggregateRow]` | V20260630_03 新增维度 |
+| | 9 | `get_for_rule_evaluation(dim) -> Optional[SnapshotRow]` | WHERE 含分布键 |
+| | 10 | `update_execution_fields(dim, fields) -> int` | 仅更新非 None 字段，与 upsert_many 互斥 |
+| ScreenerRepository | 11 | `__init__(pg_connector)` | 同上 |
+| | 12 | `get_current_groups(employee_ids) -> Dict[str, ScreenerInfo]` | WHERE end_time IS NULL |
+| | 13 | `get_active_by_group(group_name) -> List[ScreenerRow]` | WHERE end_time IS NULL AND team_leader=%s |
+| | 14 | `create_or_transition(screener, operator_id) -> None` | SCD Type2 同事务封版（UPDATE end_time+status=0）+新增+op_log |
+| | 15 | `append_op_log(log_entry) -> int` | 与人员变更同事务 |
+| | 16 | `get_permission(employee_id) -> Optional[Dict]` | SSO 鉴权用 |
+
+#### service.py（107 行，4424 字节）
+
+**文件路径**：`src/manual_qc/service.py`
+
+**类**：`StatService`（快照刷新聚合服务，不直接接触数据库，所有读写经 Repository）
+
+**常量**：
+
+```python
+PROJECT_MAP = {
+    "vpd质检标注_v4": "vpd",
+    "驾驶行为质检": "城区and高速",
+}
+```
+
+**4 个方法签名**（方法体均为 `raise NotImplementedError("Phase 3 待实现")`）：
+
+| # | 方法 | 职责 |
+|---|------|------|
+| 1 | `__init__(snapshot_repo, personnel_repo)` | 注入两个 Repository |
+| 2 | `_map_project_name(scene_name) -> str` | 遍历 PROJECT_MAP 键前缀匹配，无匹配返回 '' |
+| 3 | `_merge_with_personnel(raw_rows, personnel_map) -> list` | task_screener→employee_id，查 team_leader（V20260714_01 改名自 current_group），未进组记空串，人员不存在跳过+warning |
+| 4 | `refresh_snapshot(stat_date_range) -> int` | 8 步流程：校验→fetch_annotation→fetch_acceptance→合并→map_project→get_current_groups→merge→upsert_many |
+
+### 2.4 数据表 DDL 精确状态
+
+| 表名 | SQL 文件 | 字段数 | 索引数 | 测试镜像 | 备注 |
+|------|---------|--------|--------|---------|------|
+| t_data_check_screeners | `data_schemas/postgresql_relational/t_data_check_screeners.sql` | 15 | 5 | —（测试镜像由 migration 建） | SCD Type2，复合 PK (employee_id, id)，V20260714_01 替换自 t_personnel |
+| t_personnel_op_log | —（DDL 文件已删，表由迁移历史保留） | 6 | 4 | — | employee_id 逻辑引用 t_data_check_screeners.employee_id |
+| t_portal_permission | `data_schemas/postgresql_relational/t_portal_permission.sql` | 8 | 3 | `t_portal_permission test.sql` | 模块等级权限 |
+| t_qc_daily_snapshot | `data_schemas/postgresql_relational/t_qc_daily_snapshot.sql` | 26 | 7 | `t_qc_daily_snapshot test.sql` | V20260630_03 重设计后字段集 |
+
+**迁移脚本**（`data_schemas/migrations/`）：
+
+| 脚本 | 行数 | 内容 |
+|------|------|------|
+| `V20260630_01__create_personnel_and_permission_tables.sql` | 255 行（19246 字节） | t_personnel + t_personnel_op_log + t_portal_permission（V20260714_01 已替换 t_personnel 为 t_data_check_screeners） |
+| `V20260630_02__create_qc_daily_snapshot_table.sql` | 209 行（16462 字节） | t_qc_daily_snapshot 初版 |
+| `V20260630_03__redesign_qc_snapshot_and_personnel.sql` | 303 行（24194 字节） | 快照表重设计 + 人员表改 SCD Type2 + project_name 维度 |
+| `V20260714_01__replace_personnel_with_screeners.sql` | — | t_personnel → t_data_check_screeners（幂等 DROP+CREATE） |
+
+> migration 顺序：V20260630_01（人员表先于快照表，因 t_qc_daily_snapshot.annotator_id 引用）< V20260630_02 < V20260630_03（重设计）< V20260714_01（t_personnel → t_data_check_screeners）。
+
+### 2.5 Phase 2.5 契约冻结状态
+
+| 契约维度 | 冻结状态 | 证据 |
+|---------|---------|------|
+| 粒度（快照最小行） | ✅ 已冻结 | 日 × scene × 当日组 × 标注员；不存 NULL 标注员汇总行 |
+| 权限（模块等级） | ✅ 已冻结 | acceptance_access/personnel_access，禁每按钮 Boolean |
+| 目录边界 | ✅ 已冻结 | `src/manual_qc/` 下 delta_client.py/repository.py/service.py/acceptance/ |
+| Repository 契约骨架 | ✅ 已冻结 | repository.py(359行) 含 10 dataclass + 16 方法签名 + 约束注释 |
+| Service 契约骨架 | ✅ 已冻结 | service.py(107行) 含 StatService + PROJECT_MAP + 4 方法签名 |
+| Delta 调用层 | 🟡 事实已填入组件卡，待人类决策 | 见 §5 / §6 疑问2 |
+| 通过打回执行层 | 🟡 旧版事实已填入组件卡，待人类决策 | 见 §6 决策3/5 |
+| 采样配额层 | 🟡 旧版事实已填入组件卡，待人类决策 | 见 §6 决策1/2 |
+
+> 冻结证据定义：契约骨架文件存在且含完整签名 + 实现约束注释，方法体为 `raise NotImplementedError`。
+
+### 2.6 已冻结决策清单
+
+- ✅ 快照最小行：日 × scene × 当日组 × 标注员；不存 NULL 标注员汇总行。
+- ✅ 快照算采样配额，任务级表选择具体 task_ids。
+- ✅ execute 使用 preview 原 task_ids，并在执行前重查状态。
+- ✅ 外部操作后回查任务状态，实际量不等于请求量。
+- ✅ 人员单项目，权限按模块等级。
+- ✅ 数据结构就近定义、复用后上移。
+- ✅ 共享 Repository 按数据源分小类；Delta 调用使用 `delta_client.py`。
+- ✅ 不引入通用操作台账、ports/adapters 和数据库规则引擎。
+- ✅ 快照刷新直接从 Delta 原始表聚合，不依赖中间表 `human_inspection_0920`。
+- ✅ `t_data_check_screeners.project_name` 单值 VARCHAR(64)，禁 TEXT[] 数组。（V20260714_01 替换自 t_personnel）
+- ✅ `group_name` 写入即冻结，调组不回写历史行。
+- ✅ `t_data_check_screeners` SCD Type2（复合 PK (employee_id, id)，end_time IS NULL = 当前有效行），V20260714_01 替换 t_personnel（原 V20260630_03 为复合 PK (employee_id, join_date)，去自增 id）。
+- ✅ 权限模块等级（acceptance_access/personnel_access），禁每按钮 Boolean。
+- ✅ 文件命名：`service.py`(107行, 含 StatService) + `repository.py`(359行, 含 10 个 dataclass)，物理现状已既成事实（见 §7 已闭合结论）。
+
+### 2.7 后续 8 子模块拆解清单
+
+> 本段从 [[SYN-验收全流程细化后续拆解框架]] 提取。第一步「验收前置条件——统计快照表定时刷新机制」已完成设计（见 §3 四级契约），本段列出后续待逐一梳理的 8 个子模块清单。
+
+| # | 子模块 | 职责 | 优先级 | 关键未冻结决策 | 映射 Phase |
+|---|--------|------|--------|--------------|-----------|
+| 1 | **采样引擎** | 根据 `t_qc_daily_snapshot` 的 `option_annotation` 分布计算 Good/Bad 抽样配额，从 Delta 查询表选取具体 task_ids | 高 | 见 §6 决策1/2/4 | Phase 3A |
+| 2 | **规则判定引擎** | `PassRuleStrategy.evaluate(snapshot_row)` 计算 Good/Bad 通过率，判定 `conclusion = PASS/REJECT` | 高 | 见 §6 决策3/4 | Phase 3A |
+| 3 | **Delta 调用封装** | 封装 5 接口（见 §5） | 高 | 见 §6 疑问2/5 | Phase 3C |
+| 4 | **验收执行服务** | `ExecutionService.execute()` 调 Delta API 完成通过/打回 | 高 | 见 §6 决策5 | Phase 3C/3D |
+| 5 | **后端 API 契约** | FastAPI 路由 | 中 | API 路径与请求/响应结构 | Phase 3B/3C/3D |
+| 6 | **前端页面与状态** | Vue3 页面 | 中 | 见 [[质检平台-人工质检前端页面与状态设计]] | Phase 4 |
+| 7 | **SSO 鉴权接入** | SSO JWT 解析 → `t_portal_permission` | 中 | SSO 回调 URL / JWT sub 映射 | Phase 3E |
+| 8 | **人员与权限管理** | 人员 CRUD + op_log + 权限分配 | 中 | 见 §6 决策6 | Phase 3E |
+
+### 2.8 Phase 3 纵切顺序
+
+#### 3A：纯规则（sampler + pass_rules）
+
+- **目标**：实现 sampler、pass_rules 和边界测试。
+- **交付物**：`src/manual_qc/acceptance/sampler.py`、`src/manual_qc/acceptance/pass_rules.py` + 单元测试。
+- **依赖**：无（此阶段不需要数据库和 Delta）。
+- **验证标准**：纯规则测试覆盖阈值、数据不足和取整。
+
+#### 3B：统计只读链（SnapshotRepository + StatService + 统计 API）
+
+- **目标**：实现 SnapshotRepository、StatService、统计查询 API。
+- **交付物**：repository.py 方法体实现、service.py 方法体实现、统计 API 路由 + 集成测试。
+- **依赖**：3A（StatService 依赖数据结构定义）。
+- **验证标准**：Repository 集成测试在真实 PostgreSQL 临时实例通过；FastAPI 启动，OpenAPI 展示当前端点。
+
+#### 3C：验收分配闭环（preview → execute → fake Delta → 状态回查）
+
+- **目标**：实现首条真正端到端验收路径。
+- **交付物**：`src/manual_qc/acceptance/services/assignment_service.py`、`src/manual_qc/delta_client.py`（fake）、状态回查逻辑 + 集成测试。
+- **依赖**：3B。
+- **验证标准**：分配闭环覆盖成功、部分失败、重复执行。
+
+#### 3D：通过/打回闭环（规则 preview + 人工确认 + 通过/打回调用）
+
+- **目标**：实现通过/打回规则 preview、人工确认、通过/打回调用、状态回查。
+- **交付物**：`src/manual_qc/acceptance/services/execution_service.py` + API + 集成测试。
+- **依赖**：3C。
+- **验证标准**：通过/打回拒绝 PENDING 和无权限用户。
+
+#### 3E：人力与权限（人员 CRUD + op_log + 模块等级权限 + mock 身份）
+
+- **目标**：实现人员 CRUD、调组日志、模块等级权限和 mock 身份。
+- **交付物**：ScreenerRepository 方法体实现、权限校验中间件 + 集成测试。
+- **依赖**：3B（ScreenerRepository 复用 Repository 基础设施）。
+- **验证标准**：人员修改与 op_log 同一事务。
+
+---
+
+## §3 关键实现契约（快照刷新四级契约）
+
+> 本段从 [[验收前置条件-快照刷新四级实现契约]] 提取核心契约摘要。完整契约以原卡为准，本段为可实施摘要。
+
+### 3.1 核心目标
+
+实现统计快照表 `t_qc_daily_snapshot` 的定时刷新机制——每 30 分钟从 Delta 原始表聚合标注进度与验收结果，UPSERT 写入快照表，同时匹配 `t_data_check_screeners` 当前组别信息（team_leader 字段，WHERE end_time IS NULL）冗余写入 `group_name`。
+
+### 3.2 数据流
+
+```
+Airflow DAG (每30min)
+  └→ StatService.refresh_snapshot(stat_date_range)
+       ├→ SnapshotRepository.fetch_annotation_raw(stat_date_range)
+       │    └→ SELECT FROM delta.ods_t_label_screening_task_datalake JOIN delta.ods_t_label_sdobject_datalake_new
+       │         按 (DATE(submit_time), task_screener, scene_name) 聚合
+       ├→ SnapshotRepository.fetch_acceptance_raw(stat_date_range)
+       │    └→ SELECT FROM delta.ods_t_label_screening_task_datalake
+       │         WHERE task_status IN (67,68,69,70) 按 (DATE, screener, scene) 聚合验收结果
+        ├→ ScreenerRepository.get_current_groups(employee_ids)
+        │    └→ SELECT employee_id, team_leader, project_name FROM t_data_check_screeners WHERE employee_id IN (...) AND end_time IS NULL
+        ├→ StatService._merge_with_personnel(raw_stats, personnel_map)
+        │    └→ 将 task_screener(=employee_id) 映射到 employee_id + group_name（group_name=info.team_leader）
+       └→ SnapshotRepository.upsert_many(merged_rows)
+            └→ INSERT INTO t_qc_daily_snapshot ... ON CONFLICT (stat_date, scene_name, group_name, employee_id)
+               DO UPDATE SET annotation_*=EXCLUDED.annotation_*, ... (不含执行字段)
+```
+
+### 3.3 四级契约摘要
+
+| 层级 | 契约摘要 | 关键约束 |
+|---|---|---|
+| **DDL** | 4 张表双 schema 镜像（pnc_simulation + data_common_4），migration 幂等 | 禁 TRIGGER；updated_at 由应用层；`t_data_check_screeners.project_name` 单值；PG10+ 兼容 |
+| **Repository** | SnapshotRepository（10 方法）+ ScreenerRepository（6 方法，V20260714_01 改名自 PersonnelRepository） | 全部 SQL 集中 Repository，Service 层禁拼 SQL；禁 ORM；参数化 `%s` 占位；upsert_many 用 `execute_values`，禁 `execute_query` 写；UPSERT 的 UPDATE SET 仅含统计列，禁触碰执行字段；显式带 `updated_at=now()`；SCD Type2 查询含 `WHERE end_time IS NULL` |
+| **Service** | StatService.refresh_snapshot(stat_date_range) → int；`_merge_with_personnel` 映射 task_screener → employee_id + group_name | 人员不存在时跳过并 warning；`team_leader=''` 记录空串；scene_name 提取：e2e 项目 `SPLIT_PART(task_name, '_', 2)`，vpd 项目 `SPLIT_PART(task_name, '_', 3)`；`annotation_pending = total - submitted`（CHECK 约束保证非负） |
+| **DAG** | `qc_snapshot_refresh` DAG，PythonOperator 调用 StatService.refresh_snapshot | `schedule_interval=30min`；`max_active_runs=1`；`dagrun_timeout=28min`；`catchup=False`；`retries=1`；`retry_delay=2min`；刷新最近 4 天；DAG 内禁业务逻辑；复用 `wrapper_failure_callback` |
+
+### 3.4 架构护栏清单
+
+| 护栏 | 说明 | 落地位置 |
+|---|---|---|
+| 护栏1 | `project_name` 单值 VARCHAR(64) | t_data_check_screeners DDL |
+| 护栏2 | `group_name` 冗余不回写历史 | StatService._merge_with_personnel 写入即冻结 |
+| 护栏3 | `t_data_check_screeners` SCD Type2（复合 PK (employee_id, id)） | t_data_check_screeners DDL（V20260714_01） |
+| 护栏4 | migration 顺序：人员表先于快照表 | 文件名时间戳 V20260630_01 < V20260630_02 < V20260630_03 < V20260714_01 |
+| 护栏5 | 人员变更 + op_log 同事务 | ScreenerRepository.create_or_transition |
+| 护栏6 | 权限模块等级，禁每按钮 Boolean | t_portal_permission DDL |
+| 护栏7 | PG10+ 兼容 | DDL 禁 identity/generated column/NULLS NOT DISTINCT |
+
+---
+
+## §4 事实源偏差修正区
+
+> 本区逐条列出本卡（及原 3 张 plan 卡）历史描述与物理现状的偏差，标注"已修正"。
+
+| # | 偏差项 | 原描述（偏差） | 物理现状（事实） | 状态 |
+|---|--------|--------------|----------------|------|
+| 1 | `src/manual_qc/` 存在性 | 原 line 27："本仓库当前 `task.md`、`implementation_plan.md`、`src/manual_qc/` 均不存在（Phase 3 尚未实现）" | `src/manual_qc/` 已存在，含 `__init__.py`(638B) / `repository.py`(14347B,359行) / `service.py`(4424B,107行) | ✅ 已修正（§2.1/§2.3） |
+| 2 | Phase 3 状态 | 原 line 89："仅 `src/manual_qc` 两个 `__init__.py`" | 含 repository.py(359行) + service.py(107行) 契约骨架，方法体 `raise NotImplementedError` | ✅ 已修正（§2.1） |
+| 3 | Repository 完成状态 | 原 §2.2："设计完成 / 未实现" | 契约骨架已冻结（10 dataclass + 16 方法签名），方法体未实现 | ✅ 已修正（§2.2） |
+| 4 | Service 完成状态 | 原 §2.2："设计完成 / 未实现"（StatService.refresh_snapshot） | 契约骨架已冻结（StatService + PROJECT_MAP + 4 方法签名），方法体未实现 | ✅ 已修正（§2.2） |
+| 5 | migration 数量 | 原 §2.1："两份 migration" | 实际 3 份（V20260630_01/02/03），V20260630_03 为重设计脚本 303 行 | ✅ 已修正（§2.4） |
+| 6 | related_code 缺 V20260630_03 | 原 frontmatter related_code 缺 `V20260630_03__redesign_qc_snapshot_and_personnel.sql` | 已补全 | ✅ 已修正（frontmatter） |
+| 7 | t_personnel 字段数 | 原 §2.2 暗示简单表 | 13 字段 4 索引，SCD Type2 复合 PK | ✅ 已修正（§2.4） |
+| 8 | t_qc_daily_snapshot 字段数 | 原 §2.2 未给精确数 | 26 字段 7 索引（V20260630_03 重设计后） | ✅ 已修正（§2.4） |
+| 9 | t_personnel 历史快照 | 原 §2.6："不做历史快照（无版本号字段）" | V20260630_03 改为 SCD Type2（复合 PK (employee_id, join_date) + leave_date） | ✅ 已修正（§2.4/§2.6/§3.4） |
+| 10 | PersonnelRepository.get_current_groups 返回 | 原 §4.2："SELECT id, employee_id, current_group, project_name" | SCD Type2 去自增 id，返回 PersonnelInfo(current_group, project_name)，SQL 含 `WHERE leave_date IS NULL` | ✅ 已修正（§2.3/§3.2） |
+| 11 | PersonnelRow 字段 | 原 §2.2 暗示含 id | SCD Type2 无自增 id，PK = (employee_id, join_date) | ✅ 已修正（§2.3） |
+| 12 | 聚合维度新增 project_name | 原 §4.2 仅 (stat_date, scene, group, annotator) | V20260630_03 新增 project_name 维度（ProjectAggregateRow + aggregate_by_project） | ✅ 已修正（§2.3） |
+| 13 | Delta 接口字段"待确认" | 原 §6.2 剩余门槛1："从现有实现确认 Delta 接口 URL/认证/请求/响应" | 已从 `data_check_debug/data_check/manual_label` 提取完整契约，填入 [[质检平台-Delta调用与状态回查设计]] §5.2（见 §5 摘要） | ✅ 已修正（§5） |
+| 14 | 通过率规则"待确认" | 原 §5 拆解清单子模块2："通过率阈值是否沿用"标记为未冻结 | 旧版事实已提取（revoke_and_pass.py:61-64），填入 [[质检平台-通过打回规则与执行设计]] §5.3，待人类决策（见 §6 决策3） | ✅ 已修正（§5/§6） |
+| 15 | 采样常量"待确认" | 原 §5 拆解清单子模块1："Good/Bad 比例/上限"标记为未冻结 | 旧版事实已提取（assign_acceptance_task.py:39 等），填入 [[质检平台-验收采样配额与任务选择设计]] §5.3，待人类决策（见 §6 决策1/2） | ✅ 已修正（§5/§6） |
+
+---
+
+## §5 Delta 接口契约摘要表
+
+> 本表为摘要，**完整 Delta 接口契约全文见** [[质检平台-Delta调用与状态回查设计]] §5.2（已填入，回链：`[[质检平台-人工质检模块实施计划#Delta接口契约摘要表]]`）。
+>
+> **事实来源**：`data_check_debug/data_check/manual_label/utils/label_model.py`(325行) / `manual_label/models/data_dict.py` / `manual_label/batch_acceptance/__init__.py` / `manual_label/batch_acceptance/assign_acceptance_task.py` / `manual_label/batch_acceptance/revoke_and_pass.py`
+
+### 5.1 Endpoint URL 表
+
+| 接口 | URL | HTTP | 源码出处 |
+|------|-----|------|---------|
+| 批量分配 | `/delta/external/v1/task/batch_assign` | POST | label_model.py:296 |
+| 审核通过 | `/delta/external/v1/batchReviewPass` | POST | label_model.py:312 |
+| 验收通过 | `/delta/external/v1/batchAcceptancePass` | POST | label_model.py:304 |
+| 任务打回 | `/delta/external/v1/taskRollback` | POST | label_model.py:320 |
+| 获取 token | `/viam/viam/v1/auth/apptoken` | POST | label_model.py:32 |
+
+### 5.2 认证方式
+
+- **动态 token**：`POST /viam/viam/v1/auth/apptoken`（host: `service.di.adscloud.yinwang.com`）
+- **请求体**：`{clientId: 19, grantType: "client_credentials", clientSecret: "<秘钥>", scopes: ["driveinsight___delta_external"]}`（label_model.py:21-26）
+- **响应解析**：`json.loads(data)["accessToken"]`（label_model.py:37）
+- **调用 Header**（label_model.py:49-58）：
+  - `Authorization: Bearer <token>`
+  - `deepdata-project: driveinsight`
+  - `deepdata-region: RaD-prod`
+  - `entrypoint-version: v2`
+  - `deepdata-platform: delta-external`（Delta 接口专用）
+- ⚠️ **安全提示**：`clientSecret` 旧版硬编码在 label_model.py:24，**新版必须改为环境变量读取**，禁止写入 Wiki/日志/前端。
+
+### 5.3 请求体结构摘要
+
+| 接口 | 关键字段 | 源码出处 |
+|------|---------|---------|
+| batch_assign | `taskType` / `taskIdList` / `acceptor` / `reviewer` | assign_acceptance_task.py:325-360 |
+| batch_review_pass | `taskType: 2` / `taskIdList` / `userName`(=task_reviewer) | revoke_and_pass.py:221-225 |
+| batch_acceptance_pass | `taskType: 2` / `taskIdList` / `userName`(=task_acceptor) | revoke_and_pass.py:266-270 |
+| task_rollback | `taskType` / `taskIdList` / `status`(退回目标状态元组) / `screener_ids` / `start_time` / `end_time` / `is_good` | revoke_and_pass.py:281-322 |
+
+### 5.4 批量上限常量表
+
+| 常量 | 值 | 用途 | 源码出处 |
+|------|---|------|---------|
+| `BATCH_ASSIGN_API_MAX_CALL_NUM` | 300 | 批量分配接口单批上限 | `manual_label/batch_acceptance/__init__.py:18` |
+| `BATCH_REVIEW_PASS_API_MAX_CALL_NUM` | 500 | 批量送验收接口单批上限 | `manual_label/batch_acceptance/__init__.py:19` |
+| `MAX_PASS_API_CALL_NUM` | 500 | 批量通过接口单批上限 | `manual_label/batch_acceptance/__init__.py:16` |
+| `MAX_REVOKE_API_CALL_NUM` | 500 | 批量打回接口单批上限 | `manual_label/batch_acceptance/__init__.py:17` |
+
+### 5.5 响应格式与成功判定
+
+- **响应解析**：`json.loads(data)` → dict（label_model.py:179）
+- **成功判定**：`response["message"] == "成功" or response["message"] == "SUCCESS"`（label_model.py:126-130，`DiModel.check_response`）
+- **无显式错误码**：错误通过 `message` 字段非"成功/SUCCESS"判定
+
+### 5.6 状态枚举映射表
+
+#### ScreeningTableTaskStatus（`data_dict.py:13-24`，`ods_t_label_screening_task_datalake.task_status`）
+
+| 值 | 枚举名 | 业务语义 |
+|----|--------|---------|
+| 0 | to_be_assigned | 待分配 |
+| 64 | waiting_filter | 待筛选 |
+| 65 | filtering | 筛选中 |
+| 66 | waiting_review | 待审核 |
+| 67 | reviewing | 审核中 |
+| 68 | waiting_acceptance | 待验收 |
+| 69 | accepting | 验收中 |
+| 70 | finished | 已完成 |
+
+> 📌 完整 task_status 47 状态枚举（0~103，含预审核/预验收/同步/回写/后处理/重置等全生命周期状态）详见 [[质检平台-ods_t_label_screening_task_datalake表结构]] task_status 完整状态枚举段。该卡同时包含 task_status（Delta 侧原始 47 状态）与 exec_status（打回执行 5 状态机）的粒度差异与映射关系说明。
+
+#### LabelModel.status_enum 完整字典（label_model.py:198-221）
+
+含 0/10/20/30/31/35/40/50/51/55/60/64/65/66/67/68/69/70/75/80/91/92 共 22 个状态值的中文名映射（详见组件卡 §5.2 全文）。
+
+> **打回**是动作（调用 task_rollback 接口），非状态枚举；打回后退回 64(待筛选) 或更早状态（见 §6 决策5）。
+
+### 5.7 通过率规则摘要
+
+> **完整规则原文见** [[质检平台-通过打回规则与执行设计]] §5.3（已填入，回链：`[[质检平台-人工质检模块实施计划#待决疑问区]]` 决策3/5）。
+
+- **good_pass_rule**（revoke_and_pass.py:62-63）：`(good_bad验收总数 >= 总验收数 * 0.9 and 总good通过率 > 0.9499) or (good_bad验收总数 < 总验收数 * 0.9 and 总通过率 > 0.9499)`
+- **bad_pass_rule**（revoke_and_pass.py:64-65）：`(good_bad验收总数 >= 总验收数 * 0.9 and 总脏数据通过率 > 0.7999) or (good_bad验收总数 < 总验收数 * 0.9 and 总通过率 > 0.9499)`
+- **完成度前置**（revoke_and_pass.py:417-418）：`总验收数 >= 应抽数量 * 0.95 or 总验收数 >= 总提交数 * 0.95`
+- **应抽数量**（revoke_and_pass.py:416）：`300 if 组员数量 * 90 >= 300 else 组员数量 * 90`
+- **边界**：严格 `>`（大于），非 `>=`
+- **占比兜底**：当 good_bad 验收总数 < 总验收数 × 0.9（Good/Bad 样本占比不足 90%）时，用总通过率 > 0.9499 兜底
+
+### 5.8 隐式回查机制
+
+- 旧版通过 `delta.ods_t_label_screening_task_datalake.task_status` 判断接口是否成功（assign_acceptance_task.py:262-294 `validate_assign_api_result`）
+- `while un_success_task_ids:` 循环重试未成功任务
+- `time.sleep(5~10)` 间隔（assign 段）/ `time.sleep(1~2)` 间隔（review/acceptance 段）/ `do_time_sleep(seconds=60)` 间隔（revoke 段两次调用之间）
+
+---
+
+## §6 待决疑问区（详背景模式）
+
+> 每个疑问含四要素：①背景 ②旧版源码事实(文件+行号+值) ③PM建议 ④人类决策占位区。非技术背景的人也能理解。
+
+### 疑问2：waiting_review/已完成/打回后的准确状态字段和值
+
+- **① 背景**：人工质检流程中，任务在 Delta 系统里有多种状态（待筛选/待审核/待验收/已完成等）。我们需要知道"待验收""已完成""打回"这三种业务语义在 Delta 接口里对应的状态字段叫什么名字、数值是多少，才能正确实现快照刷新（`fetch_acceptance_raw`）和通过/打回执行。
+  - 涉及组件：[[质检平台-Delta调用与状态回查设计#状态枚举]]、[[质检平台-综合快照表设计]]、repository.py 的 `fetch_acceptance_raw` 方法
+- **② 旧版源码事实**：
+  - 源码位置：`data_check_debug/data_check/manual_label/models/data_dict.py:13-24` 的 `ScreeningTableTaskStatus` 枚举
+  - `waiting_review`(待审核) = **66**，`waiting_acceptance`(待验收) = **68**，`finished`(已完成) = **70**
+  - "打回"是动作（调用 task_rollback 接口），非状态枚举；打回后退回 64(待筛选) 或更早
+  - `fetch_acceptance_raw` 当前查询 `task_status IN (67,68,69,70)` = 审核中+待验收+验收中+已完成（repository.py:212）
+- **③ PM 建议**：直接沿用旧版状态枚举值（66/68/70），打回作为动作实现不作为状态。建议人类确认"待验收"是 68 还是 66（旧版有 66=待审核、68=待筛选验收两个候选）。
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+### 疑问4：preview/execute Schema 字段级契约——需要人类 Review 什么具体字段？
+
+- **① 背景**：通过/打回和采样配额都采用"preview（预览）→ execute（执行）"两步模式。preview 返回"将要执行什么"的预览结果，execute 实际执行。现在需要明确 preview 和 execute 的返回 Schema 里具体有哪些字段，人类需要 Review 哪些字段才能决定是否放行 execute。
+  - 涉及组件：[[质检平台-通过打回规则与执行设计#ExecutionService]]、[[质检平台-验收采样配额与任务选择设计#Sampler]]
+- **② 旧版源码事实**：
+  - 旧版无 preview/execute 分离，直接执行（`revoke_and_pass.py` / `assign_acceptance_task.py`）
+  - 这是新版设计的改进点，无旧版源码可参考
+- **③ PM 建议**：preview Schema 至少含 `{dim, 将执行的任务总数, good/bad/选项分布, 预计通过率, 规则命中详情}`；execute Schema 含 `{dim, 实际执行数, 成功数, 失败数, 失败任务ID列表}`。建议人类 Review "将执行的任务总数"和"规则命中详情"两项即可放行。
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+### 疑问5：三个示例（全部成功/部分失败回查/重复执行跳过）——需要什么程度的示例？
+
+- **① 背景**：Delta 调用与状态回查设计卡提到需要三个示例来验证回查链路的正确性：①全部成功 ②部分失败需回查 ③重复执行跳过。需要明确这些示例写到什么程度——是伪代码级、JSON 请求/响应级、还是仅文字描述级。
+  - 涉及组件：[[质检平台-Delta调用与状态回查设计#回查链路]]
+- **② 旧版源码事实**：
+  - 旧版回查逻辑：`validate_assign_api_result`（`assign_acceptance_task.py:262-294`）通过查 `delta.ods_t_label_screening_task_datalake.task_status` 判断是否成功，`while un_success_task_ids:` 循环重试，`time.sleep(5~10)` 间隔
+  - 旧版无显式"重复执行跳过"逻辑
+- **③ PM 建议**：示例写到"JSON 请求/响应 + 状态变迁时序图"程度即可，不需要可执行代码。三个示例分别覆盖：① batch_assign 全部返回成功 ② 部分任务 task_status 未变更需重试 ③ 同一 dim 重复调用 execute 时跳过已执行的任务
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+### 决策1：Good/Bad 抽样比例（旧版 0.5）是否沿用？
+
+- **① 背景**：验收采样时，从每组任务中按 Good/Bad 分类各抽一定比例进行人工验收。旧版用 `GOOD_RATIO=0.5` 即各抽 50%。
+  - 涉及组件：[[质检平台-验收采样配额与任务选择设计]] 的 RatioSampler
+- **② 旧版源码事实**：`assign_acceptance_task.py:39` 硬编码 `GOOD_RATIO = 0.5`
+- **③ PM 建议**：建议沿用 0.5。理由：旧版已稳定运行，无业务反馈需调整；0.5 意味着 Good 和 Bad 各抽一半，覆盖均衡。
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+### 决策2：每组/每人抽检上限（旧版 300/90）是否沿用？
+
+- **① 背景**：为控制人工验收工作量，每组最多抽 300 个任务，每人最多抽 90 个。
+  - 涉及组件：[[质检平台-验收采样配额与任务选择设计]] 的 GroupSampler/PersonalSampler
+- **② 旧版源码事实**：`assign_acceptance_task.py:37` `ASSIGN_NUM_PER_GROUP = 300`，`assign_acceptance_task.py:36` `ASSIGN_NUM_PER_SCREENER = 90`
+- **③ PM 建议**：建议沿用 300/90。理由：旧版已稳定运行；如需调整可后续作为可配置项（见决策4）。
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+### 决策3：通过率阈值（旧版 good>0.9499, bad>0.7999）是否沿用？
+
+- **① 背景**：人工验收完成后，根据通过率判定整组是否"通过"或"打回"。Good 类任务通过率 > 0.9499 且 Bad 类通过率 > 0.7999 则通过，否则打回。
+  - 涉及组件：[[质检平台-通过打回规则与执行设计]] 的 PassRule
+- **② 旧版源码事实**：`revoke_and_pass.py:62-65` 硬编码规则字符串：
+  - good_pass_rule: `(good_bad验收总数 >= 总验收数 * 0.9 and 总good通过率 > 0.9499) or (good_bad验收总数 < 总验收数 * 0.9 and 总通过率 > 0.9499)`（严格 `>`）
+  - bad_pass_rule: `(good_bad验收总数 >= 总验收数 * 0.9 and 总脏数据通过率 > 0.7999) or (good_bad验收总数 < 总验收数 * 0.9 and 总通过率 > 0.9499)`（严格 `>`）
+  - 占比兜底：good_bad 验收总数 < 总验收数 × 0.9 时用总通过率 > 0.9499 兜底
+- **③ PM 建议**：建议沿用 0.9499/0.7999 且保持严格 `>` 边界。理由：旧版已稳定运行；阈值有业务含义（95% 和 80% 的近似值），调整需业务侧确认。
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+### 决策4：规则是否需可配置（存表 or 代码常量）？
+
+- **① 背景**：上述决策1-3 的值（0.5/300/90/0.9499/0.7999）在旧版都是代码常量。新版是否需要改为存数据库表、支持运行时配置？
+  - 涉及组件：[[质检平台-通过打回规则与执行设计]] 的 RULE_REGISTRY、[[质检平台-验收采样配额与任务选择设计]] 的 SAMPLER_REGISTRY
+- **② 旧版源码事实**：全部硬编码常量，无配置表（`assign_acceptance_task.py:36-39` / `revoke_and_pass.py:62-65`）
+- **③ PM 建议**：建议第一版用代码常量（YAGNI），后续如需调整再改为存表。理由：当前无频繁调整需求；存表需额外 DDL + 管理 UI，过度设计。
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+### 决策5：打回调 task_rollback 2次的逻辑是否保留？
+
+- **① 背景**：旧版"打回"操作实际调用 Delta 的 task_rollback 接口两次：第一次退 68(待验收) 状态的任务，等 60 秒后再第二次退 66(待审核)+67(审核中) 状态的任务。
+  - 涉及组件：[[质检平台-通过打回规则与执行设计]] 的 ExecutionService
+- **② 旧版源码事实**：`revoke_and_pass.py:336-361` 的 `do_revoke` 调用 task_rollback 两次：
+  - 第一次（revoke_and_pass.py:343-352）：`status=(ScreeningTableTaskStatus.waiting_acceptance,)` = (68,)，退待验收任务
+  - 中间 `do_time_sleep(seconds=60, is_skip=not call_num)`（revoke_and_pass.py:351）
+  - 第二次（revoke_and_pass.py:353-361）：`status=(ScreeningTableTaskStatus.waiting_review, ScreeningTableTaskStatus.reviewing)` = (66, 67)，退待审核+审核中任务
+  - 打回记录写入 `public.t_dmp_e2e_screener_rollback_records`（`manual_label/models/dmp_models.py:38,58`，库=dmp）
+- **③ PM 建议**：建议保留 2 次调用逻辑。理由：不同状态的任务可能需要分批退回（Delta 接口可能按状态过滤），60 秒等待是给 Delta 系统状态变迁时间；如不保留可能导致部分状态任务无法打回。
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+### 决策6：人员导入方式（Excel or API）？
+
+- **① 背景**：人员表（t_data_check_screeners，V20260714_01 替换自 t_personnel）需要录入标注员/审核员/验收员信息。导入方式是 Excel 上传还是 API 调用？
+  - 涉及组件：[[质检平台-人员管理模块设计]]（如存在）、ScreenerRepository（V20260714_01 改名自 PersonnelRepository）
+- **② 旧版源码事实**：旧版无人员管理模块，人员信息散落在各脚本中
+- **③ PM 建议**：建议第一版用 Excel 上传（通过现有 data_common 的 Excel 导入能力），后续如需 API 再加。理由：人员变动不频繁，Excel 操作门槛低；API 需额外开发前端表单。
+- **④ 人类决策占位**：
+  > [人类决策]：（待填写）
+
+---
+
+## §7 已闭合结论区
+
+### 结论1（原疑问3）：通过/打回最终执行范围
+
+- **结论**：**执行=全集，验收=抽样**。
+- **依据**：[[人工质检-标注验收执行三阶段流程]] §① 明确"执行阶段打回的对象是该类别下的所有标注（全集），不只是验收抽样集；执行粒度可变（good/bad、选项、任务、组、人）"。
+- **状态**：✅ 已闭合，不再作为待决疑问。
+
+### 结论2：文件命名现状
+
+- **结论**：`service.py`(107 行, 含 StatService) + `repository.py`(359 行, 含 10 个 dataclass) 已物理落地，文件命名与字段集为既成事实。
+- **依据**：物理文件 `src/manual_qc/repository.py`(14347 字节) / `src/manual_qc/service.py`(4424 字节) 已存在且含完整契约骨架。
+- **状态**：✅ 已闭合，记录现状不作为疑问。Phase 3 实现时基于现有骨架填充方法体，不重命名/重构。
+
+---
+
+## §8 风险与阻塞更新
+
+| # | 风险 | 影响 | 当前状态 | 缓解措施 |
+|---|------|------|---------|---------|
+| 1 | **Delta 接口资料不足** | 原阻塞子模块3/4 实现 | ✅ **已解除** —— `data_check_debug/data_check` 仓库已有完整 Delta 接口实现，事实已提取并填入 [[质检平台-Delta调用与状态回查设计]] §5.2 | 待人类决策 §6 疑问2/5 后即可进入 Phase 3C 实现 |
+| 2 | **上游中间表刷新延迟** | UI 必须展示 computed_at/回查状态 | 🟡 持续 | 快照表记录 computed_at；UI 展示回查状态；30min 刷新周期容忍分钟级延迟 |
+| 3 | **旧流程文档来自历史快照** | 字段和路径不能直接冒充当前仓库实现 | 🟡 持续 | 以本仓库实际进度为准（§4 偏差修正区已修正 15 处）；旧版代码仅作业务逻辑参照（见 [[PF-旧版验收代码架构问题与改进策略]]） |
+| 4 | **人员调组后历史快照无法修正** | `group_name` 写入即冻结，调组不回写历史行 | 🟡 已知取舍 | 接受该行为（架构护栏2） |
+| 5 | **并发刷新冲突** | DAG 并发可能产生数据竞争 | 🟡 持续 | DAG `max_active_runs=1`（架构护栏 + DAG 参数） |
+| 6 | **clientSecret 硬编码** | 旧版 clientSecret 硬编码在 label_model.py:24 | 🟡 待 Phase 3 修复 | 新版必须改为环境变量读取，禁止写入 Wiki/日志/前端（见 §5.2 安全提示） |
+
+---
+
+## §9 归属
+
+← [[质检一站式平台人工质检模块整体架构]]（架构总入口）
+
+> 🔗 补充参考：[[质检一站式平台Phase3前架构评审]] 包含 Phase3 前评审的额外决策上下文。
+> 🔗 历史归档：[[质检平台-实施路线与当前进度]] | [[验收前置条件-快照刷新四级实现契约]] | [[SYN-验收全流程细化后续拆解框架]]（原 3 张 plan 卡，已废弃重定向至本卡）
+
+---
+
+## §10 V20260709_01 模块清单更新（2026-07-09）
+
+> 🔄 **重大变更**：§2.2/§2.3 中"方法体均为 raise NotImplementedError"的描述已过时。V20260709_01 已完成 Repository/Service 完整方法体实现，并新增 exec_status.py / delta_client.py / execution_service.py + 两个执行 DAG。
+
+### 新增模块清单
+
+| 模块 | 路径 | 职责 |
+|------|------|------|
+| exec_status | `src/manual_qc/exec_status.py` | exec_status 状态机定义（5 状态 + NULL + 流转规则） |
+| delta_client | `src/manual_qc/delta_client.py` | Delta API 客户端（batch_assign / batch_acceptance_pass / task_rollback_with_wait） |
+| execution_service | `src/manual_qc/execution_service.py` | 执行服务层（execute_assignment / execute_pass_reject） |
+
+### 新增 DAG 清单
+
+| DAG | 路径 | schedule | 职责 |
+|-----|------|---------|------|
+| qc_acceptance_assignment | `dags/manual_qc/qc_acceptance_assignment.py` | 30min | 分配执行（轮询 PENDING+expect_alloc>actual_alloc → batch_assign） |
+| qc_pass_reject_execution | `dags/manual_qc/qc_pass_reject_execution.py` | 30min | 通过打回执行（轮询 PENDING+expect_pass/expect_reject → batchAcceptancePass/task_rollback） |
+
+### 修正过期信息
+
+| 原描述（过期） | 修正后（事实） |
+|--------------|--------------|
+| Repository 方法体均为 NotImplementedError | ✅ 已实现完整方法体（含 V20260709_01 新增 5 个执行支撑方法） |
+| Service 方法体均为 NotImplementedError | ✅ 已实现完整方法体（V20260709_01 JSONB 三维度聚合） |
+| DAG 路径 src/data_check/dags/ | ✅ 修正为 dags/manual_qc/ |
+| retries=1 | ✅ 修正为 retries=2（三 DAG 统一） |
+| DEFAULT_LOOKBACK_DAYS 未明确 | ✅ 明确为 3（三 DAG 统一） |
+| t_qc_daily_snapshot 26 字段 | ✅ V20260709_01 重构后 18 字段 + 3 JSONB 列 |
+
+### V20260709_01 迁移脚本
+
+| 脚本 | 路径 | 内容 |
+|------|------|------|
+| V20260709_01__snapshot_jsonb_rebuild.sql | `data_schemas/migrations/` | 正式表 JSONB 重构（删 13 列 + 加 3 列 + 重建 3 索引） |
+| V20260709_01__snapshot_jsonb_rebuild test.sql | `data_schemas/migrations/` | 测试镜像同步 |
+
+> ⚠️ 注：图纸中迁移脚本路径写为 `data_schemas/postgresql_relational/migrations/`，实际项目结构为 `data_schemas/migrations/`，已按实际结构落地。
+
+### 后续待实现（不在 V20260709_01 范围）
+
+- [ ] Sampler/PassRejectRule 算法类实现（后续独立需求）
+- [ ] 验收页面后端 API（expect_* 写入入口，置 PENDING）
+- [ ] option 维度 exec_status 推进（需 Repository 新增 update_option_exec_status 方法，当前 update_jsonb_exec_status 签名不含 opt_key 参数）

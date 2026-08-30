@@ -1,0 +1,750 @@
+---
+id: "SYN-QC-SNAPSHOT-DESIGN"
+title: "质检平台-综合质检日常快照表设计(t_qc_daily_snapshot)"
+domain: ["manual_qa"]
+type: "synthesis"
+tags: ["quality_check_pipeline", "数据库设计", "验收", "快照表", "scene_name", "定时刷新", "Delta原始表直连", "边界情况", "旧版参照", "project_name", "execution", "good_conclusion", "bad_conclusion", "employee_id", "SCD-Type2"]
+created: 2026-06-28
+updated: 2026-07-02
+status: active
+sources: 4
+source: "本项目实践"
+related_code: ["data_schemas/migrations/V20260630_02__create_qc_daily_snapshot_table.sql", "data_schemas/migrations/V20260630_03__redesign_qc_snapshot_and_personnel.sql", "data_schemas/migrations/V20260630_01__create_personnel_and_permission_tables.sql", "task.md", "implementation_plan.md", ".artifacts/01_PLAN_20260629_150000.md", ".artifacts/01_PLAN_20260630_104500.md", "src/manual_qc/", "src/data_check/dags/qc_snapshot_refresh.py"]
+affects_path: ["data_schemas/postgresql_relational/t_qc_daily_snapshot.sql", "src/manual_qc/", "src/data_check/dags/qc_snapshot_refresh.py"]
+trigger_keywords: ["快照表", "t_qc_daily_snapshot", "stat_service", "scene_name", "验收统计", "标注进度", "验收进度", "option_annotation", "option_acceptance", "execution", "good_conclusion", "bad_conclusion", "employee_id", "project_name", "good_completed", "bad_completed", "acceptance_completed", "UPSERT", "Airflow DAG", "30分钟刷新", "Delta原始表", "data_common_4", "pnc_simulation"]
+summary: "快照表 t_qc_daily_snapshot 完整设计（V20260630_03 重设计）：维度键含 employee_id VARCHAR(64) + project_name 冗余、good/bad 独立列(completed/passed/conclusion) + 选项 JSONB 混合、execution JSONB 执行计数、直连 Delta 原始表聚合拓扑、每30min Airflow DAG 定时刷新（最近4天分片）、10 个边界情况。验收前置条件核心数据底座。"
+---
+
+> ✅ 印证修订：domain 由原始 `["ai_dlc","agent_evaluation","tooling"]` 改为本仓库 TAXONOMY 合法值 `["manual_qa"]`。
+> ✅ 印证修订（20260629 梳理融合）：本卡在原"表结构 + 字段定义"基础上，增量合并 [PLAN 20260629_150000] 的完整来龙去脉：数据来源拓扑、上下游血缘表、定时刷新机制、10边界情况、旧版DAG参照与5大问题清单。零信息损失合并。
+> ⚠️ 架构决策（人类反馈1）：快照表刷新**直接从 Delta 原始表聚合**，不依赖中间表 `human_inspection_0920`。理由：中间表每6h才刷新且含复杂 `MergedTaskStatus` 合并逻辑，引入额外延迟与维护成本；原始表是 Delta 平台 ODS 层实时同步，更简单且更及时。详见下文 §9。
+> 🔄 V20260630_03 重设计（20260702 拍板）：annotator_id INT(外键 t_personnel.id) → employee_id VARCHAR(64)(逻辑引用)；去 annotation_pending/is_executed/conclusion/conclusion_basis；新增 project_name/option_annotation/good_completed/good_conclusion/bad_completed/bad_conclusion/execution；acceptance_submitted→acceptance_completed；索引从 6 个调整为 7 个（新增 project_date + good/bad_conclusion 部分索引）。数据源选型确认：直连 Delta 原始表（实时同步），不依赖 t_text_label_task 中间层（复用已有架构决策人类反馈1）。
+> 🔄 **V20260714_01 适配说明（20260714，t_personnel → t_data_check_screeners）**：本卡正文中 `t_personnel` / `PersonnelRepository` / `current_group` / `leave_date IS NULL` / `PersonnelInfo` 等符号均为 V20260630_03 时期描述，实际落地状态已变更：
+> - `t_personnel` → `t_data_check_screeners`（DDL 已替换）
+> - `PersonnelRepository` → `ScreenerRepository`，`PersonnelInfo` → `ScreenerInfo`
+> - `current_group` → `team_leader`（**group_name 冗余来源字段变更**，`group_name=info.team_leader`）
+> - `leave_date IS NULL` → `end_time IS NULL`（判定当前有效行）
+> - `t_personnel.id` → `t_data_check_screeners.id`（复合主键 (employee_id, id)）
+> - `status='INACTIVE'` → `status=0`（int2，1=在职/0=离职）
+> - 权威定义见 [[人工质检-人力管理体系设计]] §2.1（已全文重写）
+> - 注：本卡 §3/§4/§5 字段集已被 §⑧ V20260709_01 JSONB 重构进一步替换，最新字段以 §⑧ 为准
+
+# 质检平台综合日常快照表设计 (t_qc_daily_snapshot)
+
+> 核心表：每行记录一名标注员在某日、某 scene、当日组别下的最小统计单元；既服务统计看板，也为采样配额和通过/打回判断提供计数依据。
+
+← [[质检一站式平台人工质检模块整体架构]] | [[人工质检-Hub]] | [[人工质检-验收与通过打回]] | [[人工质检-人力管理体系设计]] | [[人工质检-标注验收执行三阶段流程]]
+
+→ [[质检平台-Repository与数据库访问设计]] | [[质检平台-验收采样配额与任务选择设计]] | [[质检平台-通过打回规则与执行设计]]
+
+> 第二轮复核：快照负责"算多少"和"统计结果"，任务级中间表/Delta 表负责"具体哪些 clip/task"以及执行后的真实状态。见 [[质检一站式平台Phase3前架构评审]]。
+
+---
+
+## ① 组件概述
+
+**一句话职责**：定义人工质检模块的核心数据底座 `t_qc_daily_snapshot`——每行记录一名标注员在某日、某 scene、当日组别下的最小统计单元（含 project_name 冗余维度），既服务统计看板，也为采样配额计算和通过/打回判断提供计数依据，并通过/打回结论（good_conclusion/bad_conclusion）与执行计数（execution JSONB）同行记录，无需跨表 JOIN。
+
+**在整体架构中的位置**：数据层。位于 Repository 层之下、Delta 原始表之上的聚合产物；由 [[质检平台-Repository与数据库访问设计]] 的 `SnapshotRepository` 读写，由 [[验收前置条件-快照刷新四级实现契约]] 的 `StatService` + Airflow DAG 每 30 分钟从 Delta 原始表聚合刷新；向上为 [[质检平台-验收采样配额与任务选择设计]] 的 Sampler 和 [[质检平台-通过打回规则与执行设计]] 的 PassRule 提供计数依据。
+
+---
+
+## ② 架构结构
+
+### 物理落地文件
+
+| 文件       | 路径                                                                                                                                                                      | 说明                                                                   |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 正式建表 SQL | [`data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql)                                     | schema=`pnc_simulation`，26 字段 + 2 约束 + 7 索引 + DISTRIBUTE BY HASH(stat_date, scene_name, group_name, employee_id) |
+| 测试镜像 SQL | [`data_schemas/postgresql_relational/t_qc_daily_snapshot test.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot%20test.sql)                         | schema=`data_common_4`，结构与正式表完全一致                                    |
+| 初始迁移脚本   | [`data_schemas/migrations/V20260630_02__create_qc_daily_snapshot_table.sql`](../../../data_schemas/migrations/V20260630_02__create_qc_daily_snapshot_table.sql)         | 幂等迁移，双 schema 镜像创建，依赖 V20260630_01 先执行                               |
+| 重设计迁移脚本  | [`data_schemas/migrations/V20260630_03__redesign_qc_snapshot_and_personnel.sql`](../../../data_schemas/migrations/V20260630_03__redesign_qc_snapshot_and_personnel.sql) | V20260630_03 重设计：字段重命名/新增/删除 + 索引重建，幂等                               |
+| 分布键修复迁移脚本 | [`data_schemas/migrations/V20260706_01__fix_qc_daily_snapshot_distribute_key.sql`](../../../data_schemas/migrations/V20260706_01__fix_qc_daily_snapshot_distribute_key.sql) | V20260706_01 修复 cn_5001：去 id PK + 改分布键为 UK 全列复合键，幂等（测试镜像先补 UK）  |
+
+### 快照刷新数据流图（Mermaid flowchart）
+
+```mermaid
+flowchart TD
+    subgraph Delta["Delta ODS 层（实时同步）"]
+        T1[ods_t_label_screening_task_datalake<br/>任务主表]
+        T2[ods_t_label_sdobject_datalake_new<br/>标注GT表]
+    end
+
+    subgraph Personnel["人力管理表"]
+        P[t_data_check_screeners<br/>employee_id/team_leader/project_name<br/>SCD Type2 WHERE end_time IS NULL]
+    end
+
+    subgraph Stat["StatService（应用编排层）"]
+        S1[refresh_snapshot<br/>编排 5 步骤函数]
+        S2[_aggregate_by_min_unit<br/>单遍历双累加标注+验收指标]
+        S3[_prepare_row_context<br/>提取公共上下文+缓存]
+        S4[_enrich_with_personnel<br/>task_screener→employee_id+group_name]
+    end
+
+    subgraph Repo["LabelTaskRepository / SnapshotRepository（数据访问层）"]
+        R1[fetch_tasks_raw<br/>1 个统一查询，可选 task_screener]
+        R2[upsert_many]
+    end
+
+    subgraph Snap["t_qc_daily_snapshot（本表）"]
+        ROW[最小统计单元行<br/>stat_date×scene_name×group_name×employee_id<br/>+project_name 冗余]
+    end
+
+    subgraph DAG["Airflow DAG（每30min）"]
+        D[qc_snapshot_refresh<br/>最近4天分片]
+    end
+
+    D --> S1
+    S1 --> R1 --> T1
+    S1 --> R1 --> T2
+    S1 --> S2
+    S2 --> S3
+    S1 --> S4
+    S4 --> P
+    S4 --> R2 --> ROW
+```
+
+**数据流说明**：
+- Airflow DAG 每 30 分钟触发 `SnapshotService.refresh_snapshot(stat_date_range)`，覆盖最近 4 天分片（幂等可重复刷新）。
+- `SnapshotService` 通过 `LabelTaskRepository.fetch_tasks_raw` 从 Delta 原始表**一次查全量**（**直连原始表，不依赖中间表，也不依赖 t_text_label_task 中间层**，架构决策人类反馈1）。`task_screener=None` 时不加该过滤（快照需全量）。
+- `_aggregate_by_min_unit` **单遍历双累加**：每行同时累加标注指标（每行都累加）和验收指标（仅 `task_status IN (67,68,69,70)` 累加，验收是标注的子集）。`_prepare_row_context` 提取 `stat_date/employee_id/scene_name/project_name/is_good/behavior_status` 公共上下文并缓存。
+- `_enrich_with_personnel` 将 `task_screener`（工号）**直接写入** `employee_id`（无需映射 t_data_check_screeners.id），并从 `t_data_check_screeners` 查当前组（`WHERE end_time IS NULL`，**group_name 来源字段为 team_leader**）写入 group_name 冗余字段。
+- `upsert_many` 批量 UPSERT 写入快照表，UPDATE SET **仅含统计列**，严禁含 execution/confirmed_*/executed_* 字段（边界情况1）。
+- 范式细节详见 [[SYN-SQL精简与快照单遍历双累加范式]]。
+
+### 核心业务流程时序图（Mermaid sequenceDiagram）
+
+```mermaid
+sequenceDiagram
+    participant DAG as Airflow DAG
+    participant SS as SnapshotService
+    participant LTR as LabelTaskRepository
+    participant SR as SnapshotRepository
+    participant PR as ScreenerRepository
+    participant DB as t_qc_daily_snapshot
+    participant Delta as Delta原始表
+    participant P as t_data_check_screeners
+
+    DAG->>SS: refresh_snapshot(date_range)
+    Note over SS: Step1: _fetch_all_tasks
+    SS->>LTR: fetch_tasks_raw(start, end, task_screener=None)
+    LTR->>Delta: SELECT 全量任务+behavior_status<br/>无 task_status 过滤（Python 层做）
+    Delta-->>LTR: List[TaskRawRow]
+    LTR-->>SS: tasks
+
+    Note over SS: Step2: _aggregate_by_min_unit（单遍历双累加）
+    Note over SS: 每行: _prepare_row_context 提取公共上下文<br/>标注分支: 每行累加 annotation_total/submitted + good/bad/option<br/>验收分支: if task_status in (67,68,69,70): 累加 completed/pass
+
+    Note over SS: Step3: _build_raw_rows
+
+    Note over SS: Step4: _enrich_with_personnel
+    SS->>PR: get_current_groups(employee_ids)
+    PR->>P: SELECT employee_id, team_leader, project_name<br/>WHERE end_time IS NULL
+    P-->>PR: personnel_map
+    PR-->>SS: {employee_id: ScreenerInfo}
+    Note over SS: task_screener→employee_id（直接写入）<br/>group_name 从 t_data_check_screeners 查当前组（team_leader 字段）<br/>人员不存在则跳过+warning
+
+    Note over SS: Step5: _persist
+    SS->>SR: upsert_many(merged_rows)
+    SR->>DB: INSERT ... ON CONFLICT DO UPDATE
+    Note over SR,DB: UPDATE SET 仅统计列+computed_at+updated_at<br/>严禁触碰 execution/confirmed_*/executed_*
+    DB-->>SR: 影响行数
+    SR-->>SS: upsert_count
+    SS-->>DAG: 返回行数
+```
+
+---
+
+## ③ 数据表交互
+
+| 表名                                          | 一句话用途                                                                       | SQL/设计卡链接                                                                                                                                         | 读写类型 | 关键字段                                                                           |
+| ------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------ |
+| `t_qc_daily_snapshot`                       | 本表，综合日常快照表                                                                  | [`data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql)（本卡 ⑤ 段完整字段说明） | 读写   | 全部 26 字段（见 ⑤ 段）                                                                |
+| `t_data_check_screeners` | 快照刷新时按 employee_id 查 team_leader（WHERE end_time IS NULL）冗余写入 group_name | [`data_schemas/postgresql_relational/t_data_check_screeners.sql`](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql) · [[人工质检-人力管理体系设计]] §2.1 | 读 | employee_id/team_leader/project_name（SCD Type2，查现状 WHERE end_time IS NULL） |
+| Delta `ods_t_label_screening_task_datalake` | 标注进度与验收结果的上游源表                                                              | [[质检平台-ods_t_label_screening_task_datalake表结构]]                                                                                                                               | 读    | task_name/task_screener/task_status/del_flag/to_review_time                    |
+| Delta `ods_t_label_sdobject_datalake_new`   | 标注 GT 与 Good/Bad 判定的上游源表                                                    | [[质检平台-ods_t_label_sdobject_datalake_new表结构]]                                                                                                                               | 读    | task_id/behavior_status(JSONB)/task_finished_time                              |
+
+> **迁移依赖**：V20260630_03 重设计后，`t_qc_daily_snapshot.employee_id` 为逻辑引用 `t_data_check_screeners.employee_id`（非物理 FK）。执行顺序：`V20260630_01` → `V20260630_02` → `V20260630_03`（重设计迁移，幂等）→ `V20260714_01`（t_personnel 替换为 t_data_check_screeners，幂等）。
+
+---
+
+## ④ 子模块/文件级清单
+
+| 子模块/文件 | 一句话说明 |
+|------------|-----------|
+| `t_qc_daily_snapshot` 表 | 本卡核心，26 字段综合快照表（含 project_name 冗余、execution JSONB） |
+| `SnapshotRepository` | 读写本表的 Repository 类，详见 [[质检平台-Repository与数据库访问设计]] |
+| `SnapshotRepository.upsert_many` | 批量 UPSERT，UPDATE SET 仅统计列（禁含 execution/confirmed_*/executed_*） |
+| `SnapshotRepository.aggregate_by_project` | 新增：按 project_name 聚合查询 |
+| `LabelTaskRepository.fetch_tasks_raw` | 统一查询方法，从 Delta 原始表一次查全量任务+behavior_status，可选 `task_screener` 过滤（替代旧 3 个 fetch 方法） |
+| `SnapshotService.refresh_snapshot` | 编排 5 步骤函数（_fetch_all_tasks → _aggregate_by_min_unit → _build_raw_rows → _enrich_with_personnel → _persist），详见 [[验收前置条件-快照刷新四级实现契约]] Task 4 与 [[SYN-SQL精简与快照单遍历双累加范式]] 范式三 |
+| `SnapshotService._aggregate_by_min_unit` | 单遍历双累加：每行同时累加标注指标（每行）和验收指标（仅 task_status IN 67,68,69,70），详见 [[SYN-SQL精简与快照单遍历双累加范式]] 范式二 |
+| `SnapshotService._prepare_row_context` | 提取 stat_date/employee_id/scene_name/project_name/is_good/behavior_status 公共上下文并缓存到 agg dict |
+| `SnapshotService._enrich_with_personnel` | task_screener → employee_id（直接写入） + group_name（查当前组） |
+| `qc_snapshot_refresh` DAG | 每 30 分钟调度入口，详见 [[验收前置条件-快照刷新四级实现契约]] Task 5 |
+| `Sampler` | 从本表读 option_annotation 计算配额，详见 [[质检平台-验收采样配额与任务选择设计]] |
+| `PassRule` | 从本表读 good_*/bad_* 计算通过率判定 PASS/REJECT，详见 [[质检平台-通过打回规则与执行设计]] |
+
+---
+
+## ⑤ 详细设计展开
+
+### 1. 设计原则
+
+| 原则 | 说明 |
+|------|------|
+| **一行 = 一个最小统计单元** | `(stat_date × scene_name × group_name × employee_id)` + project_name 冗余；employee_id 必须有值 |
+| **标注+验收合一** | 同一行承载该维度下标注进度、标注结果分布、验收分配、验收结果 |
+| **执行确认同行** | good_conclusion/bad_conclusion 记录分类结论，execution JSONB 记录各维度执行计数，confirmed_*/executed_* 记录人工确认与执行，无需跨表 JOIN |
+| **采样计算依据** | sampler 从本表计算每个最小单元的配额；执行前再查 Delta 原始表取得 task_id/clip_id（**本表不记录 clip_id 列表**，反查走 Delta 原始表） |
+| **JSONB 无 schema 扩展** | 选项分布和验收明细用 JSONB，新增选项/题型无需加列 |
+| **good/bad 独立列 + 选项 JSONB 混合** | 固定高频维度（good/bad 的 allocated/completed/passed/conclusion）用独立列（可索引、SQL 简洁），可变维度用 JSONB（灵活扩展） |
+
+### 2. 维度设计
+
+```
+stat_date       DATE         -- 标注提交日期（以标注工作日为主轴）
+scene_name      VARCHAR(256) -- 任务组/场景名（见 scene_name 概念卡片）
+group_name      VARCHAR(128) -- 冗余存储的标注员组名（不做 FK，便于 GROUP BY）
+employee_id     VARCHAR(64)  -- 必填，最小统计单元对应的标注员工号（逻辑引用 t_data_check_screeners.employee_id）
+project_name    VARCHAR(64)  -- 冗余项目名，由 scene_name 前缀经 Python 字典映射
+```
+
+本表只保存个人最小行，不额外保存组级汇总行。`group_name` 是历史维度快照：记录该标注员当天所属组，后续调组不回写历史。组级、scene 级、project 级和日期级结果通过 `GROUP BY` 直接聚合。
+
+**project 维度映射**：`project_name` 由 `scene_name` 前缀经 StatService 中的 Python 字典硬编码映射（仅 2 个项目，无需建表避免过度设计）：
+
+```python
+PROJECT_MAP = {
+    "vpd质检标注_v4": "vpd",
+    "驾驶行为质检": "城区and高速",
+}
+```
+
+**反查 clip_id 策略**：本表**不记录 clip_id 列表**。执行阶段需具体 clip/task 时，反查走 Delta 原始表（`ods_t_label_screening_task_datalake` + `ods_t_label_sdobject_datalake_new`），按 (stat_date, scene_name, employee_id) 维度回查 task_id/clip_id。
+
+**唯一性保证**：`UNIQUE (stat_date, scene_name, group_name, employee_id)`，只使用 PostgreSQL 10+ 支持的普通列唯一约束。分布键 = UK 全列 `(stat_date, scene_name, group_name, employee_id)`，满足 GaussDB/DWS 分布键⊆唯一约束要求（V20260706_01 修复 cn_5001 后）。id 为 SERIAL 自增逻辑主键，无 DB 层 PRIMARY KEY 约束。
+
+### 3. 字段分组设计
+
+#### 3.1 标注进度字段
+
+```sql
+annotation_total     INT   -- 该维度下分配的总标注任务数
+annotation_submitted INT   -- 已提交/完成标注数
+-- annotation_pending 去掉（运行时派生 = total - submitted）
+option_annotation    JSONB -- {"A": 120, "B": 30, "C": 15}  各选项标注数量（新增）
+```
+
+#### 3.2 验收分配+进度字段
+
+```sql
+acceptance_allocated   INT  -- 状态回查后确认实际成功分配到验收员的数量（总验收条数）
+acceptance_completed   INT  -- 已完成验收数（原 acceptance_submitted 改名）
+-- 分配比例 = allocated / annotation_submitted，在应用层计算
+```
+
+#### 3.3 验收结果字段（good/bad 独立列 + 选项 JSONB 混合）
+
+```sql
+good_allocated   INT           -- 分配的 Good 类任务数
+good_completed   INT           -- Good 类已完成验收数（新增，通过率分母用此列）
+good_passed      INT           -- Good 类验收通过数
+good_conclusion  VARCHAR(16)   -- Good 类结论：NULL / PENDING / PASS / REJECT（新增）
+bad_allocated    INT           -- 分配的 Bad 类任务数
+bad_completed    INT           -- Bad 类已完成验收数（新增，通过率分母用此列）
+bad_passed       INT           -- Bad 类验收通过数
+bad_conclusion   VARCHAR(16)   -- Bad 类结论：NULL / PENDING / PASS / REJECT（新增）
+
+option_acceptance JSONB
+-- {"A": {"allocated": 100, "completed": 96, "passed": 90, "conclusion": "PASS"},
+--  "B": {"allocated": 25,  "completed": 23, "passed": 18, "conclusion": "PASS"},
+--  "C": {"allocated": 12,  "completed": 11, "passed": 9,  "conclusion": "REJECT"}}
+-- key = 选项字母，value = {allocated, completed, passed, conclusion}
+```
+
+#### 3.4 执行结论字段
+
+```sql
+execution        JSONB        -- 新增，执行计数：{"good":{"passed":100,"rejected":50,"total":150},"bad":{...},"A":{...}}
+-- is_executed / conclusion / conclusion_basis 去掉（被 execution JSONB + good/bad_conclusion 替代）
+confirmed_by     VARCHAR(64)  -- 确认人工号
+confirmed_at     TIMESTAMPTZ
+executed_by      VARCHAR(64)
+executed_at      TIMESTAMPTZ
+execution_note   TEXT
+```
+
+**execution JSONB 字段语义**：
+- `passed`：执行通过数（Delta API batch_acceptance_pass 成功数）
+- `rejected`：执行打回数（Delta API task_rollback 成功数）
+- `total`：标注全集数（参与执行判定的总条数）
+- 按维度组织：`good` / `bad` / 各选项字母（`A`/`B`/...）
+
+### 4. t_qc_daily_snapshot 完整字段说明（物理 DDL 对照）
+
+> 物理文件：[`data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql)（schema=`pnc_simulation`，测试镜像 schema=`data_common_4`，DISTRIBUTE BY HASH(stat_date, scene_name, group_name, employee_id)；id 为 SERIAL 自增逻辑主键，无 DB 层 PK 约束）
+
+| #   | 字段名                    | 类型           | 约束                     | 默认值   | 说明                                                                                          |
+| --- | ---------------------- | ------------ | ---------------------- | ----- | ------------------------------------------------------------------------------------------- |
+| 1   | `id`                   | SERIAL       | —（逻辑主键，非 DB 层 PK，非分布键） | —     | 自增ID（逻辑主键；分布键为 stat_date, scene_name, group_name, employee_id）                              |
+| 2   | `stat_date`            | DATE         | NOT NULL               | —     | 标注提交日期（以标注工作日为主轴）                                                                           |
+| 3   | `scene_name`           | VARCHAR(256) | NOT NULL               | —     | 任务组/场景名（见 [[质检平台-scene_name概念]]）                                                            |
+| 4   | `group_name`           | VARCHAR(128) | NOT NULL               | `''`  | 冗余存储的标注员组名（非 FK，便于 GROUP BY；写入即冻结，调组不回写历史，架构护栏2）                                            |
+| 5   | `employee_id`          | VARCHAR(64)  | NOT NULL               | —     | 最小统计单元对应的标注员工号，逻辑引用 t_data_check_screeners.employee_id（非物理 FK），由应用层保证一致性                               |
+| 6   | `project_name`         | VARCHAR(64)  | NOT NULL               | `''`  | 冗余项目名，由 scene_name 前缀经 Python 字典映射                                                          |
+| 7   | `annotation_total`     | INT          | NOT NULL               | 0     | 该维度下分配的总标注任务数                                                                               |
+| 8   | `annotation_submitted` | INT          | NOT NULL               | 0     | 已提交/完成标注数                                                                                   |
+| 9   | `option_annotation`    | JSONB        | NULL                   | —     | 各选项标注数量 JSONB：`{"A": 120, "B": 30, "C": 15}`                                                |
+| 10  | `acceptance_allocated` | INT          | NOT NULL               | 0     | 状态回查后确认实际成功分配到验收员的数量（总验收条数）                                                                 |
+| 11  | `acceptance_completed` | INT          | NOT NULL               | 0     | 已完成验收数（验收员已判定，原 acceptance_submitted 改名）                                                    |
+| 12  | `good_allocated`       | INT          | NOT NULL               | 0     | 分配的 Good 类任务数                                                                               |
+| 13  | `good_completed`       | INT          | NOT NULL               | 0     | Good 类已完成验收数（通过率分母用此列，非 allocated）                                                          |
+| 14  | `good_passed`          | INT          | NOT NULL               | 0     | Good 类验收通过数                                                                                 |
+| 15  | `good_conclusion`      | VARCHAR(16)  | NULL                   | —     | Good 类执行结论：NULL / PENDING / PASS / REJECT                                                   |
+| 16  | `bad_allocated`        | INT          | NOT NULL               | 0     | 分配的 Bad 类任务数                                                                                |
+| 17  | `bad_completed`        | INT          | NOT NULL               | 0     | Bad 类已完成验收数（通过率分母用此列，非 allocated）                                                           |
+| 18  | `bad_passed`           | INT          | NOT NULL               | 0     | Bad 类验收通过数                                                                                  |
+| 19  | `bad_conclusion`       | VARCHAR(16)  | NULL                   | —     | Bad 类执行结论：NULL / PENDING / PASS / REJECT                                                    |
+| 20  | `option_acceptance`    | JSONB        | NULL                   | —     | 各选项验收明细 JSONB：`{"A": {"allocated": 10, "completed": 9, "passed": 8, "conclusion": "PASS"}}` |
+| 21  | `execution`            | JSONB        | NULL                   | —     | 执行计数 JSONB：`{"good":{"passed":100,"rejected":50,"total":150},"bad":{...},"A":{...}}`        |
+| 22  | `confirmed_by`         | VARCHAR(64)  | NULL                   | —     | 确认人工号                                                                                       |
+| 23  | `confirmed_at`         | TIMESTAMPTZ  | NULL                   | —     | 确认时间                                                                                        |
+| 24  | `executed_by`          | VARCHAR(64)  | NULL                   | —     | 执行人工号                                                                                       |
+| 25  | `executed_at`          | TIMESTAMPTZ  | NULL                   | —     | 执行时间                                                                                        |
+| 26  | `execution_note`       | TEXT         | NULL                   | —     | 执行备注                                                                                        |
+| 27  | `computed_at`          | TIMESTAMPTZ  | NOT NULL               | now() | 统计计算时间（刷新批次时间戳）                                                                             |
+| 28  | `updated_at`           | TIMESTAMPTZ  | NOT NULL               | now() | 最后修改时间（禁 TRIGGER，由应用层写入或 DEFAULT now()）                                                     |
+
+**约束**：
+| 约束名 | 类型 | 定义 | 来源 |
+|--------|------|------|------|
+| `uk_qc_daily_snapshot_dim` | UNIQUE | `(stat_date, scene_name, group_name, employee_id)` | §2 唯一性保证 |
+| `ck_annotation_counts_order` | CHECK | `annotation_submitted <= annotation_total` | 四级契约 Task2 |
+
+### 5. 索引设计说明（物理 DDL 对照）
+
+> 物理文件：[`data_schemas/postgresql_relational/t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql) 末段（7 个索引）
+
+| 索引名 | 索引定义 | 用途 |
+|--------|---------|------|
+| `idx_qc_daily_snapshot_stat_date` | `(stat_date DESC)` | 按日期查最近数据 |
+| `idx_qc_daily_snapshot_scene_date` | `(scene_name, stat_date DESC)` | 按场景+日期筛选（最常见查询） |
+| `idx_qc_daily_snapshot_group_date` | `(group_name, stat_date DESC)` | 按组筛选 |
+| `idx_qc_daily_snapshot_employee_date` | `(employee_id, stat_date DESC)` | 按标注员工号筛选 |
+| `idx_qc_daily_snapshot_project_date` | `(project_name, stat_date DESC)` | 按项目筛选（新增） |
+| `idx_qc_daily_snapshot_good_conclusion` | `(good_conclusion, stat_date) WHERE good_conclusion IS NOT NULL` | 查 Good 类有结论的待办项（新增部分索引） |
+| `idx_qc_daily_snapshot_bad_conclusion` | `(bad_conclusion, stat_date) WHERE bad_conclusion IS NOT NULL` | 查 Bad 类有结论的待办项（新增部分索引） |
+
+### 6. 核心业务流程与数据流
+
+```
+① 标注完成 → StatService.compute_annotation_stats()
+   → 读 Delta 原始表，按维度聚合标注数据
+   → UPSERT t_qc_daily_snapshot（刷新 annotation_* 和 option_annotation 列）
+
+② 验收分配 → AssignmentService.execute_assignment()
+   → 执行采样（sampler 从本表读 option_annotation 做比例判断）
+   → 根据配额反查 Delta 原始表取得具体 task_ids（本表不记录 clip_id）
+   → 调用 Delta API batch_assign()/batch_review_pass()
+   → 回查任务状态后 UPSERT acceptance_allocated（实际成功量）
+
+③ 验收进行中 → StatService.refresh_acceptance_stats()（定时或手动触发）
+   → 读 Delta 原始表，获取最新验收状态
+   → UPSERT t_qc_daily_snapshot（刷新 good_*/bad_*/option_acceptance/acceptance_completed 列）
+
+④ 结论确认 → ExecutionService.confirm_conclusion()
+   → 调用 PassRuleStrategy.evaluate(snapshot_row) 计算通过率（分母用 good_completed/bad_completed）
+   → UPDATE good_conclusion / bad_conclusion / confirmed_by / confirmed_at
+
+⑤ 结论执行 → ExecutionService.execute()
+   → 调用 Delta API（batch_acceptance_pass 或 task_rollback×2）
+   → UPDATE execution（JSONB 写入各维度 passed/rejected/total）/ executed_by / executed_at
+```
+
+#### Delta 原始表查询算法（1 个统一查询方法 + Python 层过滤）
+
+> 🔄 **范式重构（TAG 20260711_160000）**：原 3 个 fetch 方法（`fetch_annotation_raw` / `fetch_acceptance_raw` / `fetch_task_ids_by_dimension`）已合并为 1 个统一查询方法 `fetch_tasks_raw`。核心理由：三者查同一张表、SELECT 字段完全一致、仅 WHERE 不同，且验收是标注的子集（`task_status IN 67,68,69,70` ⊂ 全量）。详见 [[SYN-SQL精简与快照单遍历双累加范式]] 范式一。
+
+上述业务流程中"读 Delta 原始表"的具体实现由 `LabelTaskRepository.fetch_tasks_raw` 统一承担，它是快照刷新链路与 Delta ODS 层之间的数据桥梁。调用链与查询逻辑如下：
+
+```mermaid
+sequenceDiagram
+    participant SS as StatService / ExecutionService
+    participant LTR as LabelTaskRepository
+    participant Delta as Delta ODS 原始表
+
+    SS->>LTR: fetch_tasks_raw(start, end, task_screener=None)
+    Note over LTR: task_screener=None → 不加该过滤（快照路径需全量）<br/>task_screener=xxx → 动态追加（执行路径）
+    LTR->>Delta: SELECT task 字段 + behavior_status<br/>WHERE task_creator ANY + task_name LIKE OR<br/>+ to_review_time 范围 + del_flag=0<br/>(可选 task_screener=%s)<br/>无 LATERAL，分批查 sdobject BATCH_SIZE=5000
+    Delta-->>LTR: List[TaskRawRow] (含 behavior_status，空串=无 sdobject)
+    LTR-->>SS: List[TaskRawRow]
+    Note over SS: 快照路径: 单遍历双累加（标注每行累加，验收仅 status IN 67,68,69,70 累加）<br/>执行路径: Python 层提取 (task_id, behavior_status)，过滤掉空 behavior_status
+```
+
+**源码出处**：`src/manual_qc/label_task_repository.py` `fetch_tasks_raw` + `_STEP1_TASKS_SQL_TEMPLATE`
+
+| 路径 | 调用方 | task_screener 参数 | Python 层过滤 |
+|------|--------|------------------|--------------|
+| 快照路径 | `SnapshotService._fetch_all_tasks` | `None`（全量） | 单遍历内按 `task_status` 分支累加标注/验收指标 |
+| 执行路径 | `ExecutionService._fetch_task_ids_by_category` | 具体值（单人） | 提取 `(task_id, behavior_status)`，过滤掉 `behavior_status` 为空的行 |
+
+**关键设计**：
+- good/bad 判定**不在 SQL 层进行**，`behavior_status` 原样返回供 Python 层 `gt_parser.is_good_behavior()` 解析（判定算法详见 [[质检平台-ods_t_label_sdobject_datalake_new表结构]] good/bad 判定算法段）。
+- `scene_name` **不在 SQL 层提取**，`task_name` 原样返回，由 Python 层 `_extract_scene_name_from_task_name` 按 `SPLIT_PART(task_name, '_', 2)`（e2e）/ `SPLIT_PART(task_name, '_', 3)`（vpd）提取（提取逻辑详见 [[质检平台-ods_t_label_screening_task_datalake表结构]] scene_name 提取逻辑段）。
+- `task_status` / `scene_name` 过滤全部在 Python 层完成，SQL 只做 `task_creator` / `task_name` 前缀 / `to_review_time` 范围 / `del_flag` / 可选 `task_screener` 过滤。
+- **无 LATERAL**（GaussDB/DWS 不支持），sdobject 取最新行用分批查 + Python 层去重（BATCH_SIZE=5000）。
+
+### 7. 采样引擎如何使用本表
+
+采样计算阶段需要各最小单元的 Good/Bad 数量和按组/scene 分布；真正执行阶段才需要具体 clip/task。
+
+```python
+# sampler.py 中 RatioSampler.sample() 的伪逻辑
+def calculate_quota(self, query_params: SamplingConfig) -> List[SamplingQuota]:
+    # 从快照表读取最小单元计数
+    snapshot = stat_repo.get_snapshot(date=query_params.date,
+                                       scene_name=query_params.scene_name,
+                                       group_name=query_params.group_name)
+    option_dist = snapshot.option_annotation  # {"A": 120, "B": 30, ...}
+
+    # 计算 Good(A) 和 Bad(B/C/D...) 分别要抽多少
+    good_count = max(int(target * GOOD_RATIO), GOOD_MIN)
+    bad_count  = max(int(target * BAD_RATIO),  BAD_MIN)
+
+    return SamplingQuota(good_count=good_count, bad_count=bad_count, dimensions=...)
+
+# AssignmentService 再按 quota 的维度从任务级表查询具体 task_ids
+task_ids = task_repo.fetch_waiting_review_tasks(quota)
+```
+
+### 8. 通过率计算（应用层，不在 DB 算）
+
+```python
+# 在 StatService 或 ExecutionService 中
+good_pass_rate = snapshot.good_passed / snapshot.good_completed  if snapshot.good_completed > 0 else None
+bad_pass_rate  = snapshot.bad_passed  / snapshot.bad_completed   if snapshot.bad_completed  > 0 else None
+total_pass_rate = (snapshot.good_passed + snapshot.bad_passed) / snapshot.acceptance_completed
+
+# 各选项通过率
+for option, data in snapshot.option_acceptance.items():
+    pass_rate = data['passed'] / data['completed'] if data['completed'] > 0 else None
+```
+
+> ⚠️ 通过率分母用 `good_completed` / `bad_completed` / `option_acceptance[x].completed`（已完成验收数），**非** `allocated`（分配数）。
+
+### 9. 执行顺序（Migration 依赖）
+
+```
+1. V20260630_01__create_personnel_and_permission_tables.sql  ← t_personnel（employee_id 逻辑引用源，V20260714_01 已替换为 t_data_check_screeners）
+2. V20260630_02__create_qc_daily_snapshot_table.sql          ← 初版快照表
+3. V20260630_03__redesign_qc_snapshot_and_personnel.sql      ← 重设计（幂等迁移）
+4. V20260714_01__replace_personnel_with_screeners.sql         ← t_personnel → t_data_check_screeners（V20260714_01，幂等）
+```
+
+> ⚠️ 护栏：`confirmed_at IS NULL` 时，不得绕过 ExecutionService 直接更新 good_conclusion/bad_conclusion；调用 Delta API 后必须通过任务状态回查校准真实结果并写入 execution JSONB。
+
+> ⚠️ 护栏：sampler 用快照计算配额；Repository 只在执行准备阶段反查 Delta 原始表取得具体 task_ids，不重复计算统计口径。
+
+> ⚠️ 本仓库适配说明：本项目新建数据表的规范为——正式表建在 `app_gy1` 库的 `pnc_simulation` schema 下；同时在 `app_gy1` 库的 `data_common_4` schema 下建一张同名测试表。原卡片中的库/schema 命名仅作设计参考，实际落地以本规则为准。本卡的 `t_qc_daily_snapshot` 与 `t_data_check_screeners`（V20260714_01 替换自 t_personnel）表落地时需按此规则调整 migration 中的 schema 限定。
+
+> 🔄 关联存量知识：[[测试环境表镜像 data_common_4]] 已描述 `data_common_4` schema 的测试表镜像规范，与本卡的"测试表"规则一致，可视为同一规范的具象应用，无需合并。
+
+### 10. 数据来源拓扑图（直连 Delta 原始表，不依赖中间表）
+
+> ⚠️ 数据源选型确认：快照刷新数据源为 **Delta 原始表（实时同步）**，不依赖 `t_text_label_task` 中间层（30min 刷新，且新架构决策复用已有 Delta ODS 实时同步链路）。t_text_label_task 表结构详见 [[质检平台-t_text_label_task表结构]]。
+
+```
+① Delta 原始表（ODS层，实时同步）
+   delta.ods_t_label_screening_task_datalake  ──任务主表──  id/task_name/task_screener/task_reviewer/task_acceptor/task_status/del_flag/to_review_time/marker_company
+   delta.ods_t_label_sdobject_datalake_new   ──标注GT表──   task_id/behavior_status(JSONB)/task_finished_time
+        │
+        ├──→ StatService.compute_annotation_stats()  按日×scene×标注员聚合标注进度
+        │      └→ UPSERT t_qc_daily_snapshot (annotation_* / option_annotation 列)
+        │
+        └──→ StatService.refresh_acceptance_stats()  按日×scene×标注员聚合验收结果
+               └→ UPSERT t_qc_daily_snapshot (good_*/bad_*/option_acceptance/acceptance_completed 列)
+
+② StatService._map_project_name()  ──Python 字典硬编码──  scene_name 前缀 → project_name
+       {"vpd质检标注_v4": "vpd", "驾驶行为质检": "城区and高速"}
+
+③ 人力管理表（SCD Type2 当前有效行）
+   pnc_simulation.t_data_check_screeners  ── employee_id/user_name/work_type/project_name/team_leader/status
+        │   查询条件：WHERE end_time IS NULL（仅当前有效行）
+        └──→ 刷新时 task_screener(工号) 直接写入 employee_id（无需映射 t_data_check_screeners.id）；
+              group_name 从 t_data_check_screeners 查当前组（team_leader 字段，WHERE end_time IS NULL）冗余写入
+              注：写入即冻结，后续调组不回写历史快照行
+
+④ t_qc_daily_snapshot（本表，UPSERT 目标）
+```
+
+#### 两表关联关系
+
+上述拓扑图中 ① 的两张 Delta 原始表通过 `task_id` 构成 1:N 关联，是快照刷新 SQL 的 JOIN 基础。关联结构如下：
+
+```
+delta.ods_t_label_screening_task_datalake (task)
+  │  PK: id
+  │  索引: task_name / task_status / task_screener / task_acceptor / task_reviewer / to_review_time
+  │
+  │  1:N (id = task_id)
+  │
+  ▼
+delta.ods_t_label_sdobject_datalake_new (sdobj)
+  PK: (id, task_finished_time)
+  索引: (sds_id, del_flag) / task_id
+```
+
+**去重策略**：一个 task_id 可对应多条 sdobject 记录，使用 `LEFT JOIN LATERAL` + `ORDER BY task_finished_time DESC LIMIT 1` 取最新行，避免笛卡尔积膨胀：
+
+```sql
+LEFT JOIN LATERAL (
+    SELECT behavior_status
+    FROM delta.ods_t_label_sdobject_datalake_new
+    WHERE task_id = task.id AND del_flag = 0
+    ORDER BY task_finished_time DESC
+    LIMIT 1
+) AS sdobj ON TRUE
+```
+
+**源码出处**：`src/manual_qc/label_task_repository.py` `fetch_annotation_raw` / `fetch_acceptance_raw`（原查询逻辑卡 §1）。两张表的完整字段清单与索引设计详见 [[质检平台-ods_t_label_screening_task_datalake表结构]] 和 [[质检平台-ods_t_label_sdobject_datalake_new表结构]]。
+
+**聚合 SQL 来源原型**（来自存量代码 `AppGy1Model.get_pass_rate_info()`，新架构中由 Repository 层重新实现）：
+- 按 `(DATE(submit_time), screener, company)` 聚合
+- `COUNT(DISTINCT CASE WHEN status != 'UNLABELED' THEN task_id END)` → 提交数
+- `COUNT(DISTINCT CASE WHEN status = 'HUMAN_PASS' THEN task_id END)` → 通过数
+- good/bad 分类依据 `result->>'驾驶问题分类' = 'good'` 判定
+
+### 11. 上下游血缘
+
+**上游**（数据来源）：
+
+| 源表 | 物理位置 | 承载字段 | 刷新频率 |
+|------|---------|---------|---------|
+| `delta.ods_t_label_screening_task_datalake` | app_gy1 库 | 任务状态/人员/时间 | Delta 平台实时同步 |
+| `delta.ods_t_label_sdobject_datalake_new` | app_gy1 库 | behavior_status(GT/Good-Bad判定) | Delta 平台实时同步 |
+| `pnc_simulation.t_data_check_screeners` | app_gy1 库 | team_leader/project_name（WHERE end_time IS NULL） | SCD Type2 人工维护 |
+
+**下游**（消费方）：
+
+| 消费方 | 用途 | 读取模式 |
+|--------|------|---------|
+| 采样引擎 `Sampler` | 根据 `option_annotation` 分布计算 Good/Bad 抽样配额 | 按 (date, scene, group) 查询单行 |
+| 通过率计算 + 规则判定 `PassRuleStrategy` | `good_passed/good_completed` 计算通过率，判定 good_conclusion/bad_conclusion | 查询单行 |
+| 看板/统计查询 API | 按组/场景/项目/日期汇总，通过率必须先 SUM 再相除 | `GROUP BY stat_date, scene_name, group_name, project_name` |
+| 待执行看板 | `good_conclusion IS NOT NULL OR bad_conclusion IS NOT NULL` | 部分索引扫描 |
+
+### 12. 定时刷新机制
+
+| 维度 | 配置 |
+|------|------|
+| 刷新周期 | 每 30 分钟（与旧版状态刷新一致） |
+| 调度方式 | Airflow DAG（PythonOperator + max_active_runs=1 + dagrun_timeout） |
+| 覆盖范围 | 最近 4 天分片（`date.today() - timedelta(days=4)` 至 `date.today()`），幂等可重复刷新 |
+| 并发控制 | DAG `max_active_runs=1`，`dagrun_timeout=28min`，`catchup=False`，`retries=1`，`retry_delay=2min` |
+| 时区 | 所有时间按 `Asia/Shanghai` 处理 |
+| 失败回调 | 复用 `dags.common_fun.wrapper_failure_callback` |
+
+### 13. 边界情况与典型工况
+
+| # | 边界情况 | 处理策略 |
+|---|---------|---------|
+| 1 | **UPSERT 不得误清空已确认执行字段** | 刷新只更新统计列（annotation_*/acceptance_*/good_*/bad_*/option_*），`execution/confirmed_*/executed_*/good_conclusion/bad_conclusion` 列在 UPSERT 的 UPDATE SET 中**不出现** |
+| 2 | **人员调组后历史快照** | `group_name` 写入即冻结，调组不回写历史行（架构护栏2） |
+| 3 | **人员尚未进组** | `team_leader=''` 时快照行 group_name 记录空串，后续调组无法修正（已知取舍） |
+| 4 | **跨天分片** | 聚合按 `DATE(submit_time)`（上海时区）分组，DAG 每次刷新覆盖最近 N 天（参照旧版过去4天分片） |
+| 5 | **空数据** | 某日某标注员无提交时，不产生快照行（非 UPSERT 空值） |
+| 6 | **Delta 平台同步延迟** | 刷新周期 30min，容忍 ODS 层分钟级延迟 |
+| 7 | **标注员离职** | `t_data_check_screeners.status=0`（int2，0=离职）的人员，其历史快照行保留不删（SCD Type2 旧行 end_time 已设） |
+| 8 | **Good/Bad 判定** | 依据 `ods_t_label_sdobject_datalake_new.behavior_status` JSONB 中的 `驾驶问题分类` 字段，`='good'` 为 good，其余为 bad |
+| 9 | **并发刷新** | DAG `max_active_runs=1` 避免并发 |
+| 10 | **临时表污染** | 新架构用 `execute_values` 批量 UPSERT，**禁止**再用临时表模式 |
+
+#### Good/Bad 判定流程图（边界情况 #8 详展）
+
+边界情况 #8 的判定依据 `ods_t_label_sdobject_datalake_new.behavior_status`，其完整判定流程在 Python 层 `gt_parser.is_good_behavior()` 中实现，流程如下：
+
+```mermaid
+flowchart TD
+    A["behavior_status<br/>(text 类型 JSON 字符串)"] --> B["json.loads() 解析"]
+    B --> C["遍历 data_list[].text_items[]"]
+    C --> D{"sub_answer 包含<br/>key_info_str?"}
+    D -->|是| E["正则提取括号内 option"]
+    D -->|否| C
+    E --> F{"'A' in option?"}
+    F -->|是| G["→ good"]
+    F -->|否| H["→ bad"]
+```
+
+完整判定算法（含 `key_info_str` 按项目不同的映射规则、正则提取策略、`extract_option_chars` 清理逻辑）详见 [[质检平台-ods_t_label_sdobject_datalake_new表结构]] good/bad 判定算法段。`key_info_str` 的项目映射源自 `task_name` 前缀，映射逻辑详见 [[质检平台-ods_t_label_screening_task_datalake表结构]] project_name 映射段。
+
+> 🔄 架构升级提示（TAG 20260714_090000）：`gt_parser.is_good_behavior()` 已重构为三层解析架构 + AnswerDecoder 注册表模式，覆盖 6 种题型 + 配置驱动 + good/bad 判定策略（配置优先+关键词降级）。`is_good_behavior` 签名与返回值不变（向后兼容），快照刷新链路无需改动。新架构详见 [[SYN-通用文本选项提取-题型分类体系与注册表模式]]。
+
+### 14. 旧版定时刷新参照实现（存量代码，仅参照不照搬）
+
+> ⚠️ 架构决策（人类反馈2）：旧版代码不优雅（SQL 散落 Model 层、exec_query 既查又写、临时表模式重复、双连接器混乱），仅作为业务逻辑参照，新架构必须高内聚低耦合。旧版5大问题与改进策略详见 [[PF-旧版验收代码架构问题与改进策略]]。
+
+| DAG | 周期 | 物理位置 | 流水线 | 参照价值 |
+|-----|------|---------|--------|---------|
+| `human_inspection_refresh_status` | 每30min | `dags/human_label_refresh_status.py` → `dag_run.refresh_task_status()` → `TaskManager`(继承`TaskManagerBase`) 6步 | replenish_task_info → update_task_status → update_task_gt → 质量表写入 | 调度模式参照（Airflow DAG + PythonOperator + max_active_runs=1 + dagrun_timeout） |
+| `human_inspection_update_middleware` | 每6h | `dags/human_label_update_middleware.py` → `process_middleware_table.update_middleware()` 3步 | fetch_label_record_from_di → update_status_and_fill_result → update_label_result | ⏳ **本方案不采用**（中间表链路过重） |
+
+### 15. 实现契约导航
+
+快照刷新的四级实现契约（DDL → Repository → Service → DAG）详见 [[验收前置条件-快照刷新四级实现契约]]（已合并至 [[质检平台-人工质检模块实施计划]]）。
+
+---
+
+## ⑤′ 第一纵切测试数据设计（合并自 A12）
+
+> 📎 来源：原 `[[人工质检验收第一纵切测试数据设计]]`（synthesis）已拆散合并。`t_qc_daily_snapshot` 部分合并到本卡；`t_qc_delivery_task`、`t_qc_operation_preview`、`t_portal_view_config` 三张新表的独立表设计卡已于 20260706_143025 任务补建完成（见下方三张新表汇总表 wikilink）。
+
+### 字段口径
+
+字段口径继承本卡 §3/§4 定义，与综合快照表保持一致。
+
+### 测试数据覆盖维度
+
+测试数据至少覆盖：有连续新增、跳日后新增、无新增、待分配、验收中、已满足结论、Good/Bad 分布异常、跨组和多标注员。Fixture 每次先清理测试标识数据再插入，保证可重复执行。
+
+### 固定预期
+
+测试必须断言任务总数、最近非零标注日期、标注提交量、待标量、验收分配、Good/Bad 通过量以及日期子行数量。不能只断言 HTTP 200。
+
+### 分配预览固定断言（关联 t_qc_daily_snapshot）
+
+分配预览固定断言：城区任务展开 3 个日期单元、目标量 900 完整守恒；HTTP filtered selection 展开全部 4 个日期单元、preview POST 后可由同一创建人 GET 读回。
+
+> 关联：预览闭环实现见 [[人工质检验收分配预览闭环设计]]；查询/API 契约见 [[人工质检验收第一纵切查询与API设计]]；验证证据见 [[人工质检验收第一纵切验证计划]]。
+
+### 三张新表（独立表设计卡）
+
+> 📌 状态更新（20260706_143025）：以下 3 张新表的独立表设计卡已全部补建完成，位于 `knowledge_base/wiki/schemas/` 目录。A12 中关于 `t_qc_operation_preview` 的"分配预览固定断言"内容因与 t_qc_daily_snapshot 维度强耦合，保留在本卡 §⑤′ 分配预览固定断言段，独立表设计卡以引用方式追溯。
+
+| 表名 | 用途 | 表设计卡 |
+|---|---|---|
+| `t_qc_delivery_task` | 任务聚合主表，保存任务标识、数据集名、专题、优先级、交付日和状态 | ✅ [[t_qc_delivery_task 表设计]] |
+| `t_qc_operation_preview` | 分配/通过打回预览的 PostgreSQL 短期存储；已验证创建、按创建人读回和 filtered selection | ✅ [[t_qc_operation_preview 表设计]] |
+| `t_portal_view_config` | 公共/个人表格与卡片布局配置，第一纵切支持表格布局首版 | ✅ [[t_portal_view_config 表设计]] |
+
+---
+
+## ⑥ 完成情况与 TODO
+
+**当前状态**：DDL 已重设计落地（V20260630_03，正式表 + 测试镜像 + 迁移脚本三件套）；Repository/Service/DAG 层设计中。
+
+**TODO 清单**：
+- [x] 表结构设计冻结（26 字段 + 2 约束 + 7 索引 + DISTRIBUTE BY HASH(stat_date, scene_name, group_name, employee_id)；id 为 SERIAL 逻辑主键无 PK）
+- [x] 正式建表 SQL 落地（[`t_qc_daily_snapshot.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql)）
+- [x] 测试镜像 SQL 落地（[`t_qc_daily_snapshot test.sql`](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot%20test.sql)）
+- [x] 初始迁移脚本落地（[`V20260630_02`](../../../data_schemas/migrations/V20260630_02__create_qc_daily_snapshot_table.sql)）
+- [x] 重设计迁移脚本落地（[`V20260630_03__redesign_qc_snapshot_and_personnel.sql`](../../../data_schemas/migrations/V20260630_03__redesign_qc_snapshot_and_personnel.sql)）
+- [x] 数据来源拓扑明确（直连 Delta 原始表，不依赖中间表，不依赖 t_text_label_task）
+- [x] project 维度映射明确（Python 字典硬编码 2 个项目）
+- [x] 反查 clip_id 策略明确（不记录 clip_id，反查走 Delta 原始表）
+- [x] 上下游血缘明确
+- [x] 定时刷新机制明确（每 30min，最近 4 天分片）
+- [x] 10 个边界情况明确
+- [ ] `SnapshotRepository` 物理实现（详见 [[质检平台-Repository与数据库访问设计]]）
+- [ ] `StatService` 聚合刷新逻辑实现（详见 [[验收前置条件-快照刷新四级实现契约]] Task 4）
+- [ ] `qc_snapshot_refresh` DAG 实现详见 [[验收前置条件-快照刷新四级实现契约]] Task 5）
+- [ ] Repository 集成测试（临时 PostgreSQL + UPSERT 幂等 + 不误清执行字段）
+
+---
+
+### 16. 分布键修复记录（V20260706_01，修复 cn_5001）
+
+**问题**：原建表 `DISTRIBUTE BY HASH(id)`，但 UNIQUE 约束 `uk_qc_daily_snapshot_dim (stat_date, scene_name, group_name, employee_id)` 不含 `id` → 触发 GaussDB/DWS cn_5001（`PrimaryKey/UniqueIndex of distribute table must contain hash distribution column`）。
+
+**根因**：分布键 `HASH(id)` ∉ UK 列集合，违反 NORM-GAUSSDB-001 §3.1（分布键必须是 PK/UK 的子集）；同时 `id SERIAL PRIMARY KEY` 作为 PK 也不含目标复合分布键 → 改分布键后 PK 同样违规。
+
+**修复手法（方案B：复合分布键保留 UK）**：
+1. 去 PK 约束：`id SERIAL PRIMARY KEY` → `id SERIAL`（id 保留 SERIAL 自增逻辑主键，无 DB 层 PK 约束）
+2. 改分布键：`DISTRIBUTE BY HASH(id)` → `DISTRIBUTE BY HASH(stat_date, scene_name, group_name, employee_id)`（全部 UK 列作为复合分布键）
+3. UK 约束原样保留，Repository UPSERT `ON CONFLICT (stat_date, scene_name, group_name, employee_id)` 逻辑零改动
+
+**迁移脚本**：[`V20260706_01__fix_qc_daily_snapshot_distribute_key.sql`](../../../data_schemas/migrations/V20260706_01__fix_qc_daily_snapshot_distribute_key.sql)，幂等。pnc_simulation（正式表 UK 已存在）直接去 PK + 改分布键；data_common_4（测试镜像原缺 UK）先补 UK 再去 PK 再改分布键。
+
+**副作用**：执行后数据按新分布键在 DN 间重新散列（一次性操作，DBA 维护窗口执行）；id 列隐式唯一索引随 PK 删除而删除，按 id 查询将全表扫描（当前查询模式以维度键为主，影响可忽略）。
+
+**关联避坑**：GaussDB/DWS 分布表设计必须确保分布键 ⊆ PK/UK 列集合，否则建表/迁移触发 cn_5001。优先以业务维度键（UK 全列）作为复合分布键，避免用自增 id 作分布键导致与 UK 不一致。
+
+---
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]]
+
+> 🔗 上位枢纽：[[质检一站式平台人工质检模块整体架构]]
+> 🔗 实现契约：[[验收前置条件-快照刷新四级实现契约]]（已合并至 [[质检平台-人工质检模块实施计划]]）
+> 🔗 旧版避坑：[[PF-旧版验收代码架构问题与改进策略]]
+> 🔗 后续拆解：[[SYN-验收全流程细化后续拆解框架]]
+
+---
+
+## ⑧ V20260709_01 JSONB 重构更新（2026-07-09）
+
+> 🔄 **重大变更**：本卡 §3/§4/§5 字段集已过时，最新结构以本段为准。原 26 字段（含 8 标量 + execution/option_annotation/option_acceptance JSONB + acceptance_allocated/acceptance_completed）重构为 18 字段 + 3 个维度 JSONB 列。
+
+### 变更摘要
+
+| 变更类型          | 内容                                                                                                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **删除列（13 列）** | good_allocated, good_completed, good_passed, good_conclusion, bad_allocated, bad_completed, bad_passed, bad_conclusion, execution, option_annotation, option_acceptance, acceptance_allocated, acceptance_completed |
+| **新增列（3 列）**  | good_metrics JSONB DEFAULT '{}', bad_metrics JSONB DEFAULT '{}', option_metrics JSONB DEFAULT '{}'                                                                                                                  |
+| **保留列（15 列）** | id, stat_date, scene_name, group_name, employee_id, project_name, annotation_total, annotation_submitted, confirmed_by, confirmed_at, executed_by, executed_at, execution_note, computed_at, updated_at             |
+| **删除索引（2 个）** | idx_qc_daily_snapshot_good_conclusion, idx_qc_daily_snapshot_bad_conclusion                                                                                                                                         |
+| **新增索引（3 个）** | idx_qc_daily_snapshot_good_exec / bad_exec / option_exec（exec_status='PENDING' 部分索引）                                                                                                                                |
+| **总字段数**      | 28 → 18                                                                                                                                                                                                             |
+
+### JSONB 内部 schema（12 计数键 + exec_status 键）
+
+good_metrics / bad_metrics（扁平 dict）：
+```
+{
+  "annotation_total": int,      # 该维度标注总数
+  "annotation_submitted": int,  # 已提交标注数
+  "expect_alloc": int,          # 预期分配数（前端 API 写入）
+  "actual_alloc": int,          # 实际分配数（分配 DAG 写入）
+  "actual_complete": int,       # 实际完成验收数
+  "correct": int,               # 正确数
+  "incorrect": int,             # 错误数
+  "conclusion": str|null,       # 决策：pass/reject/null
+  "expect_pass": int,           # 预期通过数（前端 API 写入）
+  "expect_reject": int,         # 预期打回数（前端 API 写入）
+  "actual_pass": int,           # 实际通过数
+  "actual_reject": int,         # 实际打回数
+  "exec_status": str|null       # 执行状态（由执行 DAG 推进，UPSERT 不覆盖）
+}
+```
+
+option_metrics（嵌套 dict，按选项键）：
+```
+{
+  "A": {12计数键 + exec_status},
+  "B": {12计数键 + exec_status},
+  ...
+}
+```
+
+### exec_status 初始 NULL 语义
+
+- INSERT 时 JSONB 为 '{}'，exec_status 键不存在 → 初始 NULL 语义
+- 前端 API 写 expect_* 时置 PENDING（前端 API 本次不做）
+- exec_status 由执行 DAG 通过 update_jsonb_exec_status 推进
+
+### UPSERT 逐键更新不碰 exec_status 规则
+
+快照刷新的 `upsert_many` 使用 `jsonb_set` / `||` 逐键更新 JSONB 内计数字段，**绝不覆盖 exec_status 键**。exec_status 只由执行 DAG 通过独立 update 语句推进。
+
+### 部分索引变更
+
+| 索引名 | 定义 | 用途 |
+|--------|------|------|
+| idx_qc_daily_snapshot_good_exec | (stat_date, scene_name, group_name, employee_id) WHERE good_metrics->>'exec_status'='PENDING' | 执行 DAG 扫描 good 维度待执行行 |
+| idx_qc_daily_snapshot_bad_exec | 同上 WHERE bad_metrics->>'exec_status'='PENDING' | 执行 DAG 扫描 bad 维度待执行行 |
+| idx_qc_daily_snapshot_option_exec | 同上 WHERE EXISTS(jsonb_each_text(option_metrics) val LIKE '%PENDING%') | 执行 DAG 扫描 option 维度待执行行 |
+
+### 关联迁移脚本
+
+[`data_schemas/migrations/V20260709_01__snapshot_jsonb_rebuild.sql`](../../../data_schemas/migrations/V20260709_01__snapshot_jsonb_rebuild.sql)（正式表）+ 同名 test.sql（测试镜像），幂等。

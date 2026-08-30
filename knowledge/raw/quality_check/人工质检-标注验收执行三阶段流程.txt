@@ -1,0 +1,137 @@
+---
+id: "CPT-ACCEPT-EXEC-3PHASE"
+title: "人工质检-标注验收执行三阶段流程"
+domain: ["manual_qa"]
+type: "concept"
+tags: ["质检平台", "业务流程", "标注", "验收", "执行", "通过打回", "执行粒度"]
+created: 2026-07-02
+updated: 2026-07-02
+status: active
+sources: 1
+source: "上一轮任务人类纠正（TAG 20260630_104500）"
+related_code: ["src/manual_qc/acceptance/", "src/manual_qc/acceptance/services/execution_service.py", "src/manual_qc/acceptance/pass_rules.py"]
+affects_path: ["src/manual_qc/acceptance/", "src/manual_qc/acceptance/services/execution_service.py", "src/manual_qc/acceptance/pass_rules.py"]
+trigger_keywords: ["三阶段", "标注", "验收", "执行", "PASS", "REJECT", "PENDING", "打回", "全集", "执行粒度", "good/bad", "选项", "任务", "组", "人"]
+summary: "人工质检核心业务流程的完整理解：标注阶段（标注员对 clip 标注产生 good/bad/各选项结果）→ 验收阶段（对标注结果抽样验收产生 PASS/REJECT 结论作为整体通过/打回的支撑依据）→ 执行阶段（根据验收结论对标注全集执行通过/打回）。执行打回对象是该类别下所有标注而非仅验收抽样集；执行粒度可变（good/bad、选项、任务、组、人）。"
+---
+
+# 人工质检-标注验收执行三阶段流程
+
+> 核心业务流程概念卡：澄清"标注/验收/执行"三阶段的职责边界、数据流向与执行语义，是质检平台所有组件设计的业务语义基准。
+
+← [[质检一站式平台人工质检模块整体架构]] | [[人工质检-Hub]]
+
+→ [[质检平台-通过打回规则与执行设计]] | [[质检平台-综合快照表设计]] | [[质检平台-验收采样配额与任务选择设计]] | [[人工质检-⑨批量通过打回]]
+
+---
+
+## ① 三阶段定义
+
+| 阶段 | 执行者 | 输入 | 输出 | 一句话职责 |
+|------|--------|------|------|-----------|
+| **标注阶段** | 标注员 (ANNOTATOR) | 待标注 clip | 标注结果（good / bad / 各选项） | 对 clip 产生标注结果，是后续验收与执行的数据源头 |
+| **验收阶段** | 验收员 (ACCEPTOR) | 标注结果的**抽样集** | 验收结论 **PASS / REJECT**（作为整体通过/打回的支撑依据） | 对标注结果**抽样**验收，产出整体结论，不直接对全集操作 |
+| **执行阶段** | 有 EXECUTE 权限的用户 | 验收结论 | 对**标注全集**（非抽样集）的通过/打回 | 根据验收结论，对该类别下的**所有标注**执行通过或打回 |
+
+> ⚠️ **关键语义护栏（人类纠正）**：验收是"抽样"，执行是"全集"。验收阶段只产出结论（PASS/REJECT）作为支撑依据，**执行打回的对象是该类别下的所有标注，不只是验收抽样集**。
+
+---
+
+## ② 三阶段数据流图
+
+```mermaid
+flowchart LR
+    subgraph 标注阶段
+        CLIP[待标注 clip] --> AN[标注员]
+        AN --> AR[标注结果<br/>good / bad / 各选项]
+    end
+
+    subgraph 验收阶段
+        AR -->|抽样| AC[验收员]
+        AC --> VC[验收结论<br/>PASS / REJECT<br/>作为支撑依据]
+    end
+
+    subgraph 执行阶段
+        VC -->|根据结论| EX[执行器<br/>ExecutionService]
+        EX -->|对标注全集<br/>非抽样集| OP[通过 / 打回]
+    end
+
+    AR -.快照统计.-> SNAP[(t_qc_daily_snapshot)]
+    VC -.写入结论.-> SNAP
+    OP -.写入 execution 计数.-> SNAP
+```
+
+---
+
+## ③ 执行粒度（可变）
+
+执行阶段的操作粒度不是固定的，可按以下维度之一执行通过/打回：
+
+| 粒度 | 说明 | 典型场景 |
+|------|------|---------|
+| **按 good / bad** | 仅对 Good 类或仅对 Bad 类执行 | Good 通过率达标但 Bad 不达标时仅打回 Bad |
+| **按选项** | 对某个选项字母（A/B/C...）下的标注执行 | 某选项验收结论为 REJECT，仅打回该选项 |
+| **按任务** | 对某个 task_name 下的标注执行 | 任务级隔离 |
+| **按组** | 对某个 team_leader（V20260714_01 改名自 current_group）下所有标注员的标注执行 | 组级批量操作 |
+| **按人** | 对某个 employee_id 的标注执行 | 个人级操作 |
+
+> 注：执行粒度可变意味着 `ExecutionService.execute()` 必须接收"执行范围"参数，由 Repository 按该范围反查 Delta 原始表取得具体 task_ids（**快照表不记录 clip_id 列表，反查走 Delta 原始表**，见 [[质检平台-综合快照表设计]] §2）。
+
+---
+
+## ④ 与快照表字段的对应关系
+
+三阶段的产出在 [[质检平台-综合快照表设计]] `t_qc_daily_snapshot` 中的落点：
+
+| 阶段产出 | 快照表字段 |
+|---------|-----------|
+| 标注阶段：标注进度 | `annotation_total` / `annotation_submitted` / `option_annotation` |
+| 验收阶段：验收分配与完成 | `acceptance_allocated` / `acceptance_completed` / `good_allocated` / `good_completed` / `bad_allocated` / `bad_completed` |
+| 验收阶段：验收通过数 | `good_passed` / `bad_passed` / `option_acceptance` |
+| 验收阶段：结论（分维度） | `good_conclusion` / `bad_conclusion` / `option_acceptance[x].conclusion` |
+| 执行阶段：执行计数 | `execution` JSONB（`{good:{passed,rejected,total}, bad:{...}, A:{...}}`） |
+| 执行阶段：人工确认与执行记录 | `confirmed_by` / `confirmed_at` / `executed_by` / `executed_at` / `execution_note` |
+
+---
+
+## ⑤ 与通过打回规则组件的关系
+
+验收阶段产出的结论（PASS/REJECT/PENDING）由 [[质检平台-通过打回规则与执行设计]] 的 `PassRule.evaluate(metrics)` 计算：
+
+- **PASS/REJECT**：验收完成度达标后，依据 Good 通过率（分母用 `good_completed`）/ Bad 通过率（分母用 `bad_completed`）/ 总通过率（分母用 `acceptance_completed`）阈值判定。
+- **PENDING**：验收完成度不足时返回 PENDING，表示数据不足，**不允许执行通过/打回**。
+- **execute 前必须重算结论**：ExecutionService 在 execute 前必须重新聚合指标并重算结论，确认与用户提交一致才放行（不基于过期页面数据执行）。
+
+> ⚠️ 通过率分母必须是 `completed`（已完成验收数），**非** `allocated`（分配数），否则会把未完成验收的统计进去（人类纠正，已沉淀于 [[质检平台-综合快照表设计]] §8）。
+
+---
+
+## ⑥ 关键业务概念澄清（来自人类纠正）
+
+| 概念 | 澄清 | 沉淀位置 |
+|------|------|---------|
+| **验收=抽样，执行=全集** | 验收只对抽样集产出结论，执行对标注全集操作 | 本卡 ① 段 |
+| **打回对象是类别全集** | 执行打回的是该类别下所有标注，不只是验收抽样 | 本卡 ① 段 |
+| **执行粒度可变** | good/bad、选项、任务、组、人均可作为执行维度 | 本卡 ③ 段 |
+| **annotator_id 即工号** | 实质就是工号字符串，可直接当 employee_id 使用，无需映射 | [[人工质检-人力管理体系设计]] §2.1 |
+| **annotation_pending 不存储** | 运行时派生（total - submitted）即可 | [[质检平台-综合快照表设计]] §3.1 |
+| **acceptance_allocated 是条数** | 语义是"成功分配到验收员的条数"而非"人数" | [[质检平台-综合快照表设计]] §3.2 |
+| **通过率分母用 completed** | 用 `good_completed`/`bad_completed`/`acceptance_completed`，非 allocated | [[质检平台-综合快照表设计]] §8 |
+| **数据源选 Delta 原始表** | 快照刷新直连 Delta ODS 实时同步，不用 t_text_label_task（同步频率限制） | [[质检平台-综合快照表设计]] §9 |
+| **project 维度 Python 字典** | scene_name 前缀硬编码映射，仅 2 个项目，避免过度设计建表 | [[质检平台-综合快照表设计]] §2 |
+| **反查 clip_id 走 Delta** | 快照表不记录 clip_id，执行阶段反查 Delta 原始表 | [[质检平台-综合快照表设计]] §2 |
+| **人力表 SCD Type2** | 人员变更（组/项目/角色/工号）时新增行+旧行封版+op_log 同事务 | [[人工质检-人力管理体系设计]] §2.1 |
+| **工号变更=旧人离场+新人入场** | 旧工号行设 end_time（V20260714_01 改名自 leave_date）+status=0，新工号行 INSERT | [[人工质检-人力管理体系设计]] §2.1 |
+| **复合主键 (employee_id, join_date)** | SCD Type2 无法被单列物理引用，跨表改逻辑引用，应用层保证一致性 | [[人工质检-人力管理体系设计]] §2.1 |
+
+---
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]]
+
+> 🔗 上位枢纽：[[人工质检-Hub]] | [[质检一站式平台人工质检模块整体架构]]
+> 🔗 执行设计：[[质检平台-通过打回规则与执行设计]]
+> 🔗 快照底座：[[质检平台-综合快照表设计]]
+> 🔗 采样配额：[[质检平台-验收采样配额与任务选择设计]]
+> 🔗 旧版实现：[[人工质检-⑨批量通过打回]]

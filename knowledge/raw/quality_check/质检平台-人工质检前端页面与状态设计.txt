@@ -1,0 +1,350 @@
+---
+title: "质检平台-人工质检前端页面与状态设计"
+domain: ["manual_qa"]
+type: "synthesis"
+tags: ["人工质检", "Vue3", "前端架构", "页面状态", "验收", "人力管理"]
+created: 2026-06-28
+updated: 2026-07-06
+sources: 9
+status: active
+related_code: ["task.md", "src/frontend/"]
+affects_path: ["src/frontend/src/features/manual-qc/", "src/frontend/src/shared/"]
+trigger_keywords: ["人工质检前端", "AssignView", "StatsView", "ExecuteView", "Personnel", "Vue3", "交付中心", "验收中心", "人工质检页面结构"]
+---
+
+> ✅ 印证修订：domain 由原始 `["ai_dlc","tooling"]` 改为本仓库 TAXONOMY 合法值 `["manual_qa"]`。
+
+# 质检平台人工质检前端页面与状态设计
+
+← 总入口：[[质检一站式平台人工质检模块整体架构]]。API 契约：[[质检平台-API契约与前端交互设计]]。权限：[[质检平台SSO鉴权接入方案]]。
+
+## ① 组件概述
+
+人工质检前端（Vue3）承担"选择范围—预览—确认—执行—回查"完整状态闭环的页面与交互职责，位于质检平台整体架构的**前端层**，通过 HTTP 调用 [[质检平台-API契约与前端交互设计]] 定义的端点，并依据 [[质检平台SSO鉴权接入方案]] 的模块等级控制按钮可见性。
+
+## ② 架构结构
+
+### 前端目录结构（计划目标）
+
+```text
+src/frontend/src/
+├── features/manual-qc/
+│   ├── api/
+│   │   ├── acceptance.ts       # 验收相关 API 调用（preview/execute/stats）
+│   │   ├── personnel.ts        # 人力相关 API 调用
+│   │   └── client.ts           # axios 实例与拦截器（feature 内单例）
+│   ├── components/
+│   │   ├── AssignView.vue      # 验收分配页（含 preview→execute 状态机）
+│   │   ├── StatsView.vue       # 验收统计页（筛选+概览+趋势+明细）
+│   │   ├── ExecuteView.vue     # 通过/打回页（PENDING→确认→执行→回查）
+│   │   ├── PersonnelOverview.vue
+│   │   ├── AnnotatorProfile.vue
+│   │   ├── AcceptorList.vue
+│   │   └── GroupManager.vue
+│   ├── stores/                  # Pinia store（跨页面共享筛选态）
+│   │   └── acceptanceFilter.ts
+│   ├── types/                   # 与 OpenAPI 对齐的 TS 类型
+│   │   └── schema.d.ts
+│   └── routes.ts               # feature 路由声明
+└── shared/                      # 至少两个独立 feature 复用后才上提
+    └── ...
+```
+
+模块内部组件先留在 feature 内；只有至少两个独立 feature 复用后才上提到 `shared/`。
+
+### 组件树（Mermaid graph）
+
+```mermaid
+graph TD
+    App[App.vue]
+    App --> Router[Vue Router]
+    Router --> ManualQc[/manual-qc]
+    ManualQc --> Acceptance[acceptance/]
+    ManualQc --> Personnel[personnel/]
+
+    Acceptance --> Assign[assign: AssignView.vue]
+    Acceptance --> Stats[stats: StatsView.vue]
+    Acceptance --> Execute[execute: ExecuteView.vue]
+
+    Personnel --> Overview[overview: PersonnelOverview.vue]
+    Personnel --> Annotators[annotators: AnnotatorProfile.vue]
+    Personnel --> Acceptors[acceptors: AcceptorList.vue]
+    Personnel --> Groups[groups: GroupManager.vue]
+
+    Assign -.preview/execute.-> AcceptanceApi[api/acceptance.ts]
+    Stats -.refresh/query.-> AcceptanceApi
+    Execute -.status/execute.-> AcceptanceApi
+    Overview -.query/stats.-> PersonnelApi[api/personnel.ts]
+    Annotators -.query.-> PersonnelApi
+    Groups -.group change.-> PersonnelApi
+
+    AcceptanceApi --> Client[api/client.ts]
+    PersonnelApi --> Client
+    Client --> Backend[(Backend API /api/v1/manual-qc/)]
+```
+
+组件树说明：路由根 `/manual-qc` 下分 `acceptance/` 与 `personnel/` 两大分支；所有 API 调用集中在 feature `api/` 目录，Vue 组件不直接创建 axios 实例，统一通过 `client.ts` 单例与后端通信。
+
+### 分配页状态机时序图（Mermaid sequenceDiagram）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant V as AssignView.vue
+    participant API as api/acceptance.ts
+    participant BE as Backend
+
+    U->>V: 编辑筛选与策略
+    V->>V: state = idle
+    U->>V: 点击 Preview
+    V->>V: state = previewing（锁定表单）
+    V->>API: POST /acceptance/assignment/preview
+    API->>BE: 请求配额与 task_ids
+    BE-->>API: summary + task_ids + warnings
+    API-->>V: preview 响应
+    V->>V: state = preview_ready（展示 Good/Bad、scene、人员分布、警告）
+
+    U->>V: 修改筛选或策略
+    V->>V: 旧 preview 失效，回到 idle
+
+    U->>V: 点击 Execute
+    V->>V: state = executing（锁定表单，提交 preview task_ids）
+    V->>API: POST /acceptance/assignment/execute
+    API->>BE: 按 task_ids 执行分配
+    BE-->>API: success_count/skipped_count/failed_count
+    API-->>V: 执行结果
+    V->>V: state = executed（展示请求/成功/跳过/失败数量）
+
+    U->>V: 点击 Refresh
+    V->>V: state = refreshing
+    V->>API: POST /acceptance/stats/refresh + GET /acceptance/stats
+    API-->>V: 实际 acceptance_allocated
+    V->>V: state = preview_ready（更新实际状态）
+```
+
+时序图说明：分配页共 6 个状态（idle → previewing → preview_ready → executing → executed → refreshing）。关键约束：修改筛选或策略后必须使旧 preview 失效，防止用户看着旧表格执行新参数；execute 原样携带 preview 的 task_ids，不重新随机采样。
+
+### 数据流图（Mermaid flowchart）
+
+```mermaid
+flowchart LR
+    subgraph 用户交互
+        Filter[筛选条件]
+        Strategy[策略参数]
+        Action[用户动作]
+    end
+
+    subgraph 前端状态
+        LocalState[组件本地状态: preview/弹窗/筛选]
+        SharedState[Pinia 共享状态: 跨页 date/scene 筛选]
+    end
+
+    subgraph 后端
+        PreviewAPI[preview 端点]
+        ExecuteAPI[execute 端点]
+        StatsAPI[stats 端点]
+        DB[(t_qc_daily_snapshot 等)]
+    end
+
+    Filter --> LocalState
+    Strategy --> LocalState
+    LocalState -->|preview| PreviewAPI
+    PreviewAPI --> LocalState
+    LocalState -->|execute 原 task_ids| ExecuteAPI
+    ExecuteAPI --> DB
+    LocalState -->|refresh| StatsAPI
+    SharedState -.同步.-> LocalState
+    StatsAPI --> DB
+```
+
+数据流图说明：页面筛选、弹窗、当前 preview 用组件本地状态；跨验收三个页面共享的日期/scene 筛选在确有复用后放 Pinia。API 调用集中在 feature `api.ts`，TypeScript 类型与 OpenAPI 对齐，禁止直接照抄数据库列形成第二套隐式契约。
+
+## ③ 数据表交互
+
+前端不直接读写数据库，通过 API 端点间接交互。下列为前端页面触达的后端数据表（链接指向表设计卡或 SQL 文件）：
+
+| 数据表 | 用途 | 读写类型（经 API） | 前端涉及的关键字段 | 链接 |
+|--------|------|-------------------|-------------------|------|
+| t_qc_daily_snapshot | 验收统计、分配预览、通过/打回状态展示 | 读（统计/分配预览）+ 写（执行结果回写，经 API） | stat_date / scene_name / group_name / annotator_id / annotation_total / annotation_submitted / acceptance_allocated / good_passed / bad_passed / conclusion / is_executed / computed_at | [[质检平台-综合快照表设计]] · [SQL](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql) |
+| t_data_check_screeners | 人力概览、标注员画像、验收员列表、分组管理 | 读（查询）+ 写（新增/编辑/SCD封版，经 API） | employee_id / user_name / work_type / company / project_name / team_leader / status(int) / start_time / end_time | [[人工质检-人力管理体系设计]] · [SQL](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql) |
+| t_personnel_op_log | 人员修改后回查操作日志 ID | 写（由 API 后端写入，前端回查） | action / changes / operated_at / operator_id | [[人工质检-人力管理体系设计]] · [SQL](../../../data_schemas/postgresql_relational/t_personnel_op_log.sql) |
+| t_portal_permission | 根据用户模块等级控制按钮可见性 | 读（经 `/me` 端点） | acceptance_access / personnel_access / is_admin | [[质检平台SSO鉴权接入方案]] · [SQL](../../../data_schemas/postgresql_relational/t_portal_permission.sql) |
+
+## ④ 子模块/文件/类级清单
+
+- `features/manual-qc/api/acceptance.ts` — 验收相关 API 调用（preview / execute / stats / rules）。
+- `features/manual-qc/api/personnel.ts` — 人力相关 API 调用（查询 / 新增 / 编辑 / 调组 / 统计）。
+- `features/manual-qc/api/client.ts` — axios 实例与拦截器（feature 内单例）。
+- `features/manual-qc/components/AssignView.vue` — 验收分配页，承载 idle→previewing→preview_ready→executing→executed→refreshing 六态状态机。
+- `features/manual-qc/components/StatsView.vue` — 验收统计页，展示筛选/概览/趋势/明细 + `computed_at` 刷新时间。
+- `features/manual-qc/components/ExecuteView.vue` — 通过/打回页，PENDING 不展示执行按钮，执行后展示即时结果并允许回查。
+- `features/manual-qc/components/PersonnelOverview.vue` — 人力概览（项目/供应商/角色/未进组人数）。
+- `features/manual-qc/components/AnnotatorProfile.vue` — 标注员画像（项目/组/等级/单价/提交量/通过率/风格标签）。
+- `features/manual-qc/components/AcceptorList.vue` — 验收员列表（供应商/当前状态/后续抽检一致率）。
+- `features/manual-qc/components/GroupManager.vue` — 分组管理（调组前后值/操作者/未进组预警）。
+- `features/manual-qc/stores/acceptanceFilter.ts` — 跨验收三页共享的日期/scene 筛选态（确有复用后建立）。
+- `features/manual-qc/types/schema.d.ts` — 与 OpenAPI 对齐的 TypeScript 类型定义。
+
+## ⑤ 详细设计展开
+
+### 初衷
+
+前端不是把旧脚本按钮搬到网页，而是让用户看清"选择范围—预览—确认—执行—回查"的完整状态。由于外部 Delta 操作可能部分失败或延迟，页面不能只显示一个同步成功弹窗。
+
+### 页面结构
+
+```text
+/manual-qc
+├── acceptance
+│   ├── assign       验收分配
+│   ├── stats        验收统计
+│   └── execute      通过/打回
+└── personnel
+    ├── overview     人力概览
+    ├── annotators   标注员画像
+    ├── acceptors    验收员列表/抽检统计
+    └── groups       分组管理
+```
+
+### 页面结构（2026-07-05 新版，合并自源仓库 A3）
+
+> 业务主线演进为"以数据集交付任务为主线"：交付中心负责完整进度、风险和行动项；验收中心负责验收分配、监控、分析、结论和返修；人力页面负责人员与分组。新版页面结构如下：
+
+```text
+/manual-qc
+├── overview                     人工质检总览（模块根路由默认落点）
+├── deliveries                   交付中心
+│   └── :deliveryId              单交付任务详情
+├── annotation                   标注中心
+│   └── :deliveryId              单需求标注工作区
+├── acceptance                   验收中心总览
+│   └── :deliveryId              单需求验收工作区
+└── personnel                    人力与分组
+    ├── overview                 人力概览
+    ├── annotators               标注员画像
+    ├── acceptors                验收员列表/抽检统计
+    └── groups                   分组管理
+```
+
+总览详细设计见 [[人工质检总览信息架构]]；交付中心见 [[质检平台-人工质检交付中心前端设计]]；标注中心见 [[质检平台-人工质检标注中心前端设计]]；验收中心见 [[质检平台-人工质检验收中心前端设计]]。
+
+### 页面组织原则（2026-07-05 新版，合并自源仓库 A3）
+
+- 交付中心默认展示表格，时间轴是同一集合的第二视图。
+- 所有人使用同一 OneTrack 页面，不显式切换"管理者/日常运营"身份。登录权限自动决定路由、面板、按钮和数据范围；"全部/我的/我关注的/保存视图"只是业务筛选，不是角色模拟器。
+- 点击一级"人工质检"先进入总览，用需求接纳、近期交付倒排、标注健康、验收健康和完成盖戳帮助团队抓主要矛盾；完整字段在交付中心维护。
+- 交付详情沿阶段组织内容，不用一个巨型表单承载需求、规则、生产、标注和验收。
+- 验收中心默认按数据集交付任务聚合，task 明细按需下钻。
+- 行内只突出一个下一动作，减少同一行堆叠大量按钮。
+- 页面切换必须保留筛选、列配置、分页、展开和滚动位置。
+
+### 分配页状态
+
+1. `idle`：编辑筛选与策略。
+2. `previewing`：请求配额和 task_ids。
+3. `preview_ready`：展示 Good/Bad、scene、人员分布和警告。
+4. `executing`：锁定表单，提交 preview task_ids。
+5. `executed`：展示请求/成功/跳过/失败数量。
+6. `refreshing`：回查实际状态，更新 `acceptance_allocated`。
+
+修改筛选或策略后必须使旧 preview 失效，防止用户看着旧表格执行新参数。
+
+### 统计页
+
+- 筛选：日期、项目、scene、组、标注员、题型。
+- 概览：提交量、实际验收分配量、完成量、Good/Bad/整体通过率。
+- 趋势：按日期聚合个人最小行。
+- 明细：默认个人最小行，用户切换后端聚合的组级/scene 级视图。
+- 刷新：明确显示 `computed_at`，避免把延迟数据误认成实时数据。
+
+统计页只读用户也可访问；触发刷新需要 OPERATE。
+
+### 通过/打回页
+
+- 先显示验收完成度，未满足前置条件时结论为 PENDING，不展示可执行按钮。
+- 展示规则名称、阈值、Good/Bad/整体通过率和自然语言原因。
+- 执行前二次确认操作范围和 task 数量。
+- 执行后展示即时结果，并允许回查最终状态。
+
+通过/打回属于最高业务权限，仅 EXECUTE 可操作。
+
+### 人力页面
+
+- 概览：项目、供应商、角色和未进组人数。
+- 标注员：项目、组、等级、单价、提交量、通过率、风格标签。
+- 验收员：供应商、当前状态和后续抽检一致率。
+- 分组：调组前后值、操作者和未进组预警。
+
+人员只能属于一个当前项目；修改项目或组必须刷新相关列表并写操作日志。
+
+### 权限展示
+
+| 等级 | 前端行为 |
+|---|---|
+| NONE | 不显示模块入口 |
+| VIEW | 可看筛选、统计、preview，不显示写按钮 |
+| OPERATE | 可刷新统计、执行验收分配 |
+| EXECUTE | 在 OPERATE 基础上可通过/打回 |
+| MANAGE | 可编辑人员和分组 |
+
+前端权限只用于交互；安全边界仍在后端。
+
+### 状态放置原则
+
+- 页面筛选、弹窗、当前 preview 用组件本地状态。
+- 跨验收三个页面共享的日期/scene 筛选在确有复用后放 Pinia。
+- API 调用集中在 feature `api.ts`，Vue 组件不直接创建 axios 实例。
+- TypeScript 类型与 OpenAPI 对齐，禁止直接照抄数据库列形成第二套隐式契约。
+
+### Phase 4 验收
+
+- 路由和权限菜单正确。
+- preview 参数变化会清空旧结果。
+- execute 使用 preview 原 task_ids。
+- 部分失败、跳过和状态刷新均有明确展示。
+- 统计页显示数据计算时间。
+- 人员修改能看到操作日志或至少返回日志 ID。
+
+### 前端产品验收（2026-07-05 新版，合并自源仓库 A3）
+
+- 路由、权限菜单和深链正确。
+- 交付中心支持表格/时间轴切换、保存视图和高频字段编辑。
+- 交付任务支持定制行动项、责任人、截止时间和闭环记录。
+- 临期、逾期、阻塞和无责任人的行动项可从交付中心直接定位。
+- preview 参数变化会清空旧结果。
+- execute 使用 preview 原 task_ids。
+- 部分失败、跳过和状态刷新均有明确展示。
+- 统计页显示数据计算时间。
+- 人员修改能看到操作日志或至少返回日志 ID。
+
+> ❓ 待人类 Review：本仓库 `src/frontend/src/features/manual-qc/` 目录是否已存在，需在 Phase 4 实现前核对。
+
+> 📎 补充参考：[[前端可视化与组件复用工程指南]]、[[Vue3核心概念]]、[[前端开发规范]] 包含本卡未涵盖的通用前端工程实践。
+
+## ⑥ 完成情况与 TODO
+
+**当前完成状态**：设计中（前端目录与组件尚未在仓库物理实现，待 Phase 4 落地）。
+
+- [ ] 核对 `src/frontend/src/features/manual-qc/` 目录是否已存在并按计划结构创建
+- [ ] 实现 AssignView 六态状态机（idle/previewing/preview_ready/executing/executed/refreshing）
+- [ ] 实现 StatsView 筛选 + 概览 + 趋势 + 明细 + `computed_at` 展示
+- [ ] 实现 ExecuteView PENDING 前置校验 + 二次确认 + 即时结果 + 回查
+- [ ] 实现 Personnel 四页面（概览/标注员/验收员/分组）
+- [ ] 建立与 OpenAPI 对齐的 `types/schema.d.ts`
+- [ ] 确有复用后建立 Pinia `stores/acceptanceFilter.ts`
+- [ ] 按权限等级控制所有写按钮可见性（NONE/VIEW/OPERATE/EXECUTE/MANAGE）
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]]
+
+## ⑧ 关联卡片（2026-07-06 合并自源仓库 A3）
+
+- [[人工质检-交付任务与行动项机制]]
+- [[质检平台-人工质检交付中心前端设计]]
+- [[质检平台-人工质检验收中心前端设计]]
+- [[质检平台-人工质检标注中心前端设计]]
+- [[人工质检总览信息架构]]
+- [[质检平台-API契约与前端交互设计]]
+- [[质检平台SSO鉴权接入方案]]

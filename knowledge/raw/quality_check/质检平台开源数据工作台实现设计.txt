@@ -1,0 +1,38 @@
+---
+id: "SYN-QC-DATA-WORKBENCH-OSS-001"
+title: "质检平台开源数据工作台实现设计"
+domain: ["common_infra"]
+type: "synthesis"
+tags: ["Vue3", "TanStack Table", "TanStack Virtual", "GridStack", "开源"]
+created: 2026-07-05
+updated: 2026-07-05
+sources: 5
+status: active
+related_code: ["src/frontend/src/shared/data-workbench/"]
+affects_path: ["src/frontend/src/shared/data-workbench/", "src/frontend/src/shared/dashboard/"]
+trigger_keywords: ["开源表格方案", "TanStack Table", "数据工作台实现"]
+summary: "质检平台统一数据工作台的开源实现选型与首版边界：技术栈（@tanstack/vue-table + @tanstack/vue-virtual + GridStack + ECharts，XLSX 导出保持适配器边界，ExcelJS 4.4.0 因间接依赖漏洞第一纵切不安装）；组件边界（DataWorkbench 负责布局与事件，useDataWorkbench 负责列/筛选/排序/选择/展开状态）；第一纵切实现父选子/半选/列显隐/宽度/排序/文本枚举筛选/按日展开/视口横向滚动/布局序列化，分析构建器/Excel 导出/颜色标签筛选/列组摘要/虚拟化接口保留稳定扩展点。"
+---
+
+# 质检平台开源数据工作台实现设计
+
+← [[质检平台统一数据工作台组件设计]]、[[人工质检验收中心正式开发就绪度评审]]。
+> 📎 历史标注：原架构枢纽卡 `[[人工质检验收第一纵切架构枢纽]]`（A10，hub）已拆散融入 [[人工质检验收中心正式开发就绪度评审]]，不再作为独立卡保留。
+
+> 📌 **源仓库吸纳（2026-07-06）**：本卡由源仓库 `ai-knowledge-base` commit `3cf39347` 的同名卡吸纳新建。原内容完整保留，frontmatter 按本项目规范补全 `id` 与 `summary`。本卡是 [[质检平台统一数据工作台组件设计]] 的落地实现卡。
+
+## 技术栈
+
+- `@tanstack/vue-table`：MIT，无样式表格状态引擎；
+- `@tanstack/vue-virtual`：MIT，大数据虚拟化；
+- `GridStack`：MIT，卡片布局；
+- `ECharts`：图表；
+- XLSX 导出保持适配器边界，进入导出 Slice 时再选择实现库；ExcelJS 4.4.0 当前存在无可用修复的间接依赖漏洞，第一纵切不安装。
+
+选择无样式引擎意味着筛选弹层、单元格编辑、悬浮横向滚动、布局持久化和视觉系统由本项目实现，但不会受商业授权锁定。
+
+## 组件边界
+
+`DataWorkbench` 负责布局和事件，`useDataWorkbench` 负责列/筛选/排序/选择/展开状态，业务列定义只描述字段、筛选器、渲染器和权限。第一纵切实现父选子、半选、列显隐、宽度、排序、文本/枚举筛选、按日展开、视口横向滚动和布局序列化。
+
+分析构建器、Excel 导出、颜色/标签筛选、列组摘要和虚拟化接口在首版保留稳定扩展点；每项以独立测试推进，不在一个大组件内堆条件分支。

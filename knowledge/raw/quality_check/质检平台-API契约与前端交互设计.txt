@@ -1,0 +1,276 @@
+---
+title: "质检平台-API契约与前端交互设计"
+domain: ["manual_qa"]
+type: "synthesis"
+tags: ["人工质检", "API契约", "Pydantic", "OpenAPI", "Dry Run", "权限"]
+created: 2026-06-28
+updated: 2026-06-30
+sources: 7
+status: active
+related_code: ["task.md", "src/api/app.py", "src/api/deps.py", "src/api/schemas/"]
+affects_path: ["src/api/", "src/frontend/src/features/manual-qc/"]
+trigger_keywords: ["API契约", "preview execute", "Pydantic", "task_ids", "前后端交互", "OpenAPI"]
+---
+
+> ✅ 印证修订：domain 由原始 `["ai_dlc","tooling"]` 改为本仓库 TAXONOMY 合法值 `["manual_qa"]`。
+
+# 质检平台 API 契约与前端交互设计
+
+← 总入口：[[质检一站式平台人工质检模块整体架构]]。相关：[[质检平台-人工质检前端页面与状态设计]]、[[质检平台SSO鉴权接入方案]]、[[质检平台-验收采样配额与任务选择设计]]。
+
+## ① 组件概述
+
+本卡定义质检平台人工质检模块 HTTP 接口的契约事实源（Pydantic + FastAPI OpenAPI），位于整体架构的 **API 层**，向上为前端提供稳定请求/响应契约，向下调用 Service 层完成业务，确保数据库内部字段、采样算法对象不直接泄漏给前端。
+
+## ② 架构结构
+
+### 目录/文件结构（计划目标）
+
+```text
+src/api/
+├── app.py                 # FastAPI 应用入口，注册路由
+├── deps.py                # 依赖注入：鉴权 Depends、DB Session、权限等级校验
+├── auth.py                # 身份验证（mock / SSO）→ employee_id
+└── schemas/
+    ├── acceptance.py      # 验收相关 Pydantic 模型（preview/execute/stats）
+    ├── personnel.py       # 人力相关 Pydantic 模型（查询/新增/编辑/调组）
+    ├── common.py          # 通用响应包装（分页 / 写操作 success/skipped/failed/errors）
+    └── errors.py          # 错误码与异常映射
+```
+
+契约事实源：HTTP 请求和响应由 `src/api/schemas/*.py` 的 Pydantic 模型定义，FastAPI OpenAPI 是前端契约事实源。内部 dataclass、数据库列和前端 TypeScript 类型不能互相直接替代。目的：数据库可以增加内部字段而不污染 API；采样算法可以重构而不强迫前端同步内部对象。
+
+### API 路由树（Mermaid graph）
+
+```mermaid
+graph LR
+    Root["/api/v1/manual-qc/"]
+    Root --> Acceptance["acceptance/"]
+    Root --> Personnel["personnel/"]
+
+    Acceptance --> A1["GET /acceptance/samplers (VIEW)"]
+    Acceptance --> A2["POST /acceptance/assignment/preview (VIEW)"]
+    Acceptance --> A3["POST /acceptance/assignment/execute (OPERATE)"]
+    Acceptance --> A4["POST /acceptance/stats/refresh (OPERATE)"]
+    Acceptance --> A5["GET /acceptance/stats (VIEW)"]
+    Acceptance --> A6["GET /acceptance/rules (VIEW)"]
+    Acceptance --> A7["POST /acceptance/execution/preview (VIEW)"]
+    Acceptance --> A8["POST /acceptance/execution/execute (EXECUTE)"]
+    Acceptance --> A9["GET /acceptance/execution/status (VIEW)"]
+
+    Personnel --> P1["GET /personnel (VIEW)"]
+    Personnel --> P2["POST /personnel (MANAGE)"]
+    Personnel --> P3["PUT /personnel/{id} (MANAGE)"]
+    Personnel --> P4["POST /personnel/{id}/group (MANAGE)"]
+    Personnel --> P5["GET /personnel/ungrouped (VIEW)"]
+    Personnel --> P6["GET /personnel/stats (VIEW)"]
+```
+
+路由树说明：路径前缀统一 `/api/v1/manual-qc/`，分 `acceptance/` 与 `personnel/` 两大分支共 15 个端点。每个写端点通过 `Depends` 声明最低模块等级。最终路由数量以实现时的 OpenAPI 为准；若多个端点只是同一资源的不同筛选，不为"凑 11 个端点"重复建接口。
+
+### 请求/响应时序图（preview → execute，Mermaid sequenceDiagram）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant FE as 前端 AssignView
+    participant API as FastAPI Router
+    participant Dep as deps.py (权限校验)
+    participant SVC as Service 层
+    participant DB as t_qc_daily_snapshot 等
+
+    Note over FE,DB: preview 阶段
+    FE->>API: POST /acceptance/assignment/preview (filters, strategy, params)
+    API->>Dep: Depends(require_access("acceptance", VIEW))
+    Dep->>Dep: 查 t_portal_permission，校验等级
+    Dep-->>API: 通过
+    API->>SVC: 调用采样服务计算配额
+    SVC-->>API: expected/good/bad/by_scene/by_annotator + task_ids + warnings
+    API-->>FE: preview 响应（含 generated_at）
+
+    Note over FE,DB: execute 阶段（携带原 task_ids，不重新采样）
+    FE->>API: POST /acceptance/assignment/execute (task_ids, operator_confirm)
+    API->>Dep: Depends(require_access("acceptance", OPERATE))
+    Dep-->>API: 通过
+    API->>SVC: 逐项重查当前状态
+    SVC->>DB: 当前状态仍合法→执行；已完成→skipped；冲突→failed
+    SVC->>DB: 调用 Delta，回写结果
+    SVC-->>API: success_count / skipped_count / failed_count / errors
+    API-->>FE: 执行结果（请求/成功/跳过/失败数量）
+```
+
+时序图说明：preview 与 execute 是两阶段契约。preview 请求包含日期范围、scene、组/人员筛选、策略名和该策略参数，后端校验策略是否存在以及比例、数量范围。execute 原样携带 preview 的 `task_ids` 和操作者确认信息，不重新运行随机采样；后端逐项重查当前状态，只对仍满足前置状态的任务调用 Delta。这比持久化 `operation_id` 更符合当前规模，同时保证"看到什么就执行什么"。若未来 task_ids 超过网关请求体上限，再引入短期 preview token，而不是现在提前建表。
+
+### 数据流图（Mermaid flowchart）
+
+```mermaid
+flowchart TD
+    subgraph 前端
+        Req[HTTP 请求 + Authorization Header]
+    end
+
+    subgraph API 层
+        Router[FastAPI Router]
+        Deps[deps.py 鉴权 + 等级校验]
+        Schemas[Pydantic 模型校验]
+    end
+
+    subgraph Service 层
+        Sampler[采样服务]
+        Exec[执行服务]
+        Stats[统计服务]
+    end
+
+    subgraph 数据层
+        Tables[t_qc_daily_snapshot / t_data_check_screeners / t_personnel_op_log / t_portal_permission]
+    end
+
+    Req --> Router
+    Router --> Deps
+    Deps -->|查 t_portal_permission| Tables
+    Deps --> Schemas
+    Schemas --> Sampler
+    Schemas --> Exec
+    Schemas --> Stats
+    Sampler --> Exec
+    Exec --> Tables
+    Stats --> Tables
+    Sampler -.返回 Pydantic.-> Schemas
+    Exec -.返回 Pydantic.-> Schemas
+    Stats -.返回 Pydantic.-> Schemas
+    Schemas --> Router
+    Router -->|OpenAPI 响应| Req
+```
+
+数据流图说明：API 层只做契约定义、鉴权、模型校验，不包含业务逻辑；业务逻辑下沉到 Service 层。返回给前端的全部为 Pydantic 模型，确保 OpenAPI 是唯一契约事实源。
+
+## ③ 数据表交互
+
+API 层通过 Service/Repository 间接交互数据表，本段列出本组件触达的表：
+
+| 数据表 | 用途 | 读写类型 | 关键字段 | 链接 |
+|--------|------|---------|---------|------|
+| t_portal_permission | 鉴权 Depends 校验模块等级 | 读 | employee_id / acceptance_access / personnel_access / is_admin | [[质检平台SSO鉴权接入方案]] · [SQL](../../../data_schemas/postgresql_relational/t_portal_permission.sql) |
+| t_qc_daily_snapshot | 验收 preview/execute/stats 的读写主体 | 读写 | stat_date / scene_name / group_name / annotator_id / annotation_* / acceptance_* / good_* / bad_* / conclusion / is_executed | [[质检平台-综合快照表设计]] · [SQL](../../../data_schemas/postgresql_relational/t_qc_daily_snapshot.sql) |
+| t_data_check_screeners | 人力端点查询/新增/编辑/SCD封版 | 读写 | employee_id / user_name / work_type / company / project_name / team_leader / status(int) / start_time / end_time | [[人工质检-人力管理体系设计]] · [SQL](../../../data_schemas/postgresql_relational/t_data_check_screeners.sql) |
+| t_personnel_op_log | 人员变更由 Service 写入，前端回查 | 写（Service 触发） | action / changes / operator_id / personnel_id | [[人工质检-人力管理体系设计]] · [SQL](../../../data_schemas/postgresql_relational/t_personnel_op_log.sql) |
+
+## ④ 子模块/文件/类级清单
+
+- `src/api/app.py` — FastAPI 应用入口，注册验收与人力路由。
+- `src/api/deps.py` — 依赖注入：鉴权 Depends、DB Session、模块等级校验（`require_access(module, minimum_level)`）。
+- `src/api/auth.py` — 身份验证（开发期 mock / 生产 SSO），输出 employee_id。
+- `src/api/schemas/acceptance.py` — 验收相关 Pydantic 模型（preview 请求/响应、execute 请求/响应、stats 响应）。
+- `src/api/schemas/personnel.py` — 人力相关 Pydantic 模型（查询/新增/编辑/调组）。
+- `src/api/schemas/common.py` — 通用响应包装（分页结构、写操作 `success_count/skipped_count/failed_count/errors`）。
+- `src/api/schemas/errors.py` — 错误码与异常映射（参数错误/权限不足/状态已变化/外部平台失败/内部错误）。
+
+## ⑤ 详细设计展开
+
+### 契约事实源
+
+HTTP 请求和响应由 `src/api/schemas/*.py` 的 Pydantic 模型定义，FastAPI OpenAPI 是前端契约事实源。内部 dataclass、数据库列和前端 TypeScript 类型不能互相直接替代。
+
+目的：数据库可以增加内部字段而不污染 API；采样算法可以重构而不强迫前端同步内部对象。
+
+### 统一约定
+
+- 路径前缀：`/api/v1/manual-qc/`。
+- 时间使用带时区 ISO 8601；统计日期使用 `YYYY-MM-DD`。
+- 比率响应使用 0～1 小数，前端负责百分比展示。
+- 列表端点必须支持分页；策略列表可不分页。
+- 写操作返回结构化 `success_count / skipped_count / failed_count / errors`。
+- 错误区分参数错误、权限不足、状态已变化、外部平台失败和内部错误。
+
+### 验收端点
+
+| 方法 | 路径 | 权限 | 用途 |
+|---|---|---|---|
+| GET | `/acceptance/samplers` | VIEW | 从注册表读取可用采样策略 |
+| POST | `/acceptance/assignment/preview` | VIEW | 计算配额并返回具体 task_ids 与汇总 |
+| POST | `/acceptance/assignment/execute` | OPERATE | 按 preview task_ids 执行分配 |
+| POST | `/acceptance/stats/refresh` | OPERATE | 从任务级记录刷新快照 |
+| GET | `/acceptance/stats` | VIEW | 查询快照、趋势和聚合统计 |
+| GET | `/acceptance/rules` | VIEW | 从注册表读取判定规则 |
+| POST | `/acceptance/execution/preview` | VIEW | 返回 PASS/REJECT/PENDING 和依据 |
+| POST | `/acceptance/execution/execute` | EXECUTE | 执行通过/打回 |
+| GET | `/acceptance/execution/status` | VIEW | 回查任务状态与实际成功量 |
+
+最终路由数量以实现时的 OpenAPI 为准；若多个端点只是同一资源的不同筛选，不为"凑 11 个端点"重复建接口。
+
+### preview → execute 契约
+
+#### preview 请求
+
+包含日期范围、scene、组/人员筛选、策略名和该策略参数。后端校验策略是否存在以及比例、数量范围。
+
+#### preview 响应
+
+```text
+strategy
+filters
+summary: expected/good/bad/by_scene/by_annotator
+task_ids: [...]              # 本次实际预览出的任务
+warnings: [...]              # 数据不足、未进组、供应商冲突等
+generated_at
+```
+
+#### execute 请求
+
+原样携带 preview 的 `task_ids` 和操作者确认信息，不重新运行随机采样。后端逐项重查当前状态，只对仍满足前置状态的任务调用 Delta。
+
+这比持久化 `operation_id` 更符合当前规模，同时保证"看到什么就执行什么"。若未来 task_ids 超过网关请求体上限，再引入短期 preview token，而不是现在提前建表。
+
+### 权限与前端按钮
+
+前端根据 `/me` 或权限响应隐藏/禁用按钮；后端每个写端点仍通过 Depends 校验模块等级。直接构造 HTTP 请求不能绕过权限。
+
+详见 [[质检平台SSO鉴权接入方案]]。
+
+### 状态变化处理
+
+preview 后任务可能被其他人处理。execute 不把这种情况当成系统崩溃：
+
+- 当前状态仍合法：进入执行列表；
+- 已经完成目标动作：记为 skipped；
+- 状态与目标冲突：记为 failed 并返回 task_id、当前状态和原因；
+- Delta 请求失败：保留错误并允许用户刷新状态后重试剩余任务。
+
+页面必须显示请求数、实际发送数、跳过数、失败数，不能只弹"操作成功"。
+
+### 人力端点
+
+| 方法 | 路径 | 权限 | 用途 |
+|---|---|---|---|
+| GET | `/personnel` | VIEW | 分页、筛选人员 |
+| POST | `/personnel` | MANAGE | 新增人员并写 op_log |
+| PUT | `/personnel/{id}` | MANAGE | 修改属性并记录 changes |
+| POST | `/personnel/{id}/group` | MANAGE | 调组并记录 GROUP_CHANGE |
+| GET | `/personnel/ungrouped` | VIEW | 未进组预警 |
+| GET | `/personnel/stats` | VIEW | 人力分布和画像统计 |
+
+### 待确认项
+
+- `[待人类补充]` Delta 单批 task_ids 上限及接口超时。
+- `[待人类补充]` 真实状态码和值与当前卡片中 66/完成/打回语义的最终映射。
+- `[待人类补充]` 是否需要导出接口，还是先由前端导出当前页数据。
+
+> ❓ 待人类 Review：本仓库 `src/api/schemas/` 是否已存在 acceptance.py / personnel.py，需在 Phase 3 实现时核对路径是否与本卡一致。
+
+## ⑥ 完成情况与 TODO
+
+**当前完成状态**：设计中（Pydantic 模型与路由尚未在仓库物理实现，待 Phase 3 落地）。
+
+- [ ] 核对 `src/api/schemas/` 是否已存在 acceptance.py / personnel.py
+- [ ] 实现 `src/api/app.py` 注册验收 + 人力路由（15 端点）
+- [ ] 实现 `src/api/deps.py` 的 `require_access(module, minimum_level)` Depends
+- [ ] 实现 `src/api/schemas/common.py` 写操作结构化响应（success/skipped/failed/errors）
+- [ ] 实现 `src/api/schemas/errors.py` 五类错误码映射
+- [ ] 落地 preview → execute 两阶段契约（execute 携带原 task_ids）
+- [ ] 与人类确认 Delta 单批 task_ids 上限及接口超时
+- [ ] 与人类确认状态码与 66/完成/打回语义映射
+- [ ] 确认是否需要导出接口
+
+## ⑦ 归属
+
+← [[质检一站式平台人工质检模块整体架构]]
