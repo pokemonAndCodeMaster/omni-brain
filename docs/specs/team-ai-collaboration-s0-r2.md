@@ -1,6 +1,6 @@
 # 团队 AI 协作与交付中枢 S0：需求治理与双执行器 R2
 
-> 状态：`implemented`（本地 API/数据库/CLI 已验证；新增页面真实浏览器验收待补）
+> 状态：`verified@local-s0`（本地 API/数据库/CLI 与新增页面浏览器验收通过；长进程取消仍未端到端验证）
 >
 > 日期：2026-08-30
 >
@@ -696,9 +696,13 @@ expected output
   原因被原样保存；Adapter 改为有界 16 MiB 流后，修复 Run
   `run-20260830-041949-740b63` 成功并回填 session、42 个规范事件和最终文本；
 - Python 24 项、Vue/Vitest 34 项、`vue-tsc` 和 Vite 生产构建通过；
-- `/ai/ideas` 与代理 API 已通过实际 HTTP 访问；当前环境缺少可用
-  Chromium/Playwright，所以第 11.3 节第 9 项仍待补，不能将 S0 标记为完整 `verified`。
+- Playwright Chromium 1.58.0 在 1440、1024、390、320 四档宽度完成 6 条协作路由的
+  24 个路由—视口组合验收，24/24 通过；无横向溢出、未命名控件、过小可见点击目标、
+  控制台/Page Error 或 4xx/5xx；
+- 20/20 项真实交互通过，包括 Idea/Requirement/Run/Agent 主路径、移动导航、跳过导航、
+  可见焦点、对话框入焦、Esc 关闭和焦点归还；首轮发现的问题在实施仓修复后重跑通过。
 
-详细运行证据保存在实施仓 `docs/verification-report.md`。本规格因此处于
-`implemented`，已验证范围为本地 PostgreSQL、API、CLI、组件测试和构建；真实浏览器
-视觉与响应式交互仍是明确的验收缺口。
+详细运行证据保存在实施仓 `docs/verification-report.md`，本机截图与机器可读审计位于其
+忽略目录 `.runtime/e2e-collaboration/`。本规格因此升级为 `verified@local-s0`；验证范围是
+单机 admin、本地 PostgreSQL、Codex/OpenCode CLI、API、组件测试、构建和协作页面浏览器
+主路径。真实长进程取消、多用户、远程 Worker 与 S1 交付闭环仍不在这个结论内。
