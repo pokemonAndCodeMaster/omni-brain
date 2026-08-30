@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, shallowRef, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getAgentRun } from '@/features/agent-runtime/api/agentRuntime'
+import { createWork } from '@/features/work/api/work'
 import AgentActionPanel from '../components/AgentActionPanel.vue'
 import CollaborationTimeline from '../components/CollaborationTimeline.vue'
 import RequirementDecisionPanel from '../components/RequirementDecisionPanel.vue'
@@ -11,6 +12,7 @@ import { useRequirementDetail } from '../composables/useRequirementDetail'
 import { emptyRequirementContent, type AgentActionInput, type RequirementContent, type RequirementDecisionInput } from '../types'
 
 const route = useRoute()
+const router = useRouter()
 const requirementId = computed(() => String(route.params.requirementId ?? ''))
 const { requirement, revisions, timeline, loading, actionPending, error, load, saveRevision, addMessage, startAction, decide } = useRequirementDetail(requirementId)
 const draft = shallowRef<RequirementContent>(emptyRequirementContent())
@@ -20,6 +22,7 @@ const saving = shallowRef(false)
 const deciding = shallowRef(false)
 const message = shallowRef('')
 const messagePending = shallowRef(false)
+const creatingWork = shallowRef(false)
 
 watch(
   () => requirement.value?.current_revision,
@@ -86,6 +89,19 @@ async function submitMessage() {
     messagePending.value = false
   }
 }
+
+async function startWork() {
+  creatingWork.value = true
+  localError.value = ''
+  try {
+    const work = await createWork(requirementId.value)
+    await router.push(`/ai/works/${work.id}`)
+  } catch (reason) {
+    localError.value = reason instanceof Error ? reason.message : 'Work 创建失败'
+  } finally {
+    creatingWork.value = false
+  }
+}
 </script>
 
 <template>
@@ -96,7 +112,19 @@ async function submitMessage() {
         <h2>{{ requirement?.title || '正在读取 Requirement…' }}</h2>
         <p v-if="requirement">{{ requirement.status }} · {{ requirement.commitment || '未承诺' }} · admin</p>
       </div>
-      <RouterLink v-if="requirement?.source_idea_id" class="button" :to="`/ai/ideas/${requirement.source_idea_id}`">来源 Idea</RouterLink>
+      <div class="collab-heading-actions">
+        <RouterLink v-if="requirement?.source_idea_id" class="button" :to="`/ai/ideas/${requirement.source_idea_id}`">来源 Idea</RouterLink>
+        <RouterLink v-if="requirement?.work_id" class="button primary" :to="`/ai/works/${requirement.work_id}`">打开 Work</RouterLink>
+        <button
+          v-else-if="requirement?.status === 'accepted'"
+          class="button primary"
+          type="button"
+          :disabled="creatingWork"
+          @click="startWork"
+        >
+          {{ creatingWork ? '正在建立 worktree…' : '创建 Work' }}
+        </button>
+      </div>
     </header>
 
     <p v-if="error || localError" class="collab-error" role="alert">{{ error || localError }}</p>

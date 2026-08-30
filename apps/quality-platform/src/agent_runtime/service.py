@@ -103,6 +103,12 @@ class AgentRunService:
         thread_id: str | None = None,
         trigger_action: str | None = None,
         output_schema: dict[str, Any] | None = None,
+        work_id: str | None = None,
+        plan_step_id: str | None = None,
+        repository_path: str | None = None,
+        base_revision: str | None = None,
+        workspace_path: str | None = None,
+        branch_name: str | None = None,
     ) -> dict[str, Any]:
         agent = self.registry.get(agent_id)
         selected_executor = executor or str(agent["default_executor"])
@@ -114,6 +120,10 @@ class AgentRunService:
             raise ValueError(f"执行器未登记：{selected_executor}")
         if (subject_type is None) != (subject_id is None):
             raise ValueError("subject_type 与 subject_id 必须同时提供")
+        if (work_id is None) != (plan_step_id is None):
+            raise ValueError("work_id 与 plan_step_id 必须同时提供")
+        if workspace_path and not branch_name:
+            raise ValueError("复用 worktree 时必须提供 branch_name")
         run_id = f"run-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid4().hex[:6]}"
         artifact_path = self.artifact_root / run_id
         artifact_path.mkdir(parents=True)
@@ -127,14 +137,18 @@ class AgentRunService:
                 "prompt": prompt,
                 "actor_id": actor_id,
                 "model": model.strip() if model and model.strip() else None,
-                "repository_path": agent["repository"],
-                "base_revision": agent["revision"],
+                "repository_path": repository_path or agent["repository"],
+                "base_revision": base_revision or agent["revision"],
+                "worktree_path": workspace_path,
+                "branch_name": branch_name,
                 "artifact_path": str(artifact_path),
                 "executor": selected_executor,
                 "subject_type": subject_type,
                 "subject_id": subject_id,
                 "thread_id": thread_id,
                 "trigger_action": trigger_action,
+                "work_id": work_id,
+                "plan_step_id": plan_step_id,
             }
         )
         task = asyncio.create_task(
@@ -167,26 +181,47 @@ class AgentRunService:
                 self.repository.append_event(
                     run_id=run_id,
                     event_type="run.started",
-                    summary="开始建立隔离 worktree",
+                    summary=(
+                        "开始使用 Work 共享 worktree"
+                        if run.get("worktree_path")
+                        else "开始建立隔离 worktree"
+                    ),
                     payload={"executor": executor_name},
                 )
-                workspace = await asyncio.to_thread(
-                    self.worktrees.create,
-                    run_id,
-                    Path(str(run["repository_path"])),
-                    str(run["base_revision"]),
-                )
-                self.repository.update(
-                    run_id,
-                    worktree_path=workspace["path"],
-                    branch_name=workspace["branch"],
-                )
-                self.repository.append_event(
-                    run_id=run_id,
-                    event_type="workspace.created",
-                    summary=f"已建立 {workspace['branch']}",
-                    payload=workspace,
-                )
+                if run.get("worktree_path"):
+                    workspace = {
+                        "path": str(run["worktree_path"]),
+                        "branch": str(run["branch_name"]),
+                        "base_revision": str(run["base_revision"]),
+                    }
+                    if not Path(workspace["path"]).is_dir():
+                        raise FileNotFoundError(
+                            f"Work worktree 不存在：{workspace['path']}"
+                        )
+                    self.repository.append_event(
+                        run_id=run_id,
+                        event_type="workspace.reused",
+                        summary=f"复用 Work 分支 {workspace['branch']}",
+                        payload=workspace,
+                    )
+                else:
+                    workspace = await asyncio.to_thread(
+                        self.worktrees.create,
+                        run_id,
+                        Path(str(run["repository_path"])),
+                        str(run["base_revision"]),
+                    )
+                    self.repository.update(
+                        run_id,
+                        worktree_path=workspace["path"],
+                        branch_name=workspace["branch"],
+                    )
+                    self.repository.append_event(
+                        run_id=run_id,
+                        event_type="workspace.created",
+                        summary=f"已建立 {workspace['branch']}",
+                        payload=workspace,
+                    )
 
                 async def on_event(event: dict[str, Any]) -> None:
                     payload = dict(event["payload"])

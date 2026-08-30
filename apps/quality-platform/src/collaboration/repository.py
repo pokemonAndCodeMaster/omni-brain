@@ -36,6 +36,7 @@ class CollaborationRepository:
         self._entries = f"{schema}.t_collab_thread_entry"
         self._decisions = f"{schema}.t_collab_decision"
         self._runs = f"{schema}.t_agent_run"
+        self._works = f"{schema}.t_collab_work"
 
     @staticmethod
     def validate_acceptance_content(content: dict[str, Any]) -> None:
@@ -427,6 +428,7 @@ class CollaborationRepository:
                        revision.source_run_id AS current_revision_source_run_id,
                        revision.created_by AS current_revision_created_by,
                        revision.created_at AS current_revision_created_at,
+                       work.id AS work_id,
                        COUNT(run.id)::integer AS run_count
                 FROM {self._requirements} AS requirement
                 JOIN {self._threads} AS thread
@@ -437,8 +439,10 @@ class CollaborationRepository:
                 LEFT JOIN {self._runs} AS run
                   ON run.subject_type = 'requirement'
                  AND run.subject_id = requirement.id
+                LEFT JOIN {self._works} AS work
+                  ON work.requirement_id = requirement.id
                 WHERE requirement.id = %s
-                GROUP BY requirement.id, thread.id, revision.id
+                GROUP BY requirement.id, thread.id, revision.id, work.id
             """,
             (requirement_id,),
         ).fetchone()
@@ -476,6 +480,7 @@ class CollaborationRepository:
                        requirement.source_type, requirement.source_idea_id,
                        requirement.status, requirement.commitment,
                        requirement.owner_id, revision.revision_no AS current_revision_no,
+                       work.id AS work_id,
                        COUNT(run.id)::integer AS run_count,
                        requirement.created_at, requirement.updated_at,
                        COUNT(*) OVER()::integer AS total_count
@@ -485,8 +490,10 @@ class CollaborationRepository:
                 LEFT JOIN {self._runs} AS run
                   ON run.subject_type = 'requirement'
                  AND run.subject_id = requirement.id
+                LEFT JOIN {self._works} AS work
+                  ON work.requirement_id = requirement.id
                 {where}
-                GROUP BY requirement.id, revision.revision_no
+                GROUP BY requirement.id, revision.revision_no, work.id
                 ORDER BY requirement.updated_at DESC, requirement.id DESC
                 LIMIT %(limit)s OFFSET %(offset)s
             """,

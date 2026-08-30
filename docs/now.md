@@ -17,7 +17,7 @@ Omni-Brain 已收口为一个产品主线。团队 AI 协作与交付平台、Ha
 
 | 位置 | 当前作用 | 状态 |
 |---|---|---|
-| `apps/quality-platform/` | Vue3 + FastAPI + PostgreSQL 的协作与 Agent 控制面 | `verified@mainline-s0` |
+| `apps/quality-platform/` | Vue3 + FastAPI + PostgreSQL 的协作与 Agent 控制面 | S0 `verified`；S1 Work 纵切 `implemented / under verification` |
 | `harness.yaml`、`.agents/skills/` | 主线 Agent 能力与运行规则 | 已接入 |
 | `packages/harness/` | `release/harness@7076817` 的可追溯发布快照 | 已导入，主线 90 项回归通过 |
 | `knowledge/published/quality-check/` | 首批认证质检知识 | 已导入，33 文件/24 概念校验与主线查询通过 |
@@ -32,6 +32,12 @@ Run 详情后读取 prompt、结果和 trace，活跃 Run 才增量刷新。Run 
 当前仍不使用 Docker，也没有内建身份认证、远程工作站调度、正式评测执行或进化 Loop。S0 设计
 边界见 [`team-ai-collaboration-s0-r2.md`](specs/team-ai-collaboration-s0-r2.md)。
 
+S1 已建立可运行候选：accepted Requirement 可原子创建一个共享 worktree 的 Work 和固定六步
+`standard_development_v1`；Run 显式关联 Work/PlanStep，失败或重试不覆盖历史；Work 页面按需读取
+计划与 Run 摘要，并管理 Git/验证证据和人工交付决定。首个真实对象是
+`work-20260830-060651-5cb1fa`，当前仍在步骤验证和交付审查中，不能称为已接受。施工边界见
+[`team-ai-collaboration-s1-r2.md`](specs/team-ai-collaboration-s1-r2.md)。
+
 ## 仍需保留但不再并行发展的资产
 
 - Spider 分支已经有真实实现与验证证据，后续应先登记为主线 Requirement，再审查哪些代码、知识和
@@ -43,7 +49,7 @@ Run 详情后读取 prompt、结果和 trace，活跃 Run 才增量刷新。Run 
 
 ## 当前下一动作
 
-1. 开始 S1 Work 纵切：Requirement 生成 Work、关联 Agent Run、Git 分支/提交/MR 和验证证据；
+1. 完成首个 S1 Work：依次确认知识/方案/开发/验证/审查步骤，回填最终 Commit 与证据并交给人接受；
 2. 建立历史实验资产晋升清单，逐项登记为 Requirement/EvalCase，而不是继续维护平行产品仓；
 3. 以主线正式知识运行首个知识问答/开发任务，验证平台 Run 确实消费 `knowledge/published/`；
 4. 为知识浏览、查询和受审更新形成下一条 Requirement，让知识不只在文件中可调用，也能在平台中治理。

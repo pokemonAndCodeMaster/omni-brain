@@ -36,6 +36,18 @@ const router = createRouter({
       meta: { title: 'Requirement 详情', eyebrow: 'AI 协作 / 需求' },
     },
     {
+      path: '/ai/works',
+      name: 'work-list',
+      component: () => import('@/features/work/pages/WorkListPage.vue'),
+      meta: { title: 'Work', eyebrow: 'AI 协作 / 交付控制' },
+    },
+    {
+      path: '/ai/works/:workId',
+      name: 'work-detail',
+      component: () => import('@/features/work/pages/WorkDetailPage.vue'),
+      meta: { title: 'Work 详情', eyebrow: 'AI 协作 / 交付控制' },
+    },
+    {
       path: '/ai/agents',
       name: 'agent-catalog',
       component: () => import('@/features/agent-runtime/pages/AgentCatalogPage.vue'),

@@ -27,6 +27,8 @@ Requirement、人机时间线、Codex/OpenCode 双执行器和人工质检数据
 12. 查看已发布能力的轻量目录和历史 Run 计数，按能力默认或显式选择 Codex/OpenCode；
 13. 在 PostgreSQL 中保存 Run 元数据和规范事件，选择具体 Run 后再读取完整任务、结果与
     `after_sequence` 增量 trace。
+14. 从 accepted Requirement 创建共享 worktree 的 Work 与固定六步
+    `standard_development_v1`，逐步启动/重试 Run、确认 Gate、刷新 Git/验证证据并记录人工交付决定。
 
 ## 快速开始
 
@@ -57,6 +59,7 @@ Agent 入口：
 
 - `http://127.0.0.1:5173/ai/ideas`：Idea Inbox、讨论、Agent 动作与转候选需求；
 - `http://127.0.0.1:5173/ai/requirements`：candidate/accepted Requirement、Revision 与评审；
+- `http://127.0.0.1:5173/ai/works`：Work 队列、固定计划、Run、Git 证据与人工接受；
 - `http://127.0.0.1:5173/ai/agents`：能力目录与启动入口；
 - `http://127.0.0.1:5173/ai/runs`：轻量 Run 列表和按需详情/trace。
 
@@ -65,7 +68,10 @@ Agent Runtime 从主线根目录的 `config/agent-registry.yaml` 与 `harness.ya
 `opencode run --format json`。开发、方案和
 协作动作默认 Codex，评测/对照默认 OpenCode；能力允许时可以显式切换。OpenCode 默认
 使用本机随机端口，也可通过 `OPENCODE_ENDPOINT` 连接已登记 server。worktree 只隔离
-代码和文件，不充当进程、端口或租户隔离；S0 仍是单仓单写入、单执行并发。
+代码和文件，不充当进程、端口或租户隔离；S1 仍是单仓单写入、单执行并发。独立 Run 默认建立
+自己的 worktree；进入 Work 后，六个步骤复用 Work 的同一个 worktree 和分支。
+Work 中的 OpenCode 验证/审查 Run 通过运行时 inline permission 禁用编辑、外部目录和未列入白名单的
+shell 命令；显式切换 OpenCode 做开发时允许工作区写入，但仍拒绝 Push、Merge 和创建 PR/MR。
 
 需要保留旧控制台中的 OpenCode 历史时，迁移一次：
 
@@ -170,6 +176,7 @@ src/
     pg_connector.py      PostgreSQL 公共能力
   agent_runtime/         Codex/OpenCode Run、worktree、PostgreSQL Repository/Service
   collaboration/         Idea、Requirement、Revision、Decision 与时间线
+  work/                  Work、固定计划、步骤 Gate、Git 证据与交付决定
   manual_qc/
     snapshot/            快照 Repository 与 Service
   frontend/              Vue 一站式平台（app/features/shared）

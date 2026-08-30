@@ -1,7 +1,7 @@
 app:
   name: Omni-Brain Quality & AI Collaboration Platform
   environment: local
-  schema_version: collaboration-s0-v1
+  schema_version: collaboration-s1-v1
 
 logging:
   level: ${QC_LOG_LEVEL:INFO}

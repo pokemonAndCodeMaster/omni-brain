@@ -77,6 +77,8 @@ export interface AgentRunSummary {
   subject_id: string | null
   thread_id: string | null
   trigger_action: string | null
+  work_id: string | null
+  plan_step_id: string | null
   exit_code: number | null
   failure_code: string | null
   created_at: string

@@ -18,7 +18,7 @@ RequirementStatus = Literal[
     "superseded",
     "closed",
 ]
-Commitment = Literal["NEXT", "LATER"]
+Commitment = Literal["NOW", "NEXT", "LATER"]
 
 
 class StrictInput(BaseModel):
@@ -141,6 +141,7 @@ class RequirementSummaryOut(BaseModel):
     owner_id: str
     current_revision_no: int
     run_count: int = 0
+    work_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -178,7 +179,7 @@ class RequirementDecisionCreate(StrictInput):
     @model_validator(mode="after")
     def validate_decision(self) -> "RequirementDecisionCreate":
         if self.decision_type == "accept":
-            if self.commitment is None:
+            if self.commitment not in {"NEXT", "LATER"}:
                 raise ValueError("接纳需求必须选择 NEXT 或 LATER")
             if self.commitment == "NEXT" and not (
                 self.target_window or self.entry_condition

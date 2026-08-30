@@ -50,12 +50,16 @@ function focusMainContent() {
           <span class="nav-index">A2</span>
           <span>需求</span>
         </RouterLink>
-        <RouterLink to="/ai/agents" @click="closeMobileNav">
+        <RouterLink to="/ai/works" @click="closeMobileNav">
           <span class="nav-index">A3</span>
+          <span>Work</span>
+        </RouterLink>
+        <RouterLink to="/ai/agents" @click="closeMobileNav">
+          <span class="nav-index">A4</span>
           <span>能力</span>
         </RouterLink>
         <RouterLink to="/ai/runs" @click="closeMobileNav">
-          <span class="nav-index">A4</span>
+          <span class="nav-index">A5</span>
           <span>Runs</span>
         </RouterLink>
       </nav>
@@ -80,7 +84,7 @@ function focusMainContent() {
         <p class="topbar-eyebrow">{{ pageEyebrow }}</p>
         <h1>{{ pageTitle }}</h1>
       </div>
-      <span class="environment-badge">MAIN · S0</span>
+      <span class="environment-badge">MAIN · S1</span>
     </header>
 
     <main id="main-content" class="main-content" tabindex="-1">

@@ -9,6 +9,7 @@ from src.manual_qc.analysis import AnalysisQueryService, AnalysisRepository
 from src.manual_qc.snapshot.repository import SnapshotRepository
 from src.manual_qc.snapshot.snapshot_service import SnapshotQueryService
 from src.portal.view_config import ViewConfigRepository, ViewConfigService
+from src.work import WorkService
 
 
 def get_database_manager(request: Request) -> DatabaseManager:
@@ -21,6 +22,10 @@ def get_agent_run_service(request: Request) -> AgentRunService:
 
 def get_collaboration_service(request: Request) -> CollaborationService:
     return request.app.state.collaboration_service
+
+
+def get_work_service(request: Request) -> WorkService:
+    return request.app.state.work_service
 
 
 def get_actor_id() -> str:

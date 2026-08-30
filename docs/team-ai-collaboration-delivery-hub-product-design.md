@@ -51,7 +51,7 @@
 
 ### 2.1 物理宿主
 
-S0/S1 继续使用 `/home/yyh/project/quality-platform-lab` 的 Vue3、FastAPI、PostgreSQL 公共能力和现有 Agent Runtime，不新建另一套 React 前端、SQLite 控制面或微服务系统。
+S0/S1 继续使用主线 `apps/quality-platform/` 的 Vue3、FastAPI、PostgreSQL 公共能力和现有 Agent Runtime，不新建另一套 React 前端、SQLite 控制面或微服务系统。
 
 协作能力在代码和数据上作为跨领域模块存在，不能写进 `manual_qc`。质检、知识、研发和其他领域页面可以嵌入协作动作，但共用同一套 Idea、需求、Work 和 Run 事实。
 

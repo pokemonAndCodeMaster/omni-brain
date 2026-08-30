@@ -19,10 +19,12 @@ from src.api.routers.analysis import router as analysis_router
 from src.api.routers.collaboration import router as collaboration_router
 from src.api.routers.snapshot import router as snapshot_router
 from src.api.routers.view_config import router as view_config_router
+from src.api.routers.work import router as work_router
 from src.api.schemas import HealthResponse
 from src.config import ConfigManager
 from src.collaboration import CollaborationRepository, CollaborationService
 from src.database import DatabaseManager
+from src.work import WorkRepository, WorkService
 
 
 def project_root() -> Path:
@@ -61,6 +63,11 @@ def create_app() -> FastAPI:
         run_service=agent_run_service,
         run_repository=agent_run_service.repository,
     )
+    work_service = WorkService(
+        repository=WorkRepository(database_manager.postgres()),
+        run_service=agent_run_service,
+        worktrees=agent_run_service.worktrees,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -68,6 +75,7 @@ def create_app() -> FastAPI:
         app.state.database_manager = database_manager
         app.state.agent_run_service = agent_run_service
         app.state.collaboration_service = collaboration_service
+        app.state.work_service = work_service
         database_manager.postgres().open()
         agent_run_service.recover()
         yield
@@ -91,6 +99,7 @@ def create_app() -> FastAPI:
     app.include_router(collaboration_router)
     app.include_router(snapshot_router)
     app.include_router(view_config_router)
+    app.include_router(work_router)
 
     @app.get("/api/health", response_model=HealthResponse)
     def health(request: Request) -> HealthResponse:

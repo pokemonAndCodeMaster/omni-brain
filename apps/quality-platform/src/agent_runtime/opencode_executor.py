@@ -21,6 +21,39 @@ from .executor import (
 EventCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
+READ_ONLY_BASH_PERMISSION = {
+    "*": "deny",
+    "pwd": "allow",
+    "ls": "allow",
+    "ls *": "allow",
+    "find *": "allow",
+    "rg *": "allow",
+    "grep *": "allow",
+    "git status": "allow",
+    "git status *": "allow",
+    "git diff": "allow",
+    "git diff *": "allow",
+    "git log": "allow",
+    "git log *": "allow",
+    "git show *": "allow",
+    "git rev-parse *": "allow",
+    ".venv/bin/pytest *": "allow",
+    "python -m pytest *": "allow",
+    "python -m compileall *": "allow",
+    "npm test *": "allow",
+    "npm run type-check *": "allow",
+    "npm run build *": "allow",
+}
+
+WRITE_BASH_PERMISSION = {
+    "*": "allow",
+    "git push*": "deny",
+    "git merge*": "deny",
+    "gh pr create*": "deny",
+    "glab mr create*": "deny",
+}
+
+
 def _nested(value: Any, keys: set[str]) -> str | None:
     if isinstance(value, dict):
         for key, item in value.items():
@@ -127,6 +160,36 @@ class OpenCodeExecutor:
         argv.append(request.prompt)
         return argv
 
+    @staticmethod
+    def environment_for(request: ExecutorRequest) -> dict[str, str]:
+        env = os.environ.copy()
+        existing: dict[str, Any] = {}
+        raw = env.get("OPENCODE_CONFIG_CONTENT", "").strip()
+        if raw:
+            try:
+                candidate = json.loads(raw)
+                if isinstance(candidate, dict):
+                    existing = candidate
+            except json.JSONDecodeError:
+                pass
+        if request.sandbox == "workspace-write":
+            permission = {
+                "edit": "allow",
+                "bash": WRITE_BASH_PERMISSION,
+                "external_directory": "deny",
+            }
+        else:
+            permission = {
+                "edit": "deny",
+                "bash": READ_ONLY_BASH_PERMISSION,
+                "external_directory": "deny",
+            }
+        env["OPENCODE_CONFIG_CONTENT"] = json.dumps(
+            {**existing, "permission": permission},
+            ensure_ascii=False,
+        )
+        return env
+
     async def run(
         self,
         request: ExecutorRequest,
@@ -139,7 +202,7 @@ class OpenCodeExecutor:
             stderr=asyncio.subprocess.PIPE,
             limit=SUBPROCESS_STREAM_LIMIT,
             cwd=request.worktree,
-            env=os.environ.copy(),
+            env=self.environment_for(request),
             start_new_session=os.name == "posix",
         )
         on_process(process)

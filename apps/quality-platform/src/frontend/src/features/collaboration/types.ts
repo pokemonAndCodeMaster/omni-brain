@@ -9,7 +9,7 @@ export type RequirementStatus =
   | 'merged'
   | 'superseded'
   | 'closed'
-export type Commitment = 'NEXT' | 'LATER'
+export type Commitment = 'NOW' | 'NEXT' | 'LATER'
 
 export interface RequirementContent {
   background: string
@@ -55,6 +55,7 @@ export interface IdeaSummary {
   owner_id: string
   requirement_id: string | null
   run_count: number
+  work_id: string | null
   created_at: string
   updated_at: string
 }

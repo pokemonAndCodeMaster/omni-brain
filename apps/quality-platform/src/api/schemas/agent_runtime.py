@@ -95,6 +95,8 @@ class AgentRunOut(BaseModel):
     subject_id: str | None = None
     thread_id: str | None = None
     trigger_action: str | None = None
+    work_id: str | None = None
+    plan_step_id: str | None = None
     exit_code: int | None = None
     result_summary: str | None = None
     result_payload: dict[str, Any] | None = None
@@ -122,6 +124,8 @@ class AgentRunSummaryOut(BaseModel):
     subject_id: str | None = None
     thread_id: str | None = None
     trigger_action: str | None = None
+    work_id: str | None = None
+    plan_step_id: str | None = None
     exit_code: int | None = None
     failure_code: str | None = None
     created_at: datetime

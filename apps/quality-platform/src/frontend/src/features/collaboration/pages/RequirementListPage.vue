@@ -69,6 +69,7 @@ function formatTime(value: string) {
           </select>
           <select v-model="commitment" class="select-field" aria-label="按需求承诺筛选" @change="load">
             <option value="">全部承诺</option>
+            <option value="NOW">NOW</option>
             <option value="NEXT">NEXT</option>
             <option value="LATER">LATER</option>
           </select>

@@ -12,6 +12,7 @@ RUN_COLUMNS = """
     repository_path, base_revision, worktree_path, branch_name,
     executor, executor_session_id, opencode_session_id,
     subject_type, subject_id, thread_id, trigger_action,
+    work_id, plan_step_id,
     exit_code, result_summary, result_payload, failure_code,
     failure_reason, artifact_path, created_at, started_at, finished_at, updated_at
 """
@@ -20,6 +21,7 @@ RUN_SUMMARY_COLUMNS = """
     id, agent_id, agent_name, title, actor_id, status, model,
     branch_name, executor, executor_session_id,
     subject_type, subject_id, thread_id, trigger_action,
+    work_id, plan_step_id,
     exit_code, failure_code,
     created_at, started_at, finished_at, updated_at
 """
@@ -57,13 +59,17 @@ class AgentRunRepository:
                         INSERT INTO {self._runs} (
                             id, agent_id, agent_name, title, prompt, actor_id, status,
                             model, repository_path, base_revision, artifact_path,
-                            executor, subject_type, subject_id, thread_id, trigger_action
+                            worktree_path, branch_name, executor,
+                            subject_type, subject_id, thread_id, trigger_action,
+                            work_id, plan_step_id
                         ) VALUES (
                             %(id)s, %(agent_id)s, %(agent_name)s, %(title)s,
                             %(prompt)s, %(actor_id)s, 'queued', %(model)s,
                             %(repository_path)s, %(base_revision)s, %(artifact_path)s,
-                            %(executor)s, %(subject_type)s, %(subject_id)s,
-                            %(thread_id)s, %(trigger_action)s
+                            %(worktree_path)s, %(branch_name)s, %(executor)s,
+                            %(subject_type)s, %(subject_id)s,
+                            %(thread_id)s, %(trigger_action)s,
+                            %(work_id)s, %(plan_step_id)s
                         )
                         RETURNING {RUN_COLUMNS}
                     """,
@@ -88,6 +94,8 @@ class AgentRunRepository:
                                 "executor": run["executor"],
                                 "subject_type": run.get("subject_type"),
                                 "subject_id": run.get("subject_id"),
+                                "work_id": run.get("work_id"),
+                                "plan_step_id": run.get("plan_step_id"),
                             }
                         ),
                     },

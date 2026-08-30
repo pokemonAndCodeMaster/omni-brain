@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from src.agent_runtime.codex_executor import CodexExecutor
@@ -27,6 +28,36 @@ def test_opencode_command_uses_worktree_and_optional_model() -> None:
     assert command[command.index("--model") + 1] == "provider/model"
     assert command[-1] == "完成任务"
     assert "codex" not in command
+
+
+def test_opencode_read_only_profile_denies_edits_and_unlisted_shell_commands() -> None:
+    executor = OpenCodeExecutor(command="opencode")
+    environment = executor.environment_for(request())
+
+    config = json.loads(environment["OPENCODE_CONFIG_CONTENT"])
+    assert config["permission"]["edit"] == "deny"
+    assert config["permission"]["external_directory"] == "deny"
+    assert config["permission"]["bash"]["*"] == "deny"
+    assert config["permission"]["bash"]["git diff *"] == "allow"
+    assert config["permission"]["bash"].get("git push*", "deny") == "deny"
+
+
+def test_opencode_write_profile_still_blocks_push_pr_and_merge() -> None:
+    executor = OpenCodeExecutor(command="opencode")
+    write_request = ExecutorRequest(
+        worktree=Path("/tmp/work"),
+        prompt="开发",
+        run_id="run-write",
+        sandbox="workspace-write",
+    )
+    config = json.loads(
+        executor.environment_for(write_request)["OPENCODE_CONFIG_CONTENT"]
+    )
+
+    assert config["permission"]["edit"] == "allow"
+    assert config["permission"]["bash"]["git push*"] == "deny"
+    assert config["permission"]["bash"]["git merge*"] == "deny"
+    assert config["permission"]["bash"]["gh pr create*"] == "deny"
 
 
 def test_codex_command_uses_jsonl_read_only_worktree_and_optional_schema() -> None:
