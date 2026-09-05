@@ -19,11 +19,36 @@
     "model": "gpt-5.6-luna",
     "worker": "独立HTTP进程"
   },
-  "cleanup": "验收证据与提交归档后回收临时执行树；以正式主线为使用入口",
+  "cleanup": {
+    "status": "completed",
+    "removed": [
+      "临时开发worktree",
+      "7个原生Run worktree",
+      "隔离PostgreSQL运行目录",
+      "临时依赖与私密会话配置",
+      "短路径符号链接"
+    ],
+    "retained": "主线本地8000/5173服务、55432数据库与个人worker；归档证据和Git ref"
+  },
   "limitations": [
     "本机未安装Docker",
     "未实测不同物理主机或公司内源执行器",
     "localhost local-admin；不代表公司SSO部署",
     "全量前端类型检查保留主线已有40条诊断，新增共作单独检查"
-  ]
+  ],
+  "implementationCommit": "e58bbbe",
+  "localMainline": {
+    "frontend": "http://127.0.0.1:5173/",
+    "backend": "http://127.0.0.1:8000",
+    "databasePort": 55432,
+    "deliveryItemId": "item-c928cfadf639427c",
+    "worker": "个人 native Codex 工作站已注册并启动",
+    "checks": [
+      "正式目录首页与交付事项在新浏览器打开成功",
+      "personal/team API 与团队知识目录均返回200",
+      "机器真实心跳为online",
+      "主线数据库迁移前已本地备份"
+    ],
+    "typeBoundary": "共作0新增诊断；全量保留原有40条"
+  }
 }

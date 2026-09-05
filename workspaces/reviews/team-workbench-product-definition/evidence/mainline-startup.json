@@ -1,0 +1,16 @@
+{
+  "frontend": "http://127.0.0.1:5173/gongzuo/personal/home",
+  "itemId": "item-c928cfadf639427c",
+  "attentionLabel": "审阅结果",
+  "errors": [],
+  "legacy": [
+    {
+      "path": "/ai/ideas",
+      "text": "跳到主要内容\nOB\nOmni-Brain\n团队 AI 协作与交付中枢\n\n人工质检\n\n01\n标注与验收快照\n02\n验收操作闭环\n下一纵切\n\nAI 协作\n\nA1\n灵感\nA2\n需求\nA3\nWork\nA4\n能力\nA5\nRuns\nadmin · 本地 PostgreSQL\n\nAI 协作 / IDEA INBOX\n\n灵感\nMAIN · S1\n\nIDEA INBOX\n\n先留下，再一起想清楚\n\n原始想法不会被 Agent 覆盖；进入详情后再补背景、讨论或转成候选需求。\n\n1 Ideas\nIdea 列表\n全部状态\n待展开\n讨论中\n已转需求\n已归档\n刷新\n建设团队 AI 协作与交付中枢\n已转需求\nplatform\n5 Run\n08/30 12:19\n快速记录\nadmin\n一句话标题\n原始想法\n领域 可选\n记录 Idea"
+    },
+    {
+      "path": "/manual-qc/snapshots",
+      "text": "跳到主要内容\nOB\nOmni-Brain\n团队 AI 协作与交付中枢\n\n人工质检\n\n01\n标注与验收快照\n02\n验收操作闭环\n下一纵切\n\nAI 协作\n\nA1\n灵感\nA2\n需求\nA3\nWork\nA4\n能力\nA5\nRuns\nadmin · 本地 PostgreSQL\n\n团队 AI 协作与交付\n\n人工质检 · 标注与验收快照\nMAIN · S1\n\n人工质检快照\n\n从标注产出看到验收结果\n\n先看不同项目与标注任务做了多少、结果如何分布，再看验收是否分得够、做得完、 通过或打回多少；任务明细可继续下钻到日期、组和标注员，并查看 Good / Bad 及问题选项详情。\n\n数据口径\nJSONB · V20260709\n结果生成时间\n尚无快照结果\n起始日期\n截止日期\n项目\n全部项目\n标注任务\n全部标注任务\n组别\n标注员\n重置\n查询快照\n查询结果\n接口返回成功，但当前筛选范围没有快照数据。\n\n业务总览\n\n选定周期的关键结果\n指标、说明与项目/任务/组拆分可组合；点击卡片进入对应细分图。\n保存总览\n＋ 添加"
+    }
+  ]
+}

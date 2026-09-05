@@ -11,7 +11,7 @@
 旧 `/ai` 入口保留历史，`/manual-qc` 保留质检能力。
 
 具体产品输入和 U1—U12 验收：
-[唯一审查记录](../../../../workspaces/reviews/team-workbench-product-definition/review.md)。
+[唯一审查记录](../../../workspaces/reviews/team-workbench-product-definition/review.md)。
 
 ## 启动
 

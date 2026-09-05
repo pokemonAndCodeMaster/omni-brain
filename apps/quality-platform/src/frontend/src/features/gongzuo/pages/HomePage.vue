@@ -50,7 +50,7 @@ async function saveQuickIdea() {
         <div v-for="item in needsAttention" :key="item.id" class="gz-action-row">
           <span class="gz-badge-icon"><GongzuoIcon :name="item.state === '已阻塞' ? 'flag' : 'message'" /></span>
           <div class="gz-row-main">
-            <div class="gz-inline"><span class="gz-mono gz-muted">{{ item.id }}</span><StatusBadge :value="item.state === '已阻塞' ? '补充条件' : '有新提案'" tone="amber" /></div>
+            <div class="gz-inline"><span class="gz-mono gz-muted">{{ item.id }}</span><StatusBadge :value="item.state === '已阻塞' ? '补充条件' : item.state === '待验收' ? '审阅结果' : item.context.proposals.length ? '有新提案' : '需要判断'" tone="amber" /></div>
             <h3>{{ item.title }}</h3>
             <p>{{ item.update }}</p>
             <span class="gz-tiny gz-muted">{{ item.context.proposals.length ? '候选修改保留原文与来源，采纳后更新共享上下文。' : '这项决定属于你，不需要重新描述全部背景。' }}</span>

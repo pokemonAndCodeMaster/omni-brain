@@ -1,0 +1,214 @@
+[
+  {
+    "id": "gzrun-20260905-150316-210b29dc",
+    "workspace": "personal",
+    "itemId": "item-c2c78d1c2f6f49bd",
+    "state": "failed",
+    "engine": "codex",
+    "model": null,
+    "session": null,
+    "rev": 1,
+    "contextVersionId": "ctxv-0725c5cee14049cb",
+    "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+    "exitCode": null,
+    "failureCode": "worker_error",
+    "error": "Worker API 500: {\"detail\":\"could not determine data type of parameter $8\\nLINE 11:                           AND ($8 IS NULL OR r.machine_id = ...\\n                                        ^\"}",
+    "environmentSnapshot": {
+      "image": null,
+      "runtime": "native",
+      "machineId": "node-p-572e95d3df64"
+    },
+    "capabilities": []
+  },
+  {
+    "id": "gzrun-20260905-150536-3c8e4648",
+    "workspace": "personal",
+    "itemId": "item-c2c78d1c2f6f49bd",
+    "state": "failed",
+    "engine": "codex",
+    "model": null,
+    "session": "01a0721a-be3a-7172-bc43-025ec60cc39e",
+    "rev": 1,
+    "contextVersionId": "ctxv-0725c5cee14049cb",
+    "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+    "exitCode": 1,
+    "failureCode": "executor_error",
+    "error": "{\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-6-astra' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again.\"}}",
+    "environmentSnapshot": {
+      "image": null,
+      "runtime": "native",
+      "executor": "codex",
+      "hostname": "yyh-rog",
+      "identity": "sha256:32e03bf020658ece5d2bb1735fb4aeaf8bc7860cbfe4ecd0e93f02b8e60bd679",
+      "machineId": "node-p-572e95d3df64",
+      "sessionHome": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-150536-3c8e4648/home",
+      "actualDirectory": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-150536-3c8e4648/repo",
+      "executorCommand": "/home/yyh/.local/bin/codex",
+      "executorVersion": "codex-cli 0.144.1",
+      "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+      "materializedCapabilities": []
+    },
+    "capabilities": []
+  },
+  {
+    "id": "gzrun-20260905-150716-e37e514a",
+    "workspace": "personal",
+    "itemId": "item-c2c78d1c2f6f49bd",
+    "state": "succeeded",
+    "engine": "codex",
+    "model": "gpt-5.6-luna",
+    "session": "01a0721c-3f9c-7c03-a876-92121342a03b",
+    "rev": 1,
+    "contextVersionId": "ctxv-0725c5cee14049cb",
+    "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+    "exitCode": 0,
+    "failureCode": null,
+    "error": null,
+    "environmentSnapshot": {
+      "image": null,
+      "runtime": "native",
+      "executor": "codex",
+      "hostname": "yyh-rog",
+      "identity": "sha256:2a704abce079dda3616f65da31623561c07483406acea0add783544e44cd4bc5",
+      "machineId": "node-p-572e95d3df64",
+      "sessionHome": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-150716-e37e514a/home",
+      "actualDirectory": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-150716-e37e514a/repo",
+      "executorCommand": "/home/yyh/.local/bin/codex",
+      "executorVersion": "codex-cli 0.144.1",
+      "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+      "materializedCapabilities": []
+    },
+    "capabilities": []
+  },
+  {
+    "id": "gzrun-20260905-150904-8eb99612",
+    "workspace": "personal",
+    "itemId": "item-c2c78d1c2f6f49bd",
+    "state": "succeeded",
+    "engine": "codex",
+    "model": "gpt-5.6-luna",
+    "session": "01a0721d-ce2b-7b01-8e47-00d73d7a0084",
+    "rev": 1,
+    "contextVersionId": "ctxv-0725c5cee14049cb",
+    "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+    "exitCode": 0,
+    "failureCode": null,
+    "error": null,
+    "environmentSnapshot": {
+      "image": null,
+      "runtime": "native",
+      "executor": "codex",
+      "hostname": "yyh-rog",
+      "identity": "sha256:d19e8a43aabd0bc909145f59f95e18476f065070c44be6849812c339ac09d9ab",
+      "machineId": "node-p-572e95d3df64",
+      "sessionHome": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-150904-8eb99612/home",
+      "actualDirectory": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-150904-8eb99612/repo",
+      "executorCommand": "/home/yyh/.local/bin/codex",
+      "executorVersion": "codex-cli 0.144.1",
+      "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+      "materializedCapabilities": []
+    },
+    "capabilities": []
+  },
+  {
+    "id": "gzrun-20260905-151003-847047be",
+    "workspace": "personal",
+    "itemId": "item-aee2849dd2d84141",
+    "state": "succeeded",
+    "engine": "codex",
+    "model": "gpt-5.6-luna",
+    "session": "01a0721f-01bf-7d43-9e20-e4d2519f8235",
+    "rev": 1,
+    "contextVersionId": "ctxv-1058445545f44c27",
+    "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+    "exitCode": 0,
+    "failureCode": null,
+    "error": null,
+    "environmentSnapshot": {
+      "image": null,
+      "runtime": "native",
+      "executor": "codex",
+      "hostname": "yyh-rog",
+      "identity": "sha256:8d13d98d1c0ec7fee8a440b00151f99143349a60035e69ccca86a6ce35ca064b",
+      "machineId": "node-p-572e95d3df64",
+      "sessionHome": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151003-847047be/home",
+      "actualDirectory": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151003-847047be/repo",
+      "executorCommand": "/home/yyh/.local/bin/codex",
+      "executorVersion": "codex-cli 0.144.1",
+      "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+      "materializedCapabilities": [
+        ".gongzuo/knowledge/cap-66c24cf0332245c8.md"
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "cap-66c24cf0332245c8",
+        "target": "knowledge",
+        "title": "让验证结论附带输入与来源",
+        "version": "fd7b8cc5479f446ef92b7ab3dcb910bfe9c26ca345aecc348761eeab79950e4f",
+        "isCandidate": true
+      }
+    ]
+  },
+  {
+    "id": "gzrun-20260905-151239-c2504114",
+    "workspace": "personal",
+    "itemId": "item-aee2849dd2d84141",
+    "state": "succeeded",
+    "engine": "codex",
+    "model": "gpt-5.6-luna",
+    "session": "01a07221-0ddf-70e3-b6f8-915f6b236720",
+    "rev": 2,
+    "contextVersionId": "ctxv-84ecbfdf15054bb6",
+    "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+    "exitCode": 0,
+    "failureCode": null,
+    "error": null,
+    "environmentSnapshot": {
+      "image": null,
+      "runtime": "native",
+      "executor": "codex",
+      "hostname": "yyh-rog",
+      "identity": "sha256:ca979cbc30727d2229a756cf373da9d3d54b761e329595848149e9f9230b07ce",
+      "machineId": "node-p-572e95d3df64",
+      "sessionHome": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151239-c2504114/home",
+      "actualDirectory": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151239-c2504114/repo",
+      "executorCommand": "/home/yyh/.local/bin/codex",
+      "executorVersion": "codex-cli 0.144.1",
+      "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+      "materializedCapabilities": [
+        ".gongzuo/knowledge/cap-66c24cf0332245c8.md"
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "cap-66c24cf0332245c8",
+        "target": "knowledge",
+        "title": "让验证结论附带输入与来源",
+        "version": "fd7b8cc5479f446ef92b7ab3dcb910bfe9c26ca345aecc348761eeab79950e4f",
+        "isCandidate": false
+      }
+    ]
+  },
+  {
+    "id": "gzrun-20260905-151407-c022d64a",
+    "workspace": "team",
+    "itemId": "item-605036f366bd4065",
+    "state": "unavailable",
+    "engine": "codex",
+    "model": null,
+    "session": null,
+    "rev": 1,
+    "contextVersionId": "ctxv-391ca28a6bc44247",
+    "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+    "exitCode": null,
+    "failureCode": "runtime_unavailable",
+    "error": "团队 Codex 凭证未配置：必须设置 GONGZUO_TEAM_CODEX_HOME",
+    "environmentSnapshot": {
+      "image": null,
+      "runtime": "native",
+      "machineId": "node-t-f829688aae8a"
+    },
+    "capabilities": []
+  }
+]
