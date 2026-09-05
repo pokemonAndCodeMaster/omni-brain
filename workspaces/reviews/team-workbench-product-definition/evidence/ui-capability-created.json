@@ -1,0 +1,21 @@
+{
+  "id": "cap-fc4dd8128c6648c4",
+  "workspace": "personal",
+  "title": "UI 验收：可复算报告 Skill",
+  "target": "skill",
+  "sourceItemId": "item-52137c6dd47a484a",
+  "sourceEntityId": "improvement-b84c1a6e7e6841e1",
+  "sourcePath": null,
+  "baseVersion": null,
+  "content": "---\nname: reproducible-report\ndescription: 在验证报告中逐条列出输入、结果、来源与适用范围。\n---\n\n# 可复算报告\n读取实际输入后分别报告结果，空数组合计为零，字段缺失写未知。不要把缺失输入推断为零。",
+  "desiredBehavior": "减少读者重复追问报告如何计算",
+  "validationPlan": "用有值、空数组、缺失字段三个用例复算",
+  "version": "93bb90939d0f61fadaef31acd6b1898845784f91e9770170e014bfc0174d139d",
+  "status": "candidate",
+  "createdBy": "admin",
+  "createdAt": "2026-09-05T23:42:57.498136+08:00",
+  "publishedAt": null,
+  "publishedBy": null,
+  "sourceRevision": null,
+  "verifications": []
+}

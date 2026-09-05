@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.gongzuo.tsbuildinfo"
+  },
+  "include": [
+    "env.d.ts",
+    "src/features/gongzuo/**/*.ts",
+    "src/features/gongzuo/**/*.vue",
+    "src/shared/api/http.ts"
+  ]
+}

@@ -22,6 +22,11 @@ class ExecutorRequest:
     sandbox: str = "read-only"
     output_schema: dict[str, Any] | None = None
     artifact_path: Path | None = None
+    environment: dict[str, str] = field(default_factory=dict)
+    command_prefix: tuple[str, ...] = ()
+    worktree_argument: Path | None = None
+    artifact_argument_root: Path | None = None
+    inherit_environment: bool = True
 
 
 @dataclass(frozen=True)

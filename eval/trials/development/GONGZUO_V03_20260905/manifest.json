@@ -1,0 +1,29 @@
+{
+  "trialId": "GONGZUO_V03_20260905",
+  "task": "按两轮讨论后的共作 v03 完成方案设计与实际开发",
+  "baseline": "2fe6888baa737ec78c89609f5320cfd72e037bf5",
+  "frozenInputCommit": "6b32092364804c3329bc0d28c70b5739efb88510",
+  "inputs": [
+    "共作-协作工作台-交互原型-v03.html",
+    "共作-产品定义与Linear拆解-v03.md"
+  ],
+  "implementationRef": "refs/eval/workspaces/gongzuo-v03-20260905",
+  "review": "workspaces/reviews/team-workbench-product-definition/review.md",
+  "evidenceDirectory": "workspaces/reviews/team-workbench-product-definition/evidence",
+  "executionWorkspace": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905",
+  "executionEnvironment": {
+    "databasePort": 55433,
+    "backendPort": 8011,
+    "frontendPort": 5175,
+    "executor": "native Codex",
+    "model": "gpt-5.6-luna",
+    "worker": "独立HTTP进程"
+  },
+  "cleanup": "验收证据与提交归档后回收临时执行树；以正式主线为使用入口",
+  "limitations": [
+    "本机未安装Docker",
+    "未实测不同物理主机或公司内源执行器",
+    "localhost local-admin；不代表公司SSO部署",
+    "全量前端类型检查保留主线已有40条诊断，新增共作单独检查"
+  ]
+}

@@ -147,13 +147,14 @@ class OpenCodeExecutor:
         request: ExecutorRequest,
     ) -> list[str]:
         argv = [
+            *request.command_prefix,
             self.command,
             "run",
             "--format",
             "json",
             "--auto",
             "--dir",
-            str(request.worktree),
+            str(request.worktree_argument or request.worktree),
             "--title",
             request.run_id,
         ]
@@ -166,7 +167,10 @@ class OpenCodeExecutor:
 
     @staticmethod
     def environment_for(request: ExecutorRequest) -> dict[str, str]:
-        env = os.environ.copy()
+        env = {
+            **(os.environ if request.inherit_environment else {}),
+            **request.environment,
+        }
         existing: dict[str, Any] = {}
         raw = env.get("OPENCODE_CONFIG_CONTENT", "").strip()
         if raw:

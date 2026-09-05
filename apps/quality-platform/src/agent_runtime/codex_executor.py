@@ -90,6 +90,7 @@ class CodexExecutor:
         schema_file: Path | None = None,
     ) -> list[str]:
         argv = [
+            *request.command_prefix,
             self.command,
             "exec",
             "--json",
@@ -98,7 +99,7 @@ class CodexExecutor:
             "--sandbox",
             request.sandbox,
             "-C",
-            str(request.worktree),
+            str(request.worktree_argument or request.worktree),
         ]
         if request.model:
             argv.extend(["-m", request.model])
@@ -118,6 +119,16 @@ class CodexExecutor:
         artifact_path = request.artifact_path
         output_file = artifact_path / "final-output.txt" if artifact_path else None
         schema_file = artifact_path / "output-schema.json" if artifact_path and request.output_schema else None
+        output_argument = (
+            request.artifact_argument_root / "final-output.txt"
+            if request.artifact_argument_root and output_file
+            else output_file
+        )
+        schema_argument = (
+            request.artifact_argument_root / "output-schema.json"
+            if request.artifact_argument_root and schema_file
+            else schema_file
+        )
         if schema_file is not None:
             schema_file.write_text(
                 json.dumps(request.output_schema, ensure_ascii=False, indent=2) + "\n",
@@ -127,14 +138,17 @@ class CodexExecutor:
         process = await asyncio.create_subprocess_exec(
             *self.command_for(
                 request,
-                output_file=output_file,
-                schema_file=schema_file,
+                output_file=output_argument,
+                schema_file=schema_argument,
             ),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             limit=SUBPROCESS_STREAM_LIMIT,
             cwd=request.worktree,
-            env=os.environ.copy(),
+            env={
+                **(os.environ if request.inherit_environment else {}),
+                **request.environment,
+            },
             start_new_session=os.name == "posix",
         )
         on_process(process)

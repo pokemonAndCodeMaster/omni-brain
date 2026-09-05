@@ -1,0 +1,145 @@
+{
+  "fixture": [
+    {
+      "id": "with-values",
+      "samples": [
+        3,
+        7
+      ]
+    },
+    {
+      "id": "empty",
+      "samples": []
+    },
+    {
+      "id": "missing"
+    }
+  ],
+  "expected": {
+    "with-values": 10,
+    "empty": 0,
+    "missing": "unknown"
+  },
+  "capability": {
+    "id": "cap-66c24cf0332245c8",
+    "workspace": "personal",
+    "title": "让验证结论附带输入与来源",
+    "target": "knowledge",
+    "sourceItemId": null,
+    "sourceEntityId": null,
+    "sourcePath": "verification-notes.md",
+    "baseVersion": "72b50e2655d6bc980bb50a8fbafdf14f631b65e14c540885078020f604ef1f30",
+    "content": "# 验证报告的可复核性\n\n针对提供的有限样本，运行实际计算并报告结论。没有提供的数据不能自行补造。\n\n每个工况分别列出：输入值、实际计算结果、数据来源路径。区分数值为零与输入缺失，不把后者推断为零。\n",
+    "desiredBehavior": "阅读报告时可以按来源和输入复算结果，区分空值与零。",
+    "validationPlan": "对 samples=[3,7]、samples=[]、未提供 samples 三个工况运行；分别报告10、0与未知，给出来源路径。",
+    "version": "fd7b8cc5479f446ef92b7ab3dcb910bfe9c26ca345aecc348761eeab79950e4f",
+    "status": "published",
+    "createdBy": "admin",
+    "createdAt": "2026-09-05T23:03:48.372587+08:00",
+    "publishedAt": "2026-09-05T23:12:04.447004+08:00",
+    "publishedBy": "admin",
+    "sourceRevision": "72b50e2655d6bc980bb50a8fbafdf14f631b65e14c540885078020f604ef1f30",
+    "verifications": [
+      {
+        "id": "check-a8d8e18d00e143c2",
+        "workspace": "personal",
+        "candidateId": "cap-66c24cf0332245c8",
+        "candidateVersion": "fd7b8cc5479f446ef92b7ab3dcb910bfe9c26ca345aecc348761eeab79950e4f",
+        "runId": "gzrun-20260905-151003-847047be",
+        "evidenceId": "evidence-5f1c90e757c046af",
+        "assessment": "对照原始JSON独立复算三工况，核对结果内容、来源路径、候选快照及结果哈希；覆盖有限样本，未泛化为业务规则正确。",
+        "result": "accepted",
+        "checkedBy": "admin",
+        "checkedAt": "2026-09-05T23:12:04.431465+08:00"
+      }
+    ]
+  },
+  "runs": [
+    {
+      "id": "gzrun-20260905-151003-847047be",
+      "itemId": "item-aee2849dd2d84141",
+      "state": "succeeded",
+      "session": "01a0721f-01bf-7d43-9e20-e4d2519f8235",
+      "engine": "codex",
+      "model": "gpt-5.6-luna",
+      "rev": 1,
+      "contextVersionId": "ctxv-1058445545f44c27",
+      "currentRev": 2,
+      "staleContext": true,
+      "exitCode": 0,
+      "capabilities": [
+        {
+          "id": "cap-66c24cf0332245c8",
+          "target": "knowledge",
+          "title": "让验证结论附带输入与来源",
+          "version": "fd7b8cc5479f446ef92b7ab3dcb910bfe9c26ca345aecc348761eeab79950e4f",
+          "isCandidate": true
+        }
+      ],
+      "environmentSnapshot": {
+        "image": null,
+        "runtime": "native",
+        "executor": "codex",
+        "hostname": "yyh-rog",
+        "identity": "sha256:8d13d98d1c0ec7fee8a440b00151f99143349a60035e69ccca86a6ce35ca064b",
+        "machineId": "node-p-572e95d3df64",
+        "sessionHome": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151003-847047be/home",
+        "actualDirectory": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151003-847047be/repo",
+        "executorCommand": "/home/yyh/.local/bin/codex",
+        "executorVersion": "codex-cli 0.144.1",
+        "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+        "materializedCapabilities": [
+          ".gongzuo/knowledge/cap-66c24cf0332245c8.md"
+        ]
+      },
+      "result": "实际验证完成，候选版本为 `fd7b8cc...50e4f`。\n\n| 工况 | input | sum | source |\n|---|---:|---:|---|\n| `with-values` | `[3, 7]` | `10` | [`validation-cases.json`](/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo/validation-cases.json:1) |\n| `empty` | `[]` | `0` | 同上 |\n| `missing` | `missing`（无 `samples` 字段） | `unknown` | 同上 |\n\n可核验证据：\n\n- Python 实际读取该 JSON，输出 `case_count=3`。\n- 计算结果为 `[3, 7] → 10`、`[] → 0`。\n- `missing` 未执行求和，也未推测为零。\n- 验证方法见 [`cap-66c24cf0332245c8.md`](/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151003-847047be/repo/.gongzuo/knowledge/cap-66c24cf0332245c8.md:3)。\n\n未覆盖范围：未访问业务数据库，仅验证这三个 JSON 样本；未验证其他输入文件、异常类型或业务规则。技术结果已给出，业务接受仍需由事项负责人确认。",
+      "businessAccepted": false,
+      "createdAt": "2026-09-05T23:10:03.271401+08:00",
+      "finishedAt": "2026-09-05T23:11:20.563392+08:00",
+      "independentlyReadArtifactVersion": "sha256:288a5e14a6d0392d8c3f89bf208d6228c3de2f4d29a778d33f56efd83dec1b9c"
+    },
+    {
+      "id": "gzrun-20260905-151239-c2504114",
+      "itemId": "item-aee2849dd2d84141",
+      "state": "succeeded",
+      "session": "01a07221-0ddf-70e3-b6f8-915f6b236720",
+      "engine": "codex",
+      "model": "gpt-5.6-luna",
+      "rev": 2,
+      "contextVersionId": "ctxv-84ecbfdf15054bb6",
+      "currentRev": 2,
+      "staleContext": false,
+      "exitCode": 0,
+      "capabilities": [
+        {
+          "id": "cap-66c24cf0332245c8",
+          "target": "knowledge",
+          "title": "让验证结论附带输入与来源",
+          "version": "fd7b8cc5479f446ef92b7ab3dcb910bfe9c26ca345aecc348761eeab79950e4f",
+          "isCandidate": false
+        }
+      ],
+      "environmentSnapshot": {
+        "image": null,
+        "runtime": "native",
+        "executor": "codex",
+        "hostname": "yyh-rog",
+        "identity": "sha256:ca979cbc30727d2229a756cf373da9d3d54b761e329595848149e9f9230b07ce",
+        "machineId": "node-p-572e95d3df64",
+        "sessionHome": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151239-c2504114/home",
+        "actualDirectory": "/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo-worker/personal/gzrun-20260905-151239-c2504114/repo",
+        "executorCommand": "/home/yyh/.local/bin/codex",
+        "executorVersion": "codex-cli 0.144.1",
+        "repositoryRevision": "6b32092364804c3329bc0d28c70b5739efb88510",
+        "materializedCapabilities": [
+          ".gongzuo/knowledge/cap-66c24cf0332245c8.md"
+        ]
+      },
+      "result": "已按已发布方法实际运行 Python 读取并复算：\n\n| 工况 | input | sum | source |\n|---|---:|---:|---|\n| `with-values` | `[3, 7]` | `10` | [validation-cases.json:1](/home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/.runtime/gongzuo/validation-cases.json:1) |\n| `empty` | `[]` | `0` | 同上 |\n| `missing` | 字段缺失 | 未知 | 同上 |\n\n可计算工况的合计为 `10`；三个工况整体合计仍未知，因为 `missing` 没有输入，未将其推断为零。\n\n复核证据：\n\n- 输入文件 SHA-256：`d9ed2ad8ad20aeb816a470d14857a8f63fd101cee662939e4cf2699860e724ee`\n- Python 按字段是否存在区分了空数组与缺失字段。\n- 未访问业务数据库，未修改文件。\n\n采用的能力版本：`fd7b8cc5479f446ef92b7ab3dcb910bfe9c26ca345aecc348761eeab79950e4f`。\n\n未覆盖范围：仅验证本次给定样本；业务接受仍需事项负责人确认。",
+      "businessAccepted": false,
+      "createdAt": "2026-09-05T23:12:39.855574+08:00",
+      "finishedAt": "2026-09-05T23:13:33.574039+08:00",
+      "independentlyReadArtifactVersion": "sha256:e0c56e709d849158f4c8a6c3b9dc473794fbed21034feb15ef6cf8fb433d99ff"
+    }
+  ]
+}

@@ -1,7 +1,10 @@
-# Omni-Brain 质量与 AI 协作平台
+# 共作 · Omni-Brain 质量与 AI 协作平台
 
-Omni-Brain 主线内的 Vue3 + FastAPI + PostgreSQL 产品应用。当前同时提供团队 Idea、候选/正式
-Requirement、人机时间线、Codex/OpenCode 双执行器和人工质检数据链。
+Omni-Brain 主线内的 Vue3 + FastAPI + PostgreSQL 产品应用。共作 v03 将工作事项、持续上下文、
+成果与验证、组会、知识和原生委托连接在同一工作台。旧协作记录和人工质检页面继续可读。
+
+共作的配置、执行机接入与来源边界见 [共作使用与运行](docs/gongzuo.md)。本次实现和逐项验收见
+[共作 v03 审查记录](../../../workspaces/reviews/team-workbench-product-definition/review.md)。
 
 工程目录和快照字段以原始质检平台资料中的当前实现为基线，不再使用早期实验自定义的 `quality_platform_lab` 包或 `lab-v1` 字段集。
 

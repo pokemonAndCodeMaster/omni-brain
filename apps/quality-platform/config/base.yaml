@@ -35,3 +35,13 @@ agent_runtime:
   opencode:
     command: ${OPENCODE_COMMAND:opencode}
     endpoint: ${OPENCODE_ENDPOINT:}
+
+gongzuo:
+  # A real personal/team deployment should expose only its own workspace.
+  workspaces: ${GONGZUO_WORKSPACES:personal,team}
+  knowledge_roots:
+    personal: ${GONGZUO_PERSONAL_KNOWLEDGE_ROOT:.runtime/gongzuo-knowledge/personal}
+    team: ${GONGZUO_TEAM_KNOWLEDGE_ROOT:../../knowledge/published}
+  registration_tokens:
+    personal: ${GONGZUO_PERSONAL_REGISTRATION_TOKEN:}
+    team: ${GONGZUO_TEAM_REGISTRATION_TOKEN:}

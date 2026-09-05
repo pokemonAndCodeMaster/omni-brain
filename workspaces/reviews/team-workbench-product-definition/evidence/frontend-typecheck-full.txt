@@ -1,0 +1,183 @@
+
+> omni-brain-quality-platform-frontend@0.1.0 type-check
+> vue-tsc --noEmit -p tsconfig.app.json
+
+src/features/collaboration/components/AgentActionPanel.vue(3,33): error TS2459: Module '"../types"' declares 'ExecutorName' locally, but it is not exported.
+src/features/collaboration/pages/RequirementDetailPage.vue(30,28): error TS2322: Type '{ background: string; target_users: readonly string[]; current_problem: string; value: string; expected_outcome: string; in_scope: readonly string[]; out_of_scope: readonly string[]; key_actions: readonly string[]; inputs: readonly string[]; ... 4 more ...; open_questions: readonly string[]; }' is not assignable to type 'RequirementContent'.
+  Types of property 'target_users' are incompatible.
+    The type 'readonly string[]' is 'readonly' and cannot be assigned to the mutable type 'string[]'.
+src/features/collaboration/pages/RequirementDetailPage.vue(159,177): error TS2322: Type 'readonly { readonly id: string; readonly requirement_id: string; readonly revision_no: number; readonly content: { readonly background: string; readonly target_users: readonly string[]; readonly current_problem: string; ... 10 more ...; readonly open_questions: readonly string[]; } | null; readonly source_run_id: st...' is not assignable to type 'readonly RequirementRevision[]'.
+  Type '{ readonly id: string; readonly requirement_id: string; readonly revision_no: number; readonly content: { readonly background: string; readonly target_users: readonly string[]; readonly current_problem: string; ... 10 more ...; readonly open_questions: readonly string[]; } | null; readonly source_run_id: string | nu...' is not assignable to type 'RequirementRevision'.
+    Types of property 'content' are incompatible.
+      Type '{ readonly background: string; readonly target_users: readonly string[]; readonly current_problem: string; readonly value: string; readonly expected_outcome: string; readonly in_scope: readonly string[]; ... 7 more ...; readonly open_questions: readonly string[]; } | null' is not assignable to type 'RequirementContent | null'.
+        Type '{ readonly background: string; readonly target_users: readonly string[]; readonly current_problem: string; readonly value: string; readonly expected_outcome: string; readonly in_scope: readonly string[]; ... 7 more ...; readonly open_questions: readonly string[]; }' is not assignable to type 'RequirementContent'.
+          Types of property 'target_users' are incompatible.
+            The type 'readonly string[]' is 'readonly' and cannot be assigned to the mutable type 'string[]'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.test.ts(65,7): error TS2353: Object literal may only specify known properties, and 'statDate' does not exist in type 'TaskAnalysisPath'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.test.ts(269,12): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type '{}'.
+  Property '0' does not exist on type '{}'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(168,7): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(218,9): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(240,9): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(250,9): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(270,9): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(280,9): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(289,9): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(299,9): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisTable.vue(320,9): error TS2322: Type 'FilterFn<unknown>' is not assignable to type 'FilterFnOption<TaskAnalysisRow> | undefined'.
+  Type 'FilterFn<unknown>' is not assignable to type 'FilterFn<TaskAnalysisRow>'.
+    Types of property 'autoRemove' are incompatible.
+      Type 'ColumnFilterAutoRemoveTestFn<unknown> | undefined' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow> | undefined'.
+        Type 'ColumnFilterAutoRemoveTestFn<unknown>' is not assignable to type 'ColumnFilterAutoRemoveTestFn<TaskAnalysisRow>'.
+          Types of parameters 'column' and 'column' are incompatible.
+            Type 'Column<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'Column<unknown, unknown> | undefined'.
+              Type 'Column<TaskAnalysisRow, unknown>' is not assignable to type 'Column<unknown, unknown>'.
+                Types of property 'accessorFn' are incompatible.
+                  Type 'AccessorFn<TaskAnalysisRow, unknown> | undefined' is not assignable to type 'AccessorFn<unknown, unknown> | undefined'.
+                    Type 'AccessorFn<TaskAnalysisRow, unknown>' is not assignable to type 'AccessorFn<unknown, unknown>'.
+                      Type 'unknown' is not assignable to type 'TaskAnalysisRow'.
+src/features/manual-qc/analysis/components/TaskAnalysisWorkspace.vue(49,62): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(getter: ComputedGetter<WorkbenchViewState | null>, debugOptions?: DebuggerOptions | undefined): ComputedRef<WorkbenchViewState | null>', gave the following error.
+    Argument of type '() => { sorting: never[]; expanded: {}; columnFilters: never[]; columnVisibility: { readonly [x: string]: boolean; }; columnOrder: readonly string[]; columnSizing: { readonly [x: string]: number; }; } | null' is not assignable to parameter of type 'ComputedGetter<WorkbenchViewState | null>'.
+      Type '{ sorting: never[]; expanded: {}; columnFilters: never[]; columnVisibility: { readonly [x: string]: boolean; }; columnOrder: readonly string[]; columnSizing: { readonly [x: string]: number; }; } | null' is not assignable to type 'WorkbenchViewState | null'.
+        Type '{ sorting: never[]; expanded: {}; columnFilters: never[]; columnVisibility: { readonly [x: string]: boolean; }; columnOrder: readonly string[]; columnSizing: { readonly [x: string]: number; }; }' is not assignable to type 'WorkbenchViewState'.
+          Types of property 'columnOrder' are incompatible.
+            The type 'readonly string[]' is 'readonly' and cannot be assigned to the mutable type 'ColumnOrderState'.
+  Overload 2 of 2, '(options: WritableComputedOptions<WorkbenchViewState | null, WorkbenchViewState | null>, debugOptions?: DebuggerOptions | undefined): WritableComputedRef<...>', gave the following error.
+    Argument of type '() => { sorting: never[]; expanded: {}; columnFilters: never[]; columnVisibility: { readonly [x: string]: boolean; }; columnOrder: readonly string[]; columnSizing: { readonly [x: string]: number; }; } | null' is not assignable to parameter of type 'WritableComputedOptions<WorkbenchViewState | null, WorkbenchViewState | null>'.
+src/features/manual-qc/analysis/components/TaskAnalysisWorkspace.vue(111,31): error TS2345: Argument of type 'readonly { readonly id: string; readonly parameters?: { readonly [x: string]: string; } | undefined; }[]' is not assignable to parameter of type 'AnalysisMetricReference[]'.
+  The type 'readonly { readonly id: string; readonly parameters?: { readonly [x: string]: string; } | undefined; }[]' is 'readonly' and cannot be assigned to the mutable type 'AnalysisMetricReference[]'.
+src/features/manual-qc/analysis/components/TaskAnalysisWorkspace.vue(122,8): error TS4104: The type 'readonly { readonly id: string; readonly level: TaskAnalysisLevel; readonly objectLabel: string; readonly objectType: string; readonly project: string; readonly task: string; ... 13 more ...; readonly children?: readonly ...[] | undefined; }[]' is 'readonly' and cannot be assigned to the mutable type 'TaskAnalysisRow[]'.
+src/features/manual-qc/analysis/components/TaskAnalysisWorkspace.vue(126,8): error TS4104: The type 'readonly { readonly id: string; readonly parameters?: { readonly [x: string]: string; } | undefined; }[]' is 'readonly' and cannot be assigned to the mutable type 'AnalysisMetricReference[]'.
+src/features/manual-qc/analysis/components/TaskAnalysisWorkspace.vue(143,8): error TS2322: Type '{ readonly selection: { readonly row: { readonly id: string; readonly level: TaskAnalysisLevel; readonly objectLabel: string; readonly objectType: string; readonly project: string; ... 14 more ...; readonly children?: readonly ...[] | undefined; }; readonly metricId: "annotation.good_rate" | ... 1 more ... | "accept...' is not assignable to type 'TaskMetricDetail | null'.
+  Type '{ readonly selection: { readonly row: { readonly id: string; readonly level: TaskAnalysisLevel; readonly objectLabel: string; readonly objectType: string; readonly project: string; readonly task: string; ... 13 more ...; readonly children?: readonly ...[] | undefined; }; readonly metricId: "annotation.good_rate" | ....' is not assignable to type 'TaskMetricDetail'.
+    The types of 'selection.row.children' are incompatible between these types.
+      Type 'readonly { readonly id: string; readonly level: TaskAnalysisLevel; readonly objectLabel: string; readonly objectType: string; readonly project: string; readonly task: string; ... 13 more ...; readonly children?: readonly ...[] | undefined; }[] | undefined' is not assignable to type 'TaskAnalysisRow[] | undefined'.
+        The type 'readonly { readonly id: string; readonly level: TaskAnalysisLevel; readonly objectLabel: string; readonly objectType: string; readonly project: string; readonly task: string; ... 13 more ...; readonly children?: readonly ...[] | undefined; }[]' is 'readonly' and cannot be assigned to the mutable type 'TaskAnalysisRow[]'.
+src/features/manual-qc/analysis/components/TaskMetricDetailDrawer.test.ts(110,12): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type '{}'.
+  Property '0' does not exist on type '{}'.
+src/features/manual-qc/pages/SnapshotPage.vue(110,9): error TS2345: Argument of type '{ readonly id: string; readonly kind: "metric"; readonly origin: { readonly type: "user" | "system-preset"; readonly presetId?: string | undefined; readonly presetVersion?: number | undefined; }; ... 6 more ...; readonly layout: { ...; }; }' is not assignable to parameter of type 'DashboardMetricCard'.
+  The types of 'query.filters' are incompatible between these types.
+    The type 'readonly { readonly [x: string]: Readonly<unknown>; }[]' is 'readonly' and cannot be assigned to the mutable type 'Record<string, unknown>[]'.
+src/features/manual-qc/pages/SnapshotPage.vue(130,5): error TS2345: Argument of type '{ readonly sourceId: string; readonly dimensions: readonly { readonly id: string; readonly label: string; readonly valueType: "text" | "date"; readonly filterOperators: readonly string[]; readonly groupable: boolean; readonly sortable: boolean; }[]; readonly metrics: readonly { ...; }[]; } | null' is not assignable to parameter of type 'AnalysisCatalog | null'.
+  Type '{ readonly sourceId: string; readonly dimensions: readonly { readonly id: string; readonly label: string; readonly valueType: "text" | "date"; readonly filterOperators: readonly string[]; readonly groupable: boolean; readonly sortable: boolean; }[]; readonly metrics: readonly { ...; }[]; }' is not assignable to type 'AnalysisCatalog'.
+    Types of property 'dimensions' are incompatible.
+      The type 'readonly { readonly id: string; readonly label: string; readonly valueType: "text" | "date"; readonly filterOperators: readonly string[]; readonly groupable: boolean; readonly sortable: boolean; }[]' is 'readonly' and cannot be assigned to the mutable type 'AnalysisDimension[]'.
+src/features/manual-qc/pages/SnapshotPage.vue(480,8): error TS4104: The type 'readonly { readonly id: string; readonly kind: "metric"; readonly origin: { readonly type: "user" | "system-preset"; readonly presetId?: string | undefined; readonly presetVersion?: number | undefined; }; ... 6 more ...; readonly layout: { ...; }; }[]' is 'readonly' and cannot be assigned to the mutable type 'DashboardMetricCard[]'.
+src/features/manual-qc/pages/SnapshotPage.vue(505,8): error TS4104: The type 'readonly { readonly id: string; readonly kind: "chart"; readonly origin: { readonly type: "user" | "system-preset"; readonly presetId?: string | undefined; readonly presetVersion?: number | undefined; }; ... 6 more ...; readonly layout: { ...; }; }[]' is 'readonly' and cannot be assigned to the mutable type 'DashboardChartCard[]'.
+src/features/manual-qc/pages/SnapshotPage.vue(506,8): error TS2322: Type '{ readonly [x: string]: { readonly categories: readonly string[]; readonly series: readonly { readonly id: string; readonly name: string; readonly values: readonly (number | null)[]; readonly unit?: string | undefined; readonly axis?: "count" | "rate" | undefined; ... 5 more ...; readonly showLabels?: boolean | unde...' is not assignable to type 'Record<string, DashboardChartResult>'.
+  'string' index signatures are incompatible.
+    Type '{ readonly categories: readonly string[]; readonly series: readonly { readonly id: string; readonly name: string; readonly values: readonly (number | null)[]; readonly unit?: string | undefined; readonly axis?: "count" | "rate" | undefined; ... 5 more ...; readonly showLabels?: boolean | undefined; }[]; readonly sou...' is not assignable to type 'DashboardChartResult'.
+      Types of property 'categories' are incompatible.
+        The type 'readonly string[]' is 'readonly' and cannot be assigned to the mutable type 'string[]'.
+src/features/manual-qc/pages/SnapshotPage.vue(507,8): error TS2739: Type 'ReadonlySet<string>' is missing the following properties from type 'Set<string>': add, clear, delete, [Symbol.toStringTag]
+src/features/manual-qc/pages/SnapshotPage.vue(540,8): error TS2322: Type '{ readonly sourceId: string; readonly dimensions: readonly { readonly id: string; readonly label: string; readonly valueType: "text" | "date"; readonly filterOperators: readonly string[]; readonly groupable: boolean; readonly sortable: boolean; }[]; readonly metrics: readonly { ...; }[]; } | null' is not assignable to type 'AnalysisCatalog | null | undefined'.
+  Type '{ readonly sourceId: string; readonly dimensions: readonly { readonly id: string; readonly label: string; readonly valueType: "text" | "date"; readonly filterOperators: readonly string[]; readonly groupable: boolean; readonly sortable: boolean; }[]; readonly metrics: readonly { ...; }[]; }' is not assignable to type 'AnalysisCatalog'.
+    Types of property 'dimensions' are incompatible.
+      The type 'readonly { readonly id: string; readonly label: string; readonly valueType: "text" | "date"; readonly filterOperators: readonly string[]; readonly groupable: boolean; readonly sortable: boolean; }[]' is 'readonly' and cannot be assigned to the mutable type 'AnalysisDimension[]'.
+src/features/manual-qc/utils/snapshotChart.ts(23,3): error TS6196: 'DashboardMetricReference' is declared but never used.
+src/features/manual-qc/utils/snapshotChart.ts(370,7): error TS2322: Type 'string | undefined' is not assignable to type 'string | number | string[] | number[]'.
+  Type 'undefined' is not assignable to type 'string | number | string[] | number[]'.
+src/features/work/pages/WorkDetailPage.vue(110,14): error TS4104: The type 'readonly { readonly id: string; readonly work_plan_id: string; readonly position: number; readonly step_key: string; readonly title: string; readonly description: string; readonly actor_kind: "agent" | "human"; ... 9 more ...; readonly runs: readonly { ...; }[]; }[]' is 'readonly' and cannot be assigned to the mutable type 'PlanStep[]'.
+src/features/work/pages/WorkDetailPage.vue(123,33): error TS2322: Type '{ readonly requirement_status: string; readonly timebox_start: string | null; readonly timebox_end: string | null; readonly worktree_path: string; readonly created_by: string; ... 19 more ...; readonly updated_at: string; }' is not assignable to type 'Work'.
+  The types of 'plan.steps' are incompatible between these types.
+    The type 'readonly { readonly id: string; readonly work_plan_id: string; readonly position: number; readonly step_key: string; readonly title: string; readonly description: string; readonly actor_kind: "agent" | "human"; ... 9 more ...; readonly runs: readonly { ...; }[]; }[]' is 'readonly' and cannot be assigned to the mutable type 'PlanStep[]'.
+src/shared/dashboard/components/ChartLayerEditor.vue(9,3): error TS6196: 'DashboardMetricReference' is declared but never used.
+src/shared/dashboard/components/DashboardGrid.vue(172,9): error TS2353: Object literal may only specify known properties, and 'component' does not exist in type 'GridStackWidget'.
+src/shared/dashboard/components/MetricCardEditor.vue(5,3): error TS6196: 'DashboardMetricBlock' is declared but never used.
+src/shared/dashboard/components/MetricCardGrid.vue(173,9): error TS2353: Object literal may only specify known properties, and 'component' does not exist in type 'GridStackWidget'.
+src/shared/data-workbench/components/DataWorkbench.test.ts(85,12): error TS2554: Expected 4 arguments, but got 3.
+src/shared/data-workbench/components/DataWorkbench.test.ts(86,12): error TS2554: Expected 4 arguments, but got 3.
+src/shared/data-workbench/components/DataWorkbench.test.ts(87,12): error TS2554: Expected 4 arguments, but got 3.
+src/shared/data-workbench/components/DataWorkbench.test.ts(268,19): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type '{}'.
+  Property '0' does not exist on type '{}'.
+src/shared/data-workbench/components/DataWorkbench.test.ts(290,19): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type '{}'.
+  Property '0' does not exist on type '{}'.

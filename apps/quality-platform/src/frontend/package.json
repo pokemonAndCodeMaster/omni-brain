@@ -5,16 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "type-check": "vue-tsc --noEmit",
-    "build": "npm run type-check && vite build",
+    "type-check": "vue-tsc --noEmit -p tsconfig.app.json",
+    "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "type-check:gongzuo": "vue-tsc --noEmit -p tsconfig.gongzuo.json",
+    "type-check:node": "tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
     "@tanstack/vue-table": "8.21.3",
     "axios": "1.18.1",
+    "dompurify": "3.2.6",
     "echarts": "6.1.0",
     "gridstack": "^13.1.0",
+    "marked": "16.3.0",
     "vue": "3.5.40",
     "vue-router": "5.2.0"
   },

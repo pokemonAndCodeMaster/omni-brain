@@ -1,0 +1,47 @@
+{
+  "meeting": {
+    "snapshotId": "meeting-snapshot-f8661e2df98e4340",
+    "snapshotPreservedAfterNote": true,
+    "snapshotPreservedAfterSeen": true,
+    "snapshotResumedAfterReload": true,
+    "exportUsedSameSnapshot": true,
+    "exportContainsNewNote": true,
+    "consoleErrors": []
+  },
+  "meetingGrouping": {
+    "group": "前端验证",
+    "count": 1,
+    "itemVisible": true,
+    "consoleErrors": []
+  },
+  "runArtifactDownload": {
+    "runId": "gzrun-20260905-152852-fe54523f",
+    "result": "controlled api report",
+    "filename": "gzrun-20260905-152852-fe54523f-result.txt",
+    "downloadSucceeded": true,
+    "consoleErrors": []
+  },
+  "knowledgeRelativeLink": {
+    "resolvedPath": "quality-check/domains/quality/overview.md",
+    "consoleErrors": []
+  },
+  "improvementSource": {
+    "itemId": "item-ce5d7fd8704a47d5",
+    "title": "UI 验收：可复算报告 Skill",
+    "shownOnItem": 1,
+    "shownInMaintenance": 1,
+    "consoleErrors": []
+  },
+  "delegationDefaults": {
+    "model": "",
+    "permission": "read-only",
+    "consoleErrors": []
+  },
+  "capabilityDetail": {
+    "capabilityId": "cap-2e04817491d548a4",
+    "target": "skill",
+    "status": "candidate",
+    "opened": true,
+    "consoleErrors": []
+  }
+}

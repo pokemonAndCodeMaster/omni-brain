@@ -1,0 +1,70 @@
+2026-09-05T23:45:17+08:00
+
+> omni-brain-quality-platform-frontend@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.10 /home/yyh/project/.omni-brain-runs/gongzuo-v03-20260905/apps/quality-platform/src/frontend
+
+
+ Test Files  19 passed (19)
+      Tests  44 passed (44)
+   Start at  23:45:18
+   Duration  4.49s (transform 9.82s, setup 0ms, import 20.72s, tests 2.49s, environment 16.15s)
+
+
+> omni-brain-quality-platform-frontend@0.1.0 type-check:gongzuo
+> vue-tsc --noEmit -p tsconfig.gongzuo.json
+
+
+> omni-brain-quality-platform-frontend@0.1.0 type-check:node
+> tsc --noEmit -p tsconfig.node.json
+
+
+> omni-brain-quality-platform-frontend@0.1.0 build
+> vite build
+
+vite v8.1.5 building client environment for production...
+[2K
+transforming...✓ 882 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                     0.58 kB │ gzip:   0.37 kB
+dist/assets/types-BUbHW5-_.css                      0.86 kB │ gzip:   0.35 kB
+dist/assets/RequirementDetailPage-CFV-3H2c.css      1.26 kB │ gzip:   0.47 kB
+dist/assets/IdeaInboxPage-C-yVWo8T.css              1.60 kB │ gzip:   0.55 kB
+dist/assets/CollaborationTimeline-Bc_mDEko.css      2.44 kB │ gzip:   0.79 kB
+dist/assets/WorkListPage-RfPLRTGl.css               2.75 kB │ gzip:   0.79 kB
+dist/assets/AgentCatalogPage-DmngDrYo.css           6.11 kB │ gzip:   1.49 kB
+dist/assets/AgentRunsPage-D6pNyTzO.css              7.44 kB │ gzip:   1.69 kB
+dist/assets/WorkDetailPage-DbZ7vKky.css             8.37 kB │ gzip:   1.76 kB
+dist/assets/index-Dp-7U6O2.css                     76.89 kB │ gzip:  14.64 kB
+dist/assets/PageHeader-BKoN5SDF.js                  0.46 kB │ gzip:   0.30 kB
+dist/assets/work-CiJ_TPU0.js                        0.78 kB │ gzip:   0.31 kB
+dist/assets/agentRuntime-DWeHAvqX.js                0.94 kB │ gzip:   0.36 kB
+dist/assets/collaboration-DxcYI64I.js               1.73 kB │ gzip:   0.48 kB
+dist/assets/IdeasPage-D41ZBKab.js                   2.05 kB │ gzip:   1.17 kB
+dist/assets/WorkListPage-B_xpAxMU.js                3.01 kB │ gzip:   1.73 kB
+dist/assets/types-CWZxdgui.js                       3.71 kB │ gzip:   1.18 kB
+dist/assets/CollaborationTimeline-DEfAr6bW.js       3.79 kB │ gzip:   1.85 kB
+dist/assets/RequirementListPage-DYZ7vgti.js         4.65 kB │ gzip:   2.06 kB
+dist/assets/IdeaInboxPage-Danwso8I.js               4.86 kB │ gzip:   2.36 kB
+dist/assets/IdeaDetailPage-C404akT2.js              5.61 kB │ gzip:   2.45 kB
+dist/assets/HomePage-u80EXhmn.js                    5.66 kB │ gzip:   2.69 kB
+dist/assets/AgentCatalogPage-CRpyYSsg.js            7.31 kB │ gzip:   3.24 kB
+dist/assets/MaintenancePage-3t2qH5_N.js             7.43 kB │ gzip:   3.45 kB
+dist/assets/AgentRunsPage-CEbQTgyg.js               7.46 kB │ gzip:   3.23 kB
+dist/assets/ItemsPage-CFG16Jxp.js                   7.58 kB │ gzip:   3.14 kB
+dist/assets/MeetingPage-CXJMlNai.js                 9.10 kB │ gzip:   4.03 kB
+dist/assets/RequirementDetailPage-DMCI6LxG.js       9.88 kB │ gzip:   3.81 kB
+dist/assets/WorkDetailPage-BrNxx3sD.js             13.99 kB │ gzip:   5.05 kB
+dist/assets/ItemDetailPage-BquXdW58.js             21.56 kB │ gzip:   7.21 kB
+dist/assets/KnowledgePage-CfvOQTJx.js              64.05 kB │ gzip:  22.33 kB
+dist/assets/index-CUzBCLGw.js                   1,107.38 kB │ gzip: 363.87 kB
+
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.60s
