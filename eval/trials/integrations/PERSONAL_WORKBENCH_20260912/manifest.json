@@ -1,0 +1,26 @@
+{
+  "trial": "PERSONAL_WORKBENCH_20260912",
+  "candidateArchive": {
+    "repository": "/home/yyh/project/omni-brain",
+    "ref": "refs/eval/workspaces/personal-workbench-20260912",
+    "commit": "5b5706a0154f3202d662ceeee00e1ba181e8f745"
+  },
+  "integratedImplementation": "57e10a7",
+  "ephemeralPath": "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912",
+  "runtimeArchive": "/home/yyh/project/omni-brain/.derived/archives/PERSONAL_WORKBENCH_20260912",
+  "rawRuntimePolicy": "Local ignored archive; no credentials intentionally captured; never publish wholesale.",
+  "globalSkillTarget": "/home/yyh/project/omni-brain/.agents/skills/personal-workbench",
+  "globalInstallBackup": "/home/yyh/.codex/backups/personal-workbench/1789229237369881993",
+  "readingArtifact": {
+    "attachmentId": "1cde521d-b896-4161-8c96-b983d2e26f8e",
+    "issue": "YYH-12",
+    "sha256": "60785107a98b886a0354ba1ebb56ac3c1c8b0fea2f2690c653fa885c4da352c5",
+    "size": 1344326,
+    "downloadReadbackVerified": true
+  },
+  "limits": [
+    "Noninteractive Codex save was rejected by approval policy; YYH-11 remains open.",
+    "ChatGPT and other machines not independently verified.",
+    "Native Linear favorites and saved views unchanged."
+  ]
+}

@@ -7,6 +7,7 @@
 [Linear 首页](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)可以记想法、选事、进入资料。
 [完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)覆盖当前可访问的团队、事项和项目文档；[已有知识与能力](https://linear.app/yyhpokemonmaster/document/43d261329834)按金铲铲、质检、共作、技能和历史实验进入原文。
 本地浏览器打开 `.derived/personal-workbench/index.html`，可以搜索中文全文、按场景与领域选择，在同一页阅读并复制接续口令。生成和更新见 [README](../../../docs/linear-workbench/README.md)。
+也可以直接从 [YYH-12 附件](https://linear.app/yyhpokemonmaster/issue/YYH-12)下载 HTML 后打开；上传后重新下载，1,344,326 字节与 SHA-256 均一致。最终快照通过真实桌面和手机浏览，[最终页面证据](../../../eval/trials/integrations/PERSONAL_WORKBENCH_20260912/personal-workbench/final-browser-check.json)记录对应文件指纹。
 
 现有工作台事项归入一个项目，三个里程碑分别承接找到材料、接续工作和留下成果。YYH-9 至 YYH-14 的正文和关联结果已原位重写；新建 YYH-15 跟踪并修复共作问题，YYH-16 保留 Spider 复用审查。YYH-7 更正重复项引用，仍跟踪缺失历史文件；当前金铲铲攻略未被导航整理覆盖。
 
@@ -19,6 +20,8 @@
 | 全文目录和页面可以实际浏览 | 完整目录生成保留阅读路线，拒绝不完整清单；Chromium 检查中文检索、正文、关系跳转、窄屏和复制失败备用方式。[页面记录](../../../eval/trials/integrations/PERSONAL_WORKBENCH_20260912/personal-workbench/browser-check.json) |
 | Git 文档原位发布并检查冲突 | 四篇说明登记唯一源，plan → MCP save → get → receipt 已执行并回读；旧远端指纹不直接覆盖，重复发布无变化跳过。发布记录在 config/linear-workbench.json |
 | 共作子事项交给 AI 不再传错父目标 | 页面实际 POST 传子事项 ID；真实服务生成子目标与父背景，父背景更新影响新运行，旧输入保持固定。[运行与页面证据](../../../eval/trials/integrations/PERSONAL_WORKBENCH_20260912/gongzuo-child-delegation/verification.json) |
+
+最终页面检查还修正了两处阅读语义：Todo 属于准备推进，Backlog 才是未安排；Linear 的原生事项标签转换为正常链接。转换仅接受纯引用，保留代码示例并拒绝额外标记和会改变目的事项的路径。独立复核发现的两个边界已修正后定点复验；已上传快照的全部 56 段正文与最终渲染器一致。
 
 工作台 42 项检查已通过：发布与目录 16、入口安装 6、阅读页 8、上下文 12。最后一次组合运行发现旧测试项目缺少 URL；补齐有效输入，并加入错误工作区的拒绝断言后，受影响 12 项重跑通过。其余 30 项此前同次运行通过。
 共作相关前端 9 项、后端 28 项、局部类型检查和生产构建通过。浏览器使用隔离 API 数据，同一请求交给真实服务与内存 Repository；未重新验证用户 PostgreSQL 或调用外部 AI。

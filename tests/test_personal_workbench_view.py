@@ -53,6 +53,21 @@ class ReaderTests(unittest.TestCase):
             reader.load_items(self.root, self.snapshots)
 
     def test_markup_and_active_urls_are_not_executable(self):
+        mention = '<issue id="a" href="https://linear.app/example/issue/YYH-12/title">YYH-12</issue>'
+        readable = reader.render_markdown('继续 ' + mention + '。', "", {})
+        self.assertIn('href="https://linear.app/example/issue/YYH-12/title"', readable)
+        self.assertNotIn('&lt;issue', readable)
+        self.assertIn('&lt;issue', reader.render_markdown('`' + mention + '`', "", {}))
+        unsafe = mention.replace('href=', 'onclick="alert(1)" href=')
+        self.assertIn('&lt;issue', reader.render_markdown(unsafe, "", {}))
+        self.assertNotIn('<issue', reader.render_markdown(unsafe, "", {}))
+        for extra in ('<!--keep me-->', '<?keep me?>', '<!DOCTYPE keep>'):
+            rendered = reader.render_markdown(mention.replace('</issue>', extra + '</issue>'), "", {})
+            self.assertIn('&lt;issue', rendered)
+            self.assertIn('keep', rendered)
+        for path in ('../YYH-13', '%2e%2e/YYH-13', '../../issue/YYH-13', '%5c..%5cYYH-13'):
+            rendered = reader.render_markdown(mention.replace('/title', '/' + path), "", {})
+            self.assertIn('&lt;issue', rendered)
         body = '<img src=x onerror="alert(1)"><script>alert(1)</script>\n\n[x](javascript:alert%281%29)\n\n![tracker](https://example.com/image.png)\n\n[local](file:///etc/passwd)'
         rendered = reader.render_markdown(body, "", {})
         self.assertNotIn("<script>", rendered)

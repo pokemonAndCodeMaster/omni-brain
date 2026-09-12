@@ -11,6 +11,7 @@ import base64
 from datetime import datetime, timezone
 import hashlib
 import html
+from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
@@ -180,8 +181,69 @@ def heading_slug(value: str) -> str:
     return re.sub(r"[^\w\-\u3400-\u9fff]", "", re.sub(r"\s+", "-", unquote(value).strip().lower()))
 
 
+class LinearIssueMention(HTMLParser):
+    """Recognize one native issue reference; never render supplied HTML."""
+    def __init__(self, source: str):
+        super().__init__(convert_charrefs=True)
+        self.events = []
+        self.feed(source)
+
+    def handle_starttag(self, tag, attrs):
+        self.events.append(("open", tag, attrs))
+
+    def handle_data(self, data):
+        self.events.append(("text", data))
+
+    def handle_endtag(self, tag):
+        self.events.append(("close", tag))
+
+    def handle_comment(self, data):
+        self.events.append(("other", data))
+
+    def handle_pi(self, data):
+        self.events.append(("other", data))
+
+    def handle_decl(self, data):
+        self.events.append(("other", data))
+
+    def unknown_decl(self, data):
+        self.events.append(("other", data))
+
+
+def native_issue_rule(state, silent):
+    # An inline rule preserves code spans/fences and escaped examples unchanged.
+    if state.linkLevel or not state.src.startswith("<issue ", state.pos):
+        return False
+    end = state.src.find("</issue>", state.pos)
+    if end < 0 or end - state.pos > 4096:
+        return False
+    events = LinearIssueMention(state.src[state.pos:end + 8]).events
+    if (len(events) != 3 or events[0][:2] != ("open", "issue")
+            or events[1][0] != "text" or events[2] != ("close", "issue")):
+        return False
+    attrs, label = dict(events[0][2]), events[1][1]
+    target = urlsplit(safe_url(attrs.get("href")))
+    parts = unquote(target.path).strip("/").split("/")
+    if (len(attrs) != len(events[0][2]) or set(attrs) - {"id", "href"}
+            or not re.fullmatch(r"[A-Z][A-Z0-9]*-\d+", label)
+            or target.scheme != "https" or target.netloc != "linear.app"
+            or len(parts) < 3 or parts[1:3] != ["issue", label]
+            or any(part in (".", "..") for part in parts)
+            or "\\" in unquote(attrs.get("href", ""))
+            or target.query or target.fragment):
+        return False
+    if not silent:
+        token = state.push("link_open", "a", 1)
+        token.attrSet("href", attrs["href"])
+        state.push("text", "", 0).content = label
+        state.push("link_close", "a", -1)
+    state.pos = end + 8
+    return True
+
+
 def render_markdown(body: str, local_path: str, by_path: dict) -> str:
     parser = MarkdownIt("commonmark", {"html": False}).enable(["table", "strikethrough"])
+    parser.inline.ruler.before("text", "linear_issue", native_issue_rule)
     metadata = ""
     frontmatter = re.match(r"\A---\r?\n(.*?)\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)", body, re.DOTALL)
     if frontmatter:

@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-13",
+  "htmlSha256": "60785107a98b886a0354ba1ebb56ac3c1c8b0fea2f2690c653fa885c4da352c5",
+  "fullIssues": 16,
+  "fullDocuments": 21,
+  "localEntries": 19,
+  "nowIssueIds": [
+    "issue:YYH-7",
+    "issue:YYH-11",
+    "issue:YYH-8"
+  ],
+  "backlogItems": 2,
+  "reviewItems": 0,
+  "knowledgeItems": 40,
+  "localKnowledgeFullTextChars": 2600,
+  "mobileWidth": 390,
+  "horizontalOverflow": false,
+  "nativeIssueMentionsReadable": true,
+  "pageErrors": [],
+  "externalRequests": 0,
+  "screenshots": [
+    "final-desktop.png",
+    "final-mobile.png"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "rendererSha256": "6e7d1226b298fb8c4a3f18dd7a08769279d3befcd0ea8c30f61881c28c1f284b",
+  "artifactSha256": "60785107a98b886a0354ba1ebb56ac3c1c8b0fea2f2690c653fa885c4da352c5",
+  "bodyCount": 56,
+  "changedBodies": [],
+  "result": "all frozen full bodies match the final renderer"
+}
