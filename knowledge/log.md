@@ -172,3 +172,7 @@
 - 将用户认证参考 `experiment/reader-first-knowledge-v1@fa8438b` 的 33 篇正式知识与产品视图收编到 `knowledge/published/quality-check/`；内容保持原版本，不以本次目录迁移改写事实。
 - 根 `knowledge/index.md` 成为全局入口，显式区分已发布规范知识、不可变原始资料和 `eval/` 中的实验/评分证据。
 - Agent 注册表改为从当前主线 `harness.yaml` 读取能力，并以主线 HEAD 建立 Run worktree，使知识、Skills、产品代码和评测资产处于同一可追溯版本。
+
+## 2026-09-13：个人工作台的知识与代码入口
+
+在 index 登记跨领域阅读视图，指向现有金铲铲、正式质检知识、共作、技能和历史实验；规范正文与 raw 原料未改。YYH-7 继续跟踪缺失历史文件，YYH-15 跟踪已验证的子事项委托修复，YYH-16 跟踪 Spider 复用审查。目录只提供导航，不把旧实验或未核实材料晋升为正式知识。变更与回退见 workspaces/reviews/personal-workbench-operating/review.md。

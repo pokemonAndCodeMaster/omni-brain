@@ -1,0 +1,6 @@
+interface:
+  display_name: "个人工作台"
+  short_description: "记录想法、接续 Linear 事项，读取知识与成果并留下下一次可接手的上下文"
+  default_prompt: "使用 $personal-workbench 继续个人工作台里的这件事，先读取当前目标、进展和必要材料。"
+policy:
+  allow_implicit_invocation: true

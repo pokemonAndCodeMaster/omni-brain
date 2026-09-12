@@ -1,0 +1,28 @@
+{
+  "command": [
+    "/home/yyh/miniconda3/envs/data_science/bin/python",
+    "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/linear_workbench.py",
+    "--root",
+    "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/directory-recheck",
+    "directory",
+    "--inventory",
+    "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/directory_recheck_current_inventory.json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"source\": \"/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/directory-recheck/docs/linear-workbench/knowledge.md\",\n  \"documents\": 21,\n  \"published\": false\n}\n",
+  "stderr": "",
+  "declared_last_page": false,
+  "input_document_count": 21,
+  "all_input_document_urls_preserved": true,
+  "existing_prefix_reading_routes_preserved": true,
+  "prefix_and_suffix_unchanged": true,
+  "source_hashes": {
+    "scripts/linear_workbench.py": "f80dc0f5354586c10c3871c07e4e60366197452991f4e04ae2c3f7b0ec81da5c",
+    "docs/linear-workbench/knowledge.md": "353bab7925bb820daf0ee1664fb4784cc2d422a9f356dce6e0457685dd61ef9a",
+    "docs/linear-workbench/README.md": "5cd9683693c634a8aa823aff4252d8dde88e09047dce38d38aa1823c25ba6371"
+  },
+  "online_freshness": "not independently fetched; existing explicit inventory only",
+  "url_comparison": "Markdown parser percent-encodes non-ASCII URLs; compare percent-decoded paths without changing href ownership",
+  "rendered_document_rows": 21,
+  "missing_document_urls": []
+}

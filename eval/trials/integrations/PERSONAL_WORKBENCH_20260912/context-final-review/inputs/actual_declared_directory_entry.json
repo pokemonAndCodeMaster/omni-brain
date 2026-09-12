@@ -1,0 +1,51 @@
+{
+  "documents": [
+    {
+      "id": "document-0",
+      "title": "team 文档 | [特殊]",
+      "url": "https://linear.app/yyhpokemonmaster/document/doc-0",
+      "updatedAt": "2026-09-12T00:00:00Z",
+      "team": {
+        "id": "team-1",
+        "name": "team 位置"
+      }
+    },
+    {
+      "id": "document-1",
+      "title": "project 文档 | [特殊]",
+      "url": "https://linear.app/yyhpokemonmaster/document/doc-1",
+      "updatedAt": "2026-09-12T00:00:00Z",
+      "project": {
+        "id": "project-1",
+        "name": "project 位置"
+      }
+    },
+    {
+      "id": "document-2",
+      "title": "issue 文档 | [特殊]",
+      "url": "https://linear.app/yyhpokemonmaster/document/doc-2",
+      "updatedAt": "2026-09-12T00:00:00Z",
+      "issue": {
+        "id": "YYH-71",
+        "name": "issue 位置"
+      }
+    },
+    {
+      "id": "document-3",
+      "title": "initiative 文档 | [特殊]",
+      "url": "https://linear.app/yyhpokemonmaster/document/doc-3",
+      "updatedAt": "2026-09-12T00:00:00Z",
+      "initiative": {
+        "id": "initiative-1",
+        "name": "initiative 位置"
+      }
+    },
+    {
+      "id": "document-4",
+      "title": "standalone 文档 | [特殊]",
+      "url": "https://linear.app/yyhpokemonmaster/document/doc-4",
+      "updatedAt": "2026-09-12T00:00:00Z"
+    }
+  ],
+  "hasNextPage": false
+}

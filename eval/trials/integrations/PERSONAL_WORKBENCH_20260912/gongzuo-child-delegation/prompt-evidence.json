@@ -1,0 +1,25 @@
+{
+  "implementation": "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/apps/quality-platform/src/gongzuo_runtime/service.py",
+  "source": "把真实浏览器发出的 itemId 和 instruction 原样交给候选代码的 GongzuoService + GongzuoRuntimeService。",
+  "storage": "已有内存 Repository 测试替身；未连接用户 PostgreSQL，未调用外部 AI。",
+  "results": [
+    {
+      "browserPayloadItemId": "child-1",
+      "storedItemId": "child-1",
+      "contextSourceItemId": "parent-1",
+      "contextRevision": 7,
+      "promptContainsInstruction": true,
+      "promptFile": "child-1-prompt.md"
+    },
+    {
+      "browserPayloadItemId": "parent-1",
+      "storedItemId": "parent-1",
+      "contextSourceItemId": "parent-1",
+      "contextRevision": 8,
+      "promptContainsInstruction": true,
+      "promptFile": "parent-1-prompt.md"
+    }
+  ],
+  "oldChildRunStayedPinned": true,
+  "newChildRunUsesUpdatedParent": true
+}

@@ -10,8 +10,8 @@
 演示状态当成正式事实。新数据库没有示例业务对象，并提供默认周回顾/组会议程；历史 S0 Requirement 由 migration 008 带来源身份迁移到团队事项。
 旧 `/ai` 入口保留历史，`/manual-qc` 保留质检能力。
 
-具体产品输入和 U1—U12 验收：
-[唯一审查记录](../../../workspaces/reviews/team-workbench-product-definition/review.md)。
+需求、日常使用过程、实现和验证结果见
+[共作 v03 交付说明](../../../workspaces/reviews/team-workbench-product-definition/review.md)。
 
 ## 启动
 
@@ -41,6 +41,10 @@ scripts/postgres.sh init
 
 当前沿用本地 `admin` 身份，并未接入公司 SSO 或完整成员权限管理。默认仅监听回环地址；
 单独工作区配置提供数据范围边界，不等同于成员身份认证。内部 CodeHub 状态/API 与公司镜像需要实际连接后验证，保存链接不代表同步已经发生。
+
+## 子事项委托
+
+在子事项点“委托 AI”，对话框显示本事项的目标和父事项背景版本；提交的运行属于子事项。父背景尚未建立时，先建立共同上下文。父背景后续更新会用于新运行，旧运行保留原输入。2026-09-13 已验证实际页面请求及真实服务的输入组装，使用隔离数据；不代表本次重新运行了外部 AI 或用户 PostgreSQL。证据见[个人工作台交付](../../../workspaces/reviews/personal-workbench-operating/review.md)。
 
 ## 执行节点
 

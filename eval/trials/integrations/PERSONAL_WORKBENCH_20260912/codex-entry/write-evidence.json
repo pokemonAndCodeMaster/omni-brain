@@ -1,0 +1,153 @@
+{
+  "date": "2026-09-13",
+  "mode": "codex exec --sandbox read-only --ephemeral",
+  "result": "read_succeeded_write_rejected_by_approval_policy",
+  "calls": [
+    {
+      "server": "linear",
+      "tool": "list_issues",
+      "arguments": {
+        "team": "YYH",
+        "query": "个人工作台",
+        "limit": 100,
+        "includeArchived": true
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "e59a6f0f49b13d328924cef443f26250a4dd5a202c77c40297c2aceb2ab089a9"
+    },
+    {
+      "server": "linear",
+      "tool": "get_document",
+      "arguments": {
+        "id": "abed03cc1da2"
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "45a68544f6499b18ba19a9b78f6871affb42e759ed00ad762d99ef14cacb8172"
+    },
+    {
+      "server": "linear",
+      "tool": "get_issue",
+      "arguments": {
+        "id": "YYH-11",
+        "includeRelations": true
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "da4618dcbef035b614eb01373da31ad5cd3504847689d712e421c4352dc60fe0"
+    },
+    {
+      "server": "linear",
+      "tool": "list_documents",
+      "arguments": {
+        "query": "接续验证记录",
+        "limit": 100
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "8d4a50fe5caaa78a1d3e1e1a3d2727c2c757811a0ff58e8183c7001621528de5"
+    },
+    {
+      "server": "linear",
+      "tool": "get_document",
+      "arguments": {
+        "id": "ef932315a0be"
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "b4ca1075040c0a8923729a9000c30557ddef89aa0fdea41eb6a9f3b88f196636"
+    },
+    {
+      "server": "linear",
+      "tool": "get_document",
+      "arguments": {
+        "id": "e65cc831468f"
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "ae006b0feb57909f41b28fa48a2edecd409ae9d8e337fc9a2943ab861d4c692d"
+    },
+    {
+      "server": "linear",
+      "tool": "list_comments",
+      "arguments": {
+        "issueId": "YYH-11",
+        "limit": 100
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "7a37ae66b61674df328f10da39ba22aa70dcb0693d680f8d6f1a6c72488fedb1"
+    },
+    {
+      "server": "linear",
+      "tool": "get_document",
+      "arguments": {
+        "id": "cf8fc80d7255"
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "45c6e4d04d717a897a934d6b4026fb91b8dabdd3fad538e893e832f26777ff16"
+    },
+    {
+      "server": "linear",
+      "tool": "get_issue",
+      "arguments": {
+        "id": "YYH-9",
+        "includeRelations": true
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "9a272bbcf88b8062404611fb3185059a4a6f32bec2f256afe6b57a0692dc7c04"
+    },
+    {
+      "server": "linear",
+      "tool": "get_document",
+      "arguments": {
+        "id": "fa3d0673f664"
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "940cf63db3f8ccb3c3e5f3531c18ead98b515607e3c28074fd11b59a7d55389e"
+    },
+    {
+      "server": "linear",
+      "tool": "get_document",
+      "arguments": {
+        "id": "600623a4-a204-41e2-adb8-4311a37fd60a"
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "940cf63db3f8ccb3c3e5f3531c18ead98b515607e3c28074fd11b59a7d55389e"
+    },
+    {
+      "server": "linear",
+      "tool": "save_document",
+      "arguments": {
+        "id": "600623a4-a204-41e2-adb8-4311a37fd60a",
+        "patch": [
+          {
+            "op": "insert_before",
+            "anchor": "## 阅读入口",
+            "text": "## 新会话续接与回写验证（2026-09-12）\n\n当前全新 Codex 会话从可发现的 personal-workbench 入口读取技能与工作台首页，按用户用语搜索并定位原事项 YYH-11。其目标是在不同项目和新会话中找到同一事项、读取背景、按授权推进并写回。已完整读取 YYH-11、记录归属事项 YYH-9，以及《Codex 接入与接续验证》《本地接续与文档联动》《从想法到成果的工作方法》和本记录全文；YYH-11 当前无评论。\n\n据当前[接入结果](<https://linear.app/yyhpokemonmaster/document/ef932315a0be>)和[联动说明](<https://linear.app/yyhpokemonmaster/document/e65cc831468f>)，前一会话已配置用户级 AGENTS 与同源技能入口，并在另一独立项目的新 Codex 会话中，不给事项编号或技能名称，找到 YYH-12、读取事项及必要文档全文并指出旧设计与当前目录的差异；该验证全程只读。另一个新会话回答普通 Python 加法问题时未加载工作台技能或访问 Linear。此前本地 MCP 写入与回读、稳定文档更新及无变化跳过已有本记录和 YYH-9 的证据；这些历史结果本轮未重新执行。\n\nYYH-11 正文仍将入口组织、自然语言触发及跨会话、跨项目验证列为待办，与上述较新文档记录存在时间差；本轮如实保留差异，未据此宣称事项完成。既有只读测试没有覆盖新会话执行与回写的全部流程；本轮仅补充当前会话的定位、全文阅读和本小节回写验证。已有长会话不保证入口热更新；其他机器及云端 Codex 需各自配置并验证；ChatGPT 自定义指令虽由用户报告已更新，独立云端接续尚未验证。没有后台持续执行或自动同步；原 ChatGPT 项目历史全文尚未全部迁移，自定义视图、收藏、原生模板与默认首页也未由既有验证完成配置。\n\n本段由当前全新 Codex 会话依据本轮用户明确授权，通过 Linear MCP 精确补丁实际写入既有文档，保存前已重新读取全文。本轮未创建事项或文档、未改变任何事项状态、未修改仓库文件，也未运行开发任务。\n\n"
+          }
+        ]
+      },
+      "status": "failed",
+      "error": {
+        "message": "MCP tool call requires approval, but approval policy is never"
+      },
+      "responseSha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "server": "linear",
+      "tool": "get_document",
+      "arguments": {
+        "id": "600623a4-a204-41e2-adb8-4311a37fd60a"
+      },
+      "status": "completed",
+      "error": null,
+      "responseSha256": "940cf63db3f8ccb3c3e5f3531c18ead98b515607e3c28074fd11b59a7d55389e"
+    }
+  ]
+}

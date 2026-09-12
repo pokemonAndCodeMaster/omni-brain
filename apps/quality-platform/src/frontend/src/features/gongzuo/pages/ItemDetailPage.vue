@@ -34,6 +34,12 @@ function setTab(value: string) {
   router.push(`/gongzuo/${activeWorkspace.value}/items/${encodeURIComponent(itemId.value)}/${value}`)
 }
 
+function delegateCurrentItem() {
+  if (!item.value || !rootItem.value) return
+  if (rootItem.value.context.established) openModal('delegate', { item: item.value })
+  else openModal('context-establish', { item: rootItem.value })
+}
+
 watch(itemId, (id) => { if (id) void loadDetail(id) }, { immediate: true })
 </script>
 
@@ -41,7 +47,7 @@ watch(itemId, (id) => { if (id) void loadDetail(id) }, { immediate: true })
   <LoadingState v-if="!item" :loading="loading" :error="error?.message" empty="找不到这个事项。" @retry="loadDetail(itemId)" />
   <template v-else-if="rootItem">
     <PageHeader :title="item.title" :subtitle="item.goal" :eyebrow="`${item.id} / ${item.kind}`">
-      <button class="gz-btn primary" type="button" @click="openModal(rootItem.context.established ? 'delegate' : 'context-establish', { item: rootItem })"><GongzuoIcon :name="rootItem.context.established ? 'spark' : 'layers'" />{{ rootItem.context.established ? '委托 AI' : '先建立上下文' }}</button>
+      <button class="gz-btn primary" type="button" @click="delegateCurrentItem"><GongzuoIcon :name="rootItem.context.established ? 'spark' : 'layers'" />{{ rootItem.context.established ? '委托 AI' : '先建立上下文' }}</button>
       <button class="gz-btn" type="button" @click="openModal('discussion', { item: rootItem })"><GongzuoIcon name="message" />就地讨论</button>
     </PageHeader>
     <div class="gz-detail-meta"><StatusBadge :value="item.state" /><span class="gz-owner"><span class="gz-avatar" :class="{ me: item.owner === '我' }">{{ item.owner.slice(-1) }}</span>{{ item.owner }}</span><span>责任人</span><span>·</span><span>目标 {{ item.due || '未安排' }}</span><StatusBadge v-for="domain in item.domains" :key="domain" :value="domain" /><StatusBadge :value="`上下文 v${rootItem.context.revision}`" tone="blue" /><StatusBadge v-if="item.parentId" :value="`继承 ${rootItem.id} 的共同背景`" tone="purple" /><span class="gz-spacer"></span><button class="gz-btn ghost sm" type="button" @click="openModal('relations', { item })">编辑关系</button></div>

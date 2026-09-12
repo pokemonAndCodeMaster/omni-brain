@@ -1,0 +1,15 @@
+{
+  "documents": [
+    {
+      "id": "document-0",
+      "title": "team 文档 | [特殊]",
+      "url": "https://linear.app/other/document/doc-0",
+      "updatedAt": "2026-09-12T00:00:00Z",
+      "team": {
+        "id": "team-1",
+        "name": "team 位置"
+      }
+    }
+  ],
+  "hasNextPage": false
+}

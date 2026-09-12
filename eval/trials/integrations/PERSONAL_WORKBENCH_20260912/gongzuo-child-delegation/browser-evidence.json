@@ -1,0 +1,43 @@
+{
+  "source": "实际候选 Vue 页面、真实 Chromium 点击与浏览器发出的请求；API 数据由明确隔离的 route fixture 提供。",
+  "scope": "未写入用户数据库，未调用外部 AI，未宣称后台执行已完成。",
+  "results": [
+    {
+      "routeItemId": "child-1",
+      "parentContextEstablished": true,
+      "payloads": [
+        {
+          "itemId": "child-1",
+          "instruction": "核查本次缺口解释",
+          "engine": "codex",
+          "runtime": "native",
+          "permission": "read-only"
+        }
+      ],
+      "pageErrors": [],
+      "unhandledApiRequests": []
+    },
+    {
+      "routeItemId": "parent-1",
+      "parentContextEstablished": true,
+      "payloads": [
+        {
+          "itemId": "parent-1",
+          "instruction": "核查本次缺口解释",
+          "engine": "codex",
+          "runtime": "native",
+          "permission": "read-only"
+        }
+      ],
+      "pageErrors": [],
+      "unhandledApiRequests": []
+    },
+    {
+      "routeItemId": "child-1",
+      "parentContextEstablished": false,
+      "payloads": [],
+      "pageErrors": [],
+      "unhandledApiRequests": []
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "workspace": "yyhpokemonmaster",
+  "team_id": "4a838ade-2fd2-401f-860e-8926c3acf32c",
+  "agreement_id": "e5d69754-de3a-4083-be90-a533d71b66d9",
+  "domain_entry_id": "55940394-1088-46d8-9d1d-b73f79117a12",
+  "publications": [
+    {
+      "key": "local-guide",
+      "source": "docs/linear-workbench/guide.md",
+      "title": "个人工作台｜本地接续与文档联动",
+      "id": "f4c6e306-d599-4baa-b5c2-6c789b785386",
+      "url": "https://linear.app/yyhpokemonmaster/document/个人工作台本地接续与文档联动-e65cc831468f",
+      "source_sha256": "5956e056a39110dac1245798be4588880e76c8b7878995ad7e09d1477763acb4",
+      "remote_sha256": "e9a804f587183e94479d1bf62071a225c237b23eff2d88cb9523f50f80b92c47"
+    },
+    {
+      "key": "knowledge-home",
+      "source": "docs/linear-workbench/knowledge.md",
+      "title": "个人工作台｜知识与成果",
+      "id": "c56a2730-32dd-44df-9c4e-e2fcb095edcd",
+      "url": "https://linear.app/yyhpokemonmaster/document/个人工作台知识与成果-736bd2d7d4bb",
+      "source_sha256": "4fd1c9e5812eec02736e3cbd8e447c3d332c27bf082f188a7d3415fc45210627",
+      "remote_sha256": "55c301352ae1aab83c4a43805f598d05a7f330f80236c9975a0f56fa2457f749"
+    },
+    {
+      "key": "issue-lifecycle",
+      "source": "docs/linear-workbench/issue-lifecycle.md",
+      "title": "个人工作台｜从想法到成果的工作方法",
+      "id": "8a615ba4-32c3-4540-85f1-727893a1afd6",
+      "url": "https://linear.app/yyhpokemonmaster/document/个人工作台从想法到成果的工作方法-cf8fc80d7255",
+      "source_sha256": "efb511ec467e7217b9fb6b7d1508995c068e46614d16f6d373e08cebed58ebd0",
+      "remote_sha256": "3db3ac29d5a882304d53224eb3447f14b14962b2d4dc96776571a72ae7160885"
+    },
+    {
+      "key": "assets-catalog",
+      "source": "docs/linear-workbench/assets-catalog.md",
+      "title": "个人工作台｜知识、代码与已有能力",
+      "id": "14da5ee0-bd50-4945-8ab8-db919f38e857",
+      "url": "https://linear.app/yyhpokemonmaster/document/个人工作台知识代码与已有能力-43d261329834",
+      "source_sha256": "7f2f2530f1f192a3b2e2935b3bdea690265f671ff58707bb045bd49816059e1f",
+      "remote_sha256": "8b3574b88d3b5cf42565089b4ba9efd1dc47fa9b12b0edb9b7bfd2e3b80e47a6"
+    }
+  ]
+}

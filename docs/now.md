@@ -1,19 +1,30 @@
 # 当前工作台
 
-> 更新时间：2026-09-05
+> 更新时间：2026-09-13
 > 本页只回答：**现在到哪里、产物在哪里、下一步做什么**。完整用例与 Trial 看
 > [Eval 总账](../eval/STATUS.md)，长期架构看 [Blueprint](blueprint.md)。
+
+## 个人工作台当前入口
+
+[打开 Linear 工作台](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)，可以记想法、选事情、进入完整文档目录和已有知识能力。
+本地全文阅读页位于 `.derived/personal-workbench/index.html`，生成与使用见 [说明](linear-workbench/README.md)。
+本机全局 Codex 入口已完成另一项目新会话的无编号读取与普通问答反例验证；非交互写回测试受工具审批策略阻止，YYH-11 继续跟踪。
+上下文材料与来源变化检查、文档发布和完整目录已验证。具体结果与适用范围见
+[本轮交付说明](../workspaces/reviews/personal-workbench-operating/review.md)。
 
 ## 共作 v03 当前交付
 
 用户已批准根目录《共作-协作工作台-交互原型-v03.html》和《共作-产品定义与Linear拆解-v03.md》作为本轮设计与开发输入。
-当前主线宿主新增共作工作台：灵感、统一事项、持续上下文、专题与贡献、会议、知识修订、运行与能力维护。
+当前主线新增共作工作台，可在本地记录想法、组织工作、保存目标和资料、委托 AI、查看结果和准备会议。
 这条产品工作已经取代下文历史 S1 的固定六步流程作为新的工作入口；原 `/ai` 与 `/manual-qc` 仍可访问。
 
 使用与启动：[apps/quality-platform/docs/gongzuo.md](../apps/quality-platform/docs/gongzuo.md)。
 方案、实现、真实运行证据与尚未验证的边界统一见
-[共作 v03 审查单](../workspaces/reviews/team-workbench-product-definition/review.md)。
+[共作 v03 交付说明](../workspaces/reviews/team-workbench-product-definition/review.md)。
 本地实现合入不代表公司部署或正式知识包发布；知识变化目前保留为待审候选。
+2026-09-06 发现的子事项委托传错目标问题已在 YYH-15 修复：浏览器真实请求提交子事项，服务输入保留子目标和父背景，旧运行不漂移。验证使用隔离数据，未重新证明用户数据库和外部 AI 执行。
+CodeHub 自动同步、公司登录、
+团队工作站和容器运行，以及复杂真实需求的设计与验收效果仍未证明，不能统称整项需求已完成。
 
 下面保留 2026-08-30 的历史阶段记录，便于定位已有能力，不作为新一轮实施待办。
 

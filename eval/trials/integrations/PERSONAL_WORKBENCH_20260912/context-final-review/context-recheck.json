@@ -1,0 +1,111 @@
+[
+  {
+    "case": "missing_required_comment_document",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_missing_required_comment_document.json",
+      "--output",
+      ".derived/linear/contexts/recheck_missing_required_comment_document"
+    ],
+    "returncode": 2,
+    "stdout": "{\"error\": \"Read these attached/directly linked documents in full first: new-111111111111\"}\n",
+    "stderr": ""
+  },
+  {
+    "case": "contradictory_slug_url",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_contradictory_slug_url.json",
+      "--output",
+      ".derived/linear/contexts/recheck_contradictory_slug_url"
+    ],
+    "returncode": 2,
+    "stdout": "{\"error\": \"Document URL contradicts its slug identity\"}\n",
+    "stderr": ""
+  },
+  {
+    "case": "contradictory_child_url",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_contradictory_child_url.json",
+      "--output",
+      ".derived/linear/contexts/recheck_contradictory_child_url"
+    ],
+    "returncode": 2,
+    "stdout": "{\"error\": \"Child issue URL does not match its identity\"}\n",
+    "stderr": ""
+  },
+  {
+    "case": "contradictory_parent_url",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_contradictory_parent_url.json",
+      "--output",
+      ".derived/linear/contexts/recheck_contradictory_parent_url"
+    ],
+    "returncode": 2,
+    "stdout": "{\"error\": \"Parent issue URL does not match its identity\"}\n",
+    "stderr": ""
+  },
+  {
+    "case": "supplied_comment_document",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_supplied_comment_document.json",
+      "--output",
+      ".derived/linear/contexts/recheck_supplied_comment_document"
+    ],
+    "returncode": 0,
+    "stdout": "{\n  \"context\": \"/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture/.derived/linear/contexts/recheck_supplied_comment_document/context.md\",\n  \"manifest\": \"/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture/.derived/linear/contexts/recheck_supplied_comment_document/manifest.json\",\n  \"issue\": \"YYH-71\",\n  \"documents\": 2,\n  \"comments\": 2,\n  \"children\": 1\n}\n",
+    "stderr": "",
+    "reading_contains_new_requirement": true
+  },
+  {
+    "case": "contradictory_project_url",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_contradictory_project_url.json",
+      "--output",
+      ".derived/linear/contexts/recheck_contradictory_project_url"
+    ],
+    "returncode": 0,
+    "stdout": "{\n  \"context\": \"/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture/.derived/linear/contexts/recheck_contradictory_project_url/context.md\",\n  \"manifest\": \"/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture/.derived/linear/contexts/recheck_contradictory_project_url/manifest.json\",\n  \"issue\": \"YYH-71\",\n  \"documents\": 1,\n  \"comments\": 2,\n  \"children\": 1\n}\n",
+    "stderr": ""
+  },
+  {
+    "reviewed_sha256": {
+      "scripts/workbench_context.py": "a32b9d6d6b9aa9d9d524e1d83e8e93be1e73e28a3f7bc5db221cd424528fdf2d",
+      "scripts/linear_workbench.py": "f80dc0f5354586c10c3871c07e4e60366197452991f4e04ae2c3f7b0ec81da5c"
+    }
+  }
+]

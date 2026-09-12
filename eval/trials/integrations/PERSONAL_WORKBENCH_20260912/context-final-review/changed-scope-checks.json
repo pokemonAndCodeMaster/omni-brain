@@ -1,0 +1,53 @@
+[
+  {
+    "case": "parent_direct_missing",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_parent_direct_missing.json",
+      "--output",
+      ".derived/linear/contexts/recheck_parent_direct_missing"
+    ],
+    "returncode": 2,
+    "stdout": "{\"error\": \"Read these attached/directly linked documents in full first: 222222222222\"}\n",
+    "stderr": ""
+  },
+  {
+    "case": "project_direct_missing",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_project_direct_missing.json",
+      "--output",
+      ".derived/linear/contexts/recheck_project_direct_missing"
+    ],
+    "returncode": 2,
+    "stdout": "{\"error\": \"Read these attached/directly linked documents in full first: 222222222222\"}\n",
+    "stderr": ""
+  },
+  {
+    "case": "document_internal_nonrecursive",
+    "command": [
+      "/home/yyh/miniconda3/envs/data_science/bin/python",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/scripts/workbench_context.py",
+      "--root",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture",
+      "build",
+      "--input",
+      "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/inputs/recheck_document_internal_nonrecursive.json",
+      "--output",
+      ".derived/linear/contexts/recheck_document_internal_nonrecursive"
+    ],
+    "returncode": 0,
+    "stdout": "{\n  \"context\": \"/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture/.derived/linear/contexts/recheck_document_internal_nonrecursive/context.md\",\n  \"manifest\": \"/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/context-final-review/fixture/.derived/linear/contexts/recheck_document_internal_nonrecursive/manifest.json\",\n  \"issue\": \"YYH-71\",\n  \"documents\": 1,\n  \"comments\": 2,\n  \"children\": 1\n}\n",
+    "stderr": ""
+  }
+]

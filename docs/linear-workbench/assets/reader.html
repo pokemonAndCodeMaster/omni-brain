@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="{{CSP}}">
+  <title>个人工作台 · 阅读与接续</title>
+  <style>{{CSS}}</style>
+</head>
+<body>
+  <a class="skip-link" href="#reading">跳到正文</a>
+  <header class="masthead">
+    <div class="identity"><span class="mark" aria-hidden="true">↗</span><div><p class="eyebrow">YYH / PERSONAL DESK</p><h1>个人工作台</h1></div></div>
+    <a class="new-idea" href="https://linear.app/team/YYH/new?status=Backlog&amp;assignee=f6bb509e-7703-4055-a83a-71530efe04c3&amp;labels=%E6%83%B3%E6%B3%95" target="_blank" rel="noopener noreferrer">＋ 记一个想法 <span aria-hidden="true">↗</span></a>
+  </header>
+  <div class="snapshot-note"><span id="snapshot-time">正在读取本地材料</span><span>这是本地阅读副本。去 Linear 查看最新进展；刷新方式见页底。</span></div>
+  <main>
+    <section class="browse" aria-label="浏览事项与材料">
+      <nav class="views" aria-label="按当前需要浏览">
+        <button data-view="now" aria-pressed="true">现在推进 <span></span></button>
+        <button data-view="ideas" aria-pressed="false">想法与未安排 <span></span></button>
+        <button data-view="review" aria-pressed="false">待看成果 <span></span></button>
+        <button data-view="knowledge" aria-pressed="false">知识与文档 <span></span></button>
+        <button data-view="all" aria-pressed="false">全部 <span></span></button>
+      </nav>
+      <form class="filters" role="search">
+        <div class="search-field"><label for="search">搜索标题与全文</label><input id="search" type="search" autocomplete="off" placeholder="例如：金铲铲、需求澄清、YYH-11"><kbd aria-hidden="true">/</kbd></div>
+        <div><label for="domain">领域</label><select id="domain"><option value="">所有领域</option></select></div>
+        <div><label for="kind">材料</label><select id="kind"><option value="">所有类型</option><option value="issue">事项</option><option value="document">Linear 文档</option><option value="local">本地知识与代码</option></select></div>
+      </form>
+      <div class="list-heading"><p id="view-description">正在进行的工作</p><p id="result-count" role="status" aria-live="polite"></p></div>
+      <div class="workspace">
+        <section class="directory" aria-label="阅读目录"><ul id="items"></ul><div id="empty-list" hidden><p>没有找到对应内容。</p><button id="clear-filters">清空搜索和筛选</button></div></section>
+        <section id="reading" class="reading" tabindex="-1" aria-label="选中内容的全文">
+          <div id="empty-detail"><p class="eyebrow">从一件事开始</p><h2>选择左侧事项或材料</h2><p>在这里读当前目标、完整内容和关联材料。继续工作时，把同一条事项交给 AI。</p></div>
+          <article id="detail" hidden>
+            <header class="detail-header"><button id="back-to-list" class="back-to-list">← 返回目录</button><div class="detail-labels" id="detail-labels"></div><h2 id="detail-title"></h2><div id="detail-meta" class="detail-meta"></div><div class="detail-actions"><a id="open-source" class="primary" target="_blank" rel="noopener noreferrer">去 Linear 继续 ↗</a><button id="handoff">交给 AI 接着做</button></div></header>
+            <div id="related" class="related" hidden></div>
+            <div id="body" class="prose" dir="auto"></div>
+            <footer id="source-note" class="source-note"></footer>
+          </article>
+        </section>
+      </div>
+    </section>
+  </main>
+  <footer class="page-footer"><p>本地阅读 · 不修改事项状态</p><details><summary>怎样更新这里的内容</summary><p>在 Codex 中说：“刷新个人工作台的 Linear 全文快照和本地阅读页。”它会重新读取线上事项、文档及已登记的本地入口，生成此页。生成网页本身不会同步 Linear。</p><p>默认文件：<code>.derived/personal-workbench/index.html</code>。目录只包括已读取的材料；缺失内容需先补齐快照。这里的数字是条目数量，不代表工作完成比例。</p></details></footer>
+  <dialog id="handoff-dialog" aria-labelledby="handoff-title"><div class="dialog-heading"><h2 id="handoff-title">交给 AI 接着做</h2><button id="close-handoff" aria-label="关闭接续口令">关闭</button></div><p>复制到已连接 Linear 的 Codex 或 ChatGPT。可以先改写最后一句，告诉它这次要做什么。</p><label for="handoff-text">接续口令</label><textarea id="handoff-text" rows="9"></textarea><div class="dialog-actions"><button id="copy-handoff" class="primary">复制接续口令</button><p id="copy-status" role="status" aria-live="polite"></p></div></dialog>
+  <noscript>此阅读页需要浏览器启用 JavaScript 才能筛选和显示全文。也可以直接打开 .derived/linear/index.md 阅读同一批快照。</noscript>
+  <script type="application/json" id="workbench-data">{{DATA}}</script>
+  <script>{{JS}}</script>
+</body>
+</html>

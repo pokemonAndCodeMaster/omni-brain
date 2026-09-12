@@ -15,6 +15,10 @@ timestamp: 2026-07-06T00:00:00
 
 ---
 
+## 个人工作与跨领域阅读
+
+[已有知识与能力目录](../docs/linear-workbench/assets-catalog.md)按金铲铲、质检、共作、技能和历史实验组织入口；[Linear 完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)可直接读线上材料。它们是阅读导航，保留原文、来源和成熟度，不另建规范知识副本。
+
 ## ✅ 已发布规范知识
 
 | 知识包 | 成熟度与范围 | 入口 |

@@ -1,0 +1,43 @@
+schema_version: '0.1'
+trial_id: SPIDER_REFERENCE_IMPLEMENTATION_SOL_XHIGH_001
+use_case: spider_multisource_platform_implementation
+status: reference_implemented_with_human_auth_boundary
+completed_at: '2026-08-16'
+host:
+  product: Codex
+  isolation: dedicated_git_branch_and_worktree
+model:
+  id: gpt-5.6-sol
+  variant: xhigh
+input:
+  product_ref: refs/eval/workspaces/spider-multisource-platform-v1@ccd4f51
+  approved_solution_ref: refs/eval/workspaces/spider-multisource-r2-certified-v1@73dfdd1
+harness:
+  repository: /home/yyh/project/omni-brain-harness
+  installed_commit: 7e7320a
+candidate:
+  design_repository_branch: experiment/spider-reference-implementation-v1
+  initial_product_commit: c3fac253b54813d239d7e023619d7bbdf3364fd6
+  corrected_product_commit: a5716f4e86698036d3e3f6ac856843350bed7a90
+  spider_repository_branch: feature/multi-source-information-platform-v1
+  spider_repository_commit: 5414aaf13582f2cfe07eee7d469c7bb27cb418f7
+  spider_remote: origin/feature/multi-source-information-platform-v1
+  runnable_worktree: /home/yyh/project/.omni-brain-runs/SPIDER_PRODUCT_INTEGRATION_V1
+artifacts:
+  prompt: prompt.md
+  audit: audit.md
+  implementation_review: /home/yyh/project/.omni-brain-runs/SPIDER_PRODUCT_INTEGRATION_V1/workspaces/reviews/spider-multi-source-platform-refactor/review.md
+verification:
+  python_tests: 13
+  python_tests_with_postgresql: passed
+  vue_typecheck: passed
+  vue_build: passed
+  alembic_check: passed
+  legacy_items: 16875
+  legacy_images: 130647
+  deduplicated_downloads: 26072
+  public_south_plus_small_run: 2_of_2
+  protected_south_plus_fid4: requires_human_captcha
+assessment:
+  disposition: usable_reference_pending_protected_section_human_login
+  harness_promotion: not_decided_by_reference_implementation

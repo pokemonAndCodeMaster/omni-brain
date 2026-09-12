@@ -1,0 +1,316 @@
+{
+  "checked_at": "2026-09-12T15:19:46.770345+00:00",
+  "codex_version": "codex-cli 0.154.0",
+  "candidate_repository": "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912",
+  "probe_git_root": "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.derived/codex-entry/other-project",
+  "skill_sha256": "e0b95cc077a637397736c8a4ee028acb7c63c3472eb3608b3733e130cf80a1c8",
+  "global_agents_sha256": "6afb882350e370d2d2afec31495c0634fcf51ea1ca3d4a4d5e411bc89dccb0bc",
+  "global_skill_target": "/home/yyh/project/.omni-brain-runs/personal-workbench-20260912/.agents/skills/personal-workbench",
+  "positive_prompt": "看一下个人工作台的视图设计现在进展到哪里了，下一步该做什么？这次仅查看，不修改 Linear、文件或状态。请给出你实际读到的事项和主要文档链接，并说明哪些配置已完成、哪些尚未完成。\n",
+  "negative_prompt": "写一个返回两个整数之和的 Python 函数，直接给代码即可。\n",
+  "positive": {
+    "completed": true,
+    "calls": [
+      {
+        "server": "linear",
+        "tool": "get_document",
+        "arguments": {
+          "id": "abed03cc1da2"
+        },
+        "error": null,
+        "response_bytes": 12775,
+        "response_sha256": "9d58cdf24753551b790b14ab9b125bf2922ddf90773c617c8f41efaf64e85ef6"
+      },
+      {
+        "server": "linear",
+        "tool": "get_document",
+        "arguments": {
+          "id": "a43b2877e7d9"
+        },
+        "error": null,
+        "response_bytes": 6943,
+        "response_sha256": "49fccca7bccf9342bb1c29cc6e6dc59ce6d2b693de9fff664d014c4f7105fdff"
+      },
+      {
+        "server": "linear",
+        "tool": "list_issues",
+        "arguments": {
+          "team": "YYH",
+          "query": "视图",
+          "limit": 100
+        },
+        "error": null,
+        "response_bytes": 13570,
+        "response_sha256": "3ac0d46995028aa8df64697d137d530beb6fe3bca2a5df4881ff2662d9b16f1d"
+      },
+      {
+        "server": "linear",
+        "tool": "get_issue",
+        "arguments": {
+          "id": "YYH-9",
+          "includeRelations": true
+        },
+        "error": null,
+        "response_bytes": 5806,
+        "response_sha256": "0f4e83bf9ea794d0f15c895941ac67b49631860af8ce7edb856307ec735c8f2a"
+      },
+      {
+        "server": "linear",
+        "tool": "get_issue",
+        "arguments": {
+          "id": "YYH-12",
+          "includeRelations": true
+        },
+        "error": null,
+        "response_bytes": 4132,
+        "response_sha256": "bf6b6000781783ccc28158a43b4e511d0eef12931037c7dfac49a41746dc0de9"
+      },
+      {
+        "server": "linear",
+        "tool": "list_comments",
+        "arguments": {
+          "documentId": "a43b2877e7d9",
+          "limit": 100
+        },
+        "error": null,
+        "response_bytes": 110,
+        "response_sha256": "00a7c6cc332cff7e555986dc359d5d9d2f2a086dd89a796c66d671980bb0c04a"
+      },
+      {
+        "server": "linear",
+        "tool": "list_comments",
+        "arguments": {
+          "issueId": "YYH-12",
+          "limit": 100
+        },
+        "error": null,
+        "response_bytes": 110,
+        "response_sha256": "00a7c6cc332cff7e555986dc359d5d9d2f2a086dd89a796c66d671980bb0c04a"
+      },
+      {
+        "server": "linear",
+        "tool": "get_document",
+        "arguments": {
+          "id": "736bd2d7d4bb"
+        },
+        "error": null,
+        "response_bytes": 3286,
+        "response_sha256": "d9dc76579a626e2bad67ed3e9c0b1f84189a296c82d561f08354b26566bafb1b"
+      },
+      {
+        "server": "linear",
+        "tool": "get_document",
+        "arguments": {
+          "id": "2db8c47d39f5"
+        },
+        "error": null,
+        "response_bytes": 6787,
+        "response_sha256": "b81806f6b43c082c5b6cb77520f2e2c7f82036ff3a98d4e36763ffbdb127ca8d"
+      },
+      {
+        "server": "linear",
+        "tool": "list_documents",
+        "arguments": {
+          "includeArchived": false,
+          "limit": 100,
+          "fields": [
+            "id",
+            "title",
+            "url",
+            "updatedAt",
+            "archivedAt",
+            "team",
+            "issue",
+            "project"
+          ]
+        },
+        "error": null,
+        "response_bytes": 8100,
+        "response_sha256": "64816c6e7c012c5de93cdf92ffe7805ebc65403ddd792b432b17e6aad7387c07"
+      },
+      {
+        "server": "linear",
+        "tool": "get_issue",
+        "arguments": {
+          "id": "YYH-11",
+          "includeRelations": true
+        },
+        "error": null,
+        "response_bytes": 3969,
+        "response_sha256": "fb1cd619b10db0b5483c51b55ad604681d044def84349d662116e444754a76b2"
+      },
+      {
+        "server": "linear",
+        "tool": "get_issue",
+        "arguments": {
+          "id": "YYH-10",
+          "includeRelations": true
+        },
+        "error": null,
+        "response_bytes": 4451,
+        "response_sha256": "6f2a880c1f33aa107bec8c7175a27c89479be7bf13218c4bc1f338b0c2a777ca"
+      },
+      {
+        "server": "linear",
+        "tool": "get_document",
+        "arguments": {
+          "id": "fa3d0673f664"
+        },
+        "error": null,
+        "response_bytes": 3493,
+        "response_sha256": "115cf620d8feb772b503393302d8fefe92a935445eaf7b9e7c2ef66abdec744f"
+      },
+      {
+        "server": "linear",
+        "tool": "list_issue_statuses",
+        "arguments": {
+          "team": "YYH"
+        },
+        "error": null,
+        "response_bytes": 726,
+        "response_sha256": "f3cd57ae1ff6623c1d51bec93d4b9111ee88e10a6092d05d49d681a1c3db037f"
+      },
+      {
+        "server": "linear",
+        "tool": "list_issue_labels",
+        "arguments": {
+          "team": "YYH",
+          "includeGroups": true,
+          "limit": 100
+        },
+        "error": null,
+        "response_bytes": 1451,
+        "response_sha256": "c6f609c35e6c5c10aff730384bc4f5be083c231cfd786bdd3c65e412b796b7ee"
+      },
+      {
+        "server": "linear",
+        "tool": "get_document",
+        "arguments": {
+          "id": "e65cc831468f"
+        },
+        "error": null,
+        "response_bytes": 5850,
+        "response_sha256": "9911351290b51e550ca263df815bcd00dc4acdf9fa0011650e9bedf25826d904"
+      },
+      {
+        "server": "linear",
+        "tool": "get_document",
+        "arguments": {
+          "id": "ef932315a0be"
+        },
+        "error": null,
+        "response_bytes": 6132,
+        "response_sha256": "2ebdb283ac218d8fcada2057f96e5729d810160fd941b240bb1febc02031b7fe"
+      }
+    ],
+    "commands": [
+      {
+        "command": "/bin/bash -lc 'cat /home/yyh/.agents/skills/personal-workbench/SKILL.md'",
+        "exit_code": 0
+      }
+    ],
+    "documents": [
+      {
+        "id": "e5d69754-de3a-4083-be90-a533d71b66d9",
+        "slugId": "abed03cc1da2",
+        "title": "个人工作台｜每日安排与正文维护",
+        "updatedAt": "2026-09-12T14:53:20.209Z",
+        "content_chars": 5958
+      },
+      {
+        "id": "2af21e7f-cbda-4c7a-b2e4-b479ef48cc9f",
+        "slugId": "a43b2877e7d9",
+        "title": "个人工作台｜日常视图设计",
+        "updatedAt": "2026-09-12T14:25:27.464Z",
+        "content_chars": 2556
+      },
+      {
+        "id": "c56a2730-32dd-44df-9c4e-e2fcb095edcd",
+        "slugId": "736bd2d7d4bb",
+        "title": "个人工作台｜知识与成果",
+        "updatedAt": "2026-09-11T12:49:58.700Z",
+        "content_chars": 1420
+      },
+      {
+        "id": "d28259c1-6902-4f3a-8c03-74e77c3819b4",
+        "slugId": "2db8c47d39f5",
+        "title": "个人工作台｜整体方案设计",
+        "updatedAt": "2026-09-12T14:53:18.736Z",
+        "content_chars": 2796
+      },
+      {
+        "id": "600623a4-a204-41e2-adb8-4311a37fd60a",
+        "slugId": "fa3d0673f664",
+        "title": "个人工作台｜接续验证记录",
+        "updatedAt": "2026-09-11T12:59:48.870Z",
+        "content_chars": 1560
+      },
+      {
+        "id": "f4c6e306-d599-4baa-b5c2-6c789b785386",
+        "slugId": "e65cc831468f",
+        "title": "个人工作台｜本地接续与文档联动",
+        "updatedAt": "2026-09-11T12:47:37.685Z",
+        "content_chars": 2094
+      },
+      {
+        "id": "8e5e7eda-89f1-4d1f-bd23-8284daa1beae",
+        "slugId": "ef932315a0be",
+        "title": "个人工作台｜Codex 接入设计",
+        "updatedAt": "2026-09-12T14:49:40.151Z",
+        "content_chars": 2309
+      }
+    ],
+    "issues": [
+      {
+        "id": "YYH-9",
+        "uuid": "aba0fc61-42c1-46a5-aaf8-dea6ce6183fe",
+        "title": "搭好个人工作台：文档联动与本地接续",
+        "updatedAt": "2026-09-12T15:13:15.914Z",
+        "description_chars": 1802
+      },
+      {
+        "id": "YYH-12",
+        "uuid": "70946f5c-01ad-4ec8-8f14-d3887e93a033",
+        "title": "设计个人工作台的日常视图",
+        "updatedAt": "2026-09-12T15:13:20.503Z",
+        "description_chars": 531
+      },
+      {
+        "id": "YYH-11",
+        "uuid": "96a453c1-8ed7-4d71-8821-a068164f495e",
+        "title": "设计 Codex 接续 Linear 事项的方式",
+        "updatedAt": "2026-09-12T15:13:19.124Z",
+        "description_chars": 531
+      },
+      {
+        "id": "YYH-10",
+        "uuid": "75b0fb65-2cc5-4e87-8dec-9af859efeabc",
+        "title": "设计个人工作台的整体方案",
+        "updatedAt": "2026-09-12T15:13:17.638Z",
+        "description_chars": 808
+      }
+    ],
+    "first_message": "我会按 `personal-workbench` 技能先读取工作台规则和线上正文，再核对视图设计的事项、文档与配置进展。本次只读，不修改 Linear、文件或状态。\n"
+  },
+  "negative": {
+    "completed": true,
+    "calls": [],
+    "commands": [],
+    "documents": [],
+    "issues": [],
+    "first_message": "```python\ndef add(a: int, b: int) -> int:\n    return a + b\n```"
+  },
+  "assertions": [
+    "fresh independent Git root outside the candidate repository scope",
+    "implicit skill selection without YYH identifier or skill name in prompt",
+    "full YYH-12 description and views document fetched",
+    "only read-only MCP calls and cat commands used",
+    "unrelated Python question did not load the skill or call Linear"
+  ],
+  "limits": [
+    "No live mutation performed by the evaluation agents",
+    "Historical write verification belongs to YYH-9 and was not repeated here",
+    "No evidence that existing long sessions reload AGENTS.md automatically",
+    "No ChatGPT or cloud-Codex behavior was validated by these local probes"
+  ]
+}

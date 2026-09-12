@@ -383,6 +383,60 @@ def test_run_pins_repository_context_and_capability_and_retry_never_mutates_old_
     assert len({first["directory"], old_context_retry["directory"], synced_retry["directory"]}) == 3
 
 
+
+def test_child_delegation_prompt_keeps_local_goal_and_pins_parent_context(tmp_path: Path) -> None:
+    from copy import deepcopy
+    from test_gongzuo import service as core_service
+
+    core, core_repo = core_service()
+    parent = core.create_item(
+        "personal", item_type="requirement", title="改善验收体验", status="open",
+        payload={"goal": "让验收人员看懂结果", "scope": "不改变分配规则"}, actor_id="admin",
+    )
+    child = core.create_item(
+        "personal", item_type="research", title="解释分配缺口", status="open",
+        payload={"goal": "说明每个未分配原因", "parentId": parent["id"]}, actor_id="admin",
+    )
+    core.create_context("personal", parent["id"], content={"goal": "父背景第一版"}, provenance=[], actor_id="admin")
+    core.create_context("personal", child["id"], content={"goal": "子事项独立目标"}, provenance=[], actor_id="admin")
+    core_repo.relation_rows.append({
+        "fromKind": "item", "fromId": child["id"], "toKind": "item",
+        "toId": parent["id"], "relationType": "contributes_to",
+    })
+    runtime, _, _ = service(tmp_path, ShellExecutor())
+    runtime.gongzuo_service = core
+    first = runtime.create_run(
+        "personal", item_id=child["id"], instruction="核查本次缺口解释", engine="codex",
+    )
+    snapshot = deepcopy(runtime.get_run_snapshot("personal", first["id"]))
+    assert snapshot["item_id"] == child["id"]
+    assert snapshot["item_snapshot"]["id"] == child["id"]
+    assert snapshot["context_snapshot"]["inheritedFromItemId"] == parent["id"]
+    assert snapshot["context_snapshot"]["focus"]["goal"] == "子事项独立目标"
+    assert snapshot["context_snapshot"]["content"]["goal"] == "父背景第一版"
+    assert f'工作事项：{child["id"]}' in snapshot["prompt_snapshot"]
+    for expected in ("子事项独立目标", "父背景第一版", "核查本次缺口解释", "说明每个未分配原因"):
+        assert expected in snapshot["prompt_snapshot"]
+
+    parent_context = core_repo.contexts["personal", parent["id"]]
+    parent_context.update(currentVersionId="parent-version-2", revisionNo=2, version=2, content={"goal": "父背景第二版"})
+    next_run = runtime.create_run(
+        "personal", item_id=child["id"], instruction="继续核查", engine="codex",
+    )
+    next_snapshot = runtime.get_run_snapshot("personal", next_run["id"])
+    assert next_snapshot["context_snapshot"]["content"]["goal"] == "父背景第二版"
+    assert next_snapshot["context_snapshot"]["focus"]["goal"] == "子事项独立目标"
+    assert runtime.get_run_snapshot("personal", first["id"])["prompt_snapshot"] == snapshot["prompt_snapshot"]
+    assert runtime.get_run_snapshot("personal", first["id"])["context_snapshot"] == snapshot["context_snapshot"]
+    assert runtime.get_run("personal", first["id"])["stale_context"] is True
+
+    parent_run = runtime.create_run(
+        "personal", item_id=parent["id"], instruction="检查整体效果", engine="codex",
+    )
+    assert runtime.get_run_snapshot("personal", parent_run["id"])["item_id"] == parent["id"]
+    assert "inheritedFromItemId" not in runtime.get_run_snapshot("personal", parent_run["id"])["context_snapshot"]
+
+
 def test_context_identity_change_at_same_revision_marks_run_stale(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     runtime, _, core = service(tmp_path, ShellExecutor())
     first = runtime.create_run("personal", item_id="P-1", instruction="one", engine="codex")
