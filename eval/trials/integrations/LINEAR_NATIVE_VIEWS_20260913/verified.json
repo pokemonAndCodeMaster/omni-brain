@@ -1,0 +1,210 @@
+{
+  "verifiedAt": "2026-09-13T05:35:51.310066+00:00",
+  "views": [
+    {
+      "name": "现在推进",
+      "id": "5e7379f4-e21d-4272-8869-1efaa4f4cdd3",
+      "url": "https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3",
+      "issues": [
+        "YYH-11",
+        "YYH-12",
+        "YYH-17",
+        "YYH-19",
+        "YYH-20",
+        "YYH-21",
+        "YYH-22",
+        "YYH-7",
+        "YYH-8"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": "05b8e1b7-a14e-4fae-8305-fe822beb9f21",
+      "sortOrder": -5000,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "status",
+        "viewOrdering": "priority",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "等我确认",
+      "id": "59475da9-d266-4b05-8c5a-55628ba5721d",
+      "url": "https://linear.app/yyhpokemonmaster/view/59475da9-d266-4b05-8c5a-55628ba5721d",
+      "issues": [],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": "80a5c3be-11a0-469d-9019-70cb9dc60c04",
+      "sortOrder": -4000,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "project",
+        "viewOrdering": "priority",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "想法待澄清",
+      "id": "0c0d11c3-9fd0-4e07-b76f-1938eb8c83af",
+      "url": "https://linear.app/yyhpokemonmaster/view/0c0d11c3-9fd0-4e07-b76f-1938eb8c83af",
+      "issues": [
+        "YYH-5"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": "8f2bc97d-89df-4d4b-87fd-01dcc5bb6ceb",
+      "sortOrder": -3000,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "none",
+        "viewOrdering": "updatedAt",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "以后安排",
+      "id": "753decfd-bfde-4197-badb-10ec20330471",
+      "url": "https://linear.app/yyhpokemonmaster/view/753decfd-bfde-4197-badb-10ec20330471",
+      "issues": [
+        "YYH-16",
+        "YYH-18"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": "83041afc-2b62-4de8-9c50-a61a29d7ef0f",
+      "sortOrder": -2000,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "project",
+        "viewOrdering": "priority",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "近期成果",
+      "id": "b514e43d-ceae-461e-aeee-e519de713d17",
+      "url": "https://linear.app/yyhpokemonmaster/view/b514e43d-ceae-461e-aeee-e519de713d17",
+      "issues": [
+        "YYH-10",
+        "YYH-13",
+        "YYH-14",
+        "YYH-15",
+        "YYH-9"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": "c436db88-ef47-45e1-aea0-630cdb5e1f30",
+      "sortOrder": -1000,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "project",
+        "viewOrdering": "updatedAt",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "showCompletedIssues": "all",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    }
+  ],
+  "filtersAndMembershipVerified": true,
+  "favoritesAndOrderVerified": true,
+  "effectivePreferencesVerified": false,
+  "defaultHome": {
+    "changed": false,
+    "verified": false,
+    "reason": "Public UserSettings does not expose a readable personal default-home field."
+  },
+  "uiVerified": false
+}

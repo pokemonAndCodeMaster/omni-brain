@@ -1,0 +1,26 @@
+{
+  "task": "YYH-12 native Linear views",
+  "date": "2026-09-13",
+  "repository": "pokemonAndCodeMaster/omni-brain",
+  "baseline": "6f1de937b498e11c83abed753b62603fbfe79a6c",
+  "archivedRef": "refs/eval/workspaces/linear-native-views-20260913",
+  "executionPath": "/home/yyh/project/.omni-brain-runs/linear-native-views-20260913",
+  "sourceSha256": "3c86f69b73498a95a548938f268dda1a91e9dbe7068dda89f5c9c20715720173",
+  "officialSchemaSource": "https://github.com/linear/linear/blob/master/packages/sdk/src/schema.graphql",
+  "officialSchemaSha256": "a40587082cc4adc62d0daf7458c5a04db25ac3062cedce92c727fd08b5c4f0f5",
+  "checks": [
+    "python -m unittest discover -s tests -p test_linear_views.py -v",
+    "python scripts/linear_views.py apply",
+    "python scripts/linear_views.py verify"
+  ],
+  "unitChecks": 10,
+  "independentFinalScope": "offline preference projection and preservation only",
+  "rawRuntimeArchive": ".derived/linear/native-views-20260913-archive",
+  "uiVerified": false,
+  "defaultHomeChanged": false,
+  "effectivePreferenceDifferences": [
+    "fieldProject",
+    "fieldLabels"
+  ],
+  "initialReviewedSourceSha256": "1c3bce02b0bd751eff02678f91598edc285a3613e8406748cfa121b9ffe313ed"
+}

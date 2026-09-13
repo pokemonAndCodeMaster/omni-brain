@@ -1,0 +1,62 @@
+{
+  "issue": {
+    "before": {
+      "id": "70946f5c-01ad-4ec8-8f14-d3887e93a033",
+      "updatedAt": "2026-09-13T04:45:06.780Z",
+      "contentSha256": "f25feae19c9cdee01d63b05a9b4ac70b45059f7d383debec6fe8ee5d1f1055d0"
+    },
+    "after": {
+      "id": "70946f5c-01ad-4ec8-8f14-d3887e93a033",
+      "updatedAt": "2026-09-13T05:30:07.610Z",
+      "contentSha256": "536f52f4b72a20f1bb55ffe198af0750708a73104b7b241be0f99173e995fa5e"
+    }
+  },
+  "design": {
+    "before": {
+      "id": "2af21e7f-cbda-4c7a-b2e4-b479ef48cc9f",
+      "updatedAt": "2026-09-13T04:45:11.364Z",
+      "contentSha256": "b5c04f6a512a52a446e0904b4b2fb7ee0f1e71b05d536cfedf88de696196a370"
+    },
+    "after": {
+      "id": "2af21e7f-cbda-4c7a-b2e4-b479ef48cc9f",
+      "updatedAt": "2026-09-13T05:31:16.078Z",
+      "contentSha256": "4346d4ea532d940026e21c5da1734b0377d4b163f785928d9cb364a4d5a0fdf0"
+    }
+  },
+  "home": {
+    "before": {
+      "id": "e5d69754-de3a-4083-be90-a533d71b66d9",
+      "updatedAt": "2026-09-13T04:46:00.327Z",
+      "contentSha256": "16eef84c6878a83c3fbafc850cece3b14abf104d8e2d051f9048d073566907ba"
+    },
+    "after": {
+      "id": "e5d69754-de3a-4083-be90-a533d71b66d9",
+      "updatedAt": "2026-09-13T05:31:19.925Z",
+      "contentSha256": "939f80c83da40c0fe0fa0cd6cedf7bc75a6a23e3cf0157909a383a64b2a694b9"
+    }
+  },
+  "project": {
+    "before": {
+      "id": "0e1cfdbe-a7a3-4f60-8cb6-504595f8e2c1",
+      "updatedAt": "2026-09-13T04:45:12.157Z",
+      "contentSha256": "81c3dbdac6228be6a32d2ba1bfa09a6611873db13f01eca78bccd872d558b3d9"
+    },
+    "after": {
+      "id": "0e1cfdbe-a7a3-4f60-8cb6-504595f8e2c1",
+      "updatedAt": "2026-09-13T05:31:21.328Z",
+      "contentSha256": "1e082754f0e6711a1aca52b69147444d3018401aebe4823606e75392e0c02d8b"
+    }
+  },
+  "guide": {
+    "before": {
+      "id": "f4c6e306-d599-4baa-b5c2-6c789b785386",
+      "updatedAt": "2026-09-13T04:48:30.489Z",
+      "contentSha256": "15cbafe19ca0419b1c4c0c359c0f63a73ab70d7a5f76a5c01ca65fc861494a11"
+    },
+    "after": {
+      "id": "f4c6e306-d599-4baa-b5c2-6c789b785386",
+      "updatedAt": "2026-09-13T05:35:15.827Z",
+      "contentSha256": "167c2adaa0b8998ba1abf6a60eeb6e1d4ed4373808fca81865451e09153a60ff"
+    }
+  }
+}

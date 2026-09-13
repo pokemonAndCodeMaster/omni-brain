@@ -93,9 +93,25 @@ python scripts/linear_workbench.py directory --inventory .derived/linear/directo
 
 命令只更新知识入口的“全部 Linear 文档”段，保留领域阅读路线。所有可访问挂载位置都应纳入；来源缺少字段、仍有下一页或重复身份会拒绝更新。它没有向 Linear 保存自定义视图、收藏或默认首页。
 
-五个场景视图的实际筛选条件、布局与当前核对样例见[入口与阅读视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)。该文档在线维护，不复制一套本地方案。当前 MCP 没有保存自定义视图、收藏和默认首页的工具；尚未配置或验证，不能把说明文档、本地快照或固定事项链接算作动态视图已交付。
+五个场景视图已于 2026-09-13 通过官方 API 保存，并按“现在推进、等我确认、想法待澄清、以后安排、近期成果”的顺序加入本人侧栏收藏。直接打开[现在推进](https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3)；其余链接、筛选和显示规则在[入口与阅读视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)原位维护。
 
-官方参考：[Linear MCP](https://linear.app/docs/mcp)、[文档](https://linear.app/docs/documents)、[视图](https://linear.app/docs/custom-views)、[显示选项](https://linear.app/docs/display-options)、[Codex MCP 配置](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)。
+当前 MCP 仍没有 View 操作；本仓的 `scripts/linear_views.py` 补充调用官方 GraphQL API 的能力。它只维护 YYH 团队中分配给本人的这五个个人事项视图，跨项目和领域，不处理文档视图。凭据与 MCP 登录分开：默认读取本机 `~/.config/omni-brain/linear-api-key`（普通文件，权限 600，拒绝符号链接）；也接受明确提供的 `LINEAR_API_KEY`、`LINEAR_ACCESS_TOKEN` 或 `LINEAR_API_KEY_FILE`。不要把密钥写进命令、聊天、文档或 Git；不会读取 Codex MCP 凭据来尝试复用授权。
+
+```bash
+python scripts/linear_views.py plan
+python scripts/linear_views.py apply
+python scripts/linear_views.py verify
+```
+
+`plan` 只读，检查当前账号、团队标签和工作区级同名视图，报告筛选条件的创建、更新或无变化；它不是显示偏好与收藏的完整预览。`apply` 会重新读取当前状态，保存筛选和本方案拥有的显示字段，并把五个收藏放在顶层最前面；保留已有视图及收藏 ID、可读取的其他偏好与无关收藏。同名冲突或计划后的变化会停止，不自动合并或删旧对象。串行运行，勿让多个执行器同时配置这组视图。
+
+`verify` 回读保存的条件，并将 View 实际命中与团队本人事项的独立判断对账，检查收藏身份与顺序。最近成果按实际完成时间的滚动 14 天筛选。每次计划、写前快照与回读证据保存到被忽略的 `.derived/linear/native-views/`；写响应丢失时不自动重试，先重新运行 `plan` 读取实际对象，避免重复创建。读取连接中断最多重试三次。
+
+本次筛选、实际命中、收藏与顺序已验证。列表布局、分组、排序和编号、状态、优先级回读一致；项目、标签两列的保存值为显示，但最终显示值为隐藏，报告以 `effectivePreferencesVerified:false` 和具体差异保留。退出码 0 表示检查已完成，不代表所有界面条件均通过，须同时读这些结果字段。默认首页未设置，原生浏览器未核验；可在 Settings → Account → Preferences → Default home view 选择已收藏的“现在推进”。没有修改工作区全局默认首页。
+
+恢复某次修改时先读取当前线上对象，再依据该次写前快照恢复本次拥有的筛选和显示字段；只处理本轮创建的收藏或视图，保留后续用户编辑。脚本没有自动删除或整批回滚入口。原生界面剩余核验与知识浏览仍由 YYH-12 跟踪。
+
+官方参考：[Linear MCP](https://linear.app/docs/mcp)、[GraphQL API](https://linear.app/developers/graphql)、[公开 Schema](https://github.com/linear/linear/blob/master/packages/sdk/src/schema.graphql)、[文档](https://linear.app/docs/documents)、[视图](https://linear.app/docs/custom-views)、[显示选项](https://linear.app/docs/display-options)、[Codex MCP 配置](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)。
 
 ## 新会话入口与技能维护
 

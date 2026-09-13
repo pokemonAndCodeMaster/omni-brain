@@ -1,0 +1,7 @@
+{
+  "favorites_lost_response_recovery_identity_and_order": "pass in fake, unrelated favorite unchanged",
+  "second_apply_no_mutation": "pass in fake",
+  "unowned_false_empty_nested_values": "pass in strict projection fake",
+  "deprecated_unowned_projectGroupOrdering_preserved": "fail: absent after preference replacement",
+  "all_preferences_selection": "layout issueGrouping viewOrdering viewOrderingDirection fieldId fieldStatus fieldPriority fieldProject fieldLabels showCompletedIssues showSubIssues fieldAssignee hiddenGroupsList projectLabelGroupColumns {id active}"
+}

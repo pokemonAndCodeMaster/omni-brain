@@ -1,0 +1,55 @@
+{
+  "result": "pass_for_offline_strict_projection",
+  "source_sha256": "3c86f69b73498a95a548938f268dda1a91e9dbe7068dda89f5c9c20715720173",
+  "schema_sha256": "a40587082cc4adc62d0daf7458c5a04db25ac3062cedce92c727fd08b5c4f0f5",
+  "exposed_preference_fields": 248,
+  "unowned_fields_preserved": 238,
+  "deprecated_fields_preserved": [
+    "focusViewGrouping",
+    "focusViewOrdering",
+    "focusViewOrderingDirection",
+    "projectGroupOrdering",
+    "projectZoomLevel"
+  ],
+  "false_preserved": false,
+  "empty_list_preserved": [],
+  "nested_object_arrays_preserved": {
+    "projectLabelGroupColumns": [
+      {
+        "active": false,
+        "id": "preserve-id"
+      },
+      {
+        "active": false,
+        "id": "second-projectLabelGroupColumns"
+      }
+    ],
+    "initiativeLabelGroupColumns": [
+      {
+        "active": false,
+        "id": "preserve-id"
+      },
+      {
+        "active": false,
+        "id": "second-initiativeLabelGroupColumns"
+      }
+    ]
+  },
+  "introspection_shapes": [
+    [
+      "ViewPreferencesValues",
+      true
+    ],
+    [
+      "ViewPreferencesInitiativeLabelGroupColumn",
+      true
+    ],
+    [
+      "ViewPreferencesProjectLabelGroupColumn",
+      true
+    ]
+  ],
+  "preference_write_count_after_second_run": 1,
+  "real_api": "not_proven",
+  "browser": "not_proven"
+}

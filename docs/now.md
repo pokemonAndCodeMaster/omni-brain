@@ -8,7 +8,7 @@
 
 [工作台项目](https://linear.app/yyhpokemonmaster/project/个人工作台日常使用与持续推进-a2184ae8c325)的 Overview 查看当前能力、操作例子和缺口，Issues 查看建设进度。
 日常跨领域选事使用 My issues 或原生 Views；[原入口文档](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)保留操作说明、资料链接和 Agent 接续约定。
-2026-09-13 根据实际使用反馈重新打开 YYH-12：文档目录与离线页的交付不代表原生日常界面完成。领域、事项类型两组标签已整理，五个场景视图的筛选与核对样例见[视图方案](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)；当前工具不能保存原生 Views、收藏与默认页，尚未执行。
+2026-09-13 已通过官方 API 保存五个原生场景视图并按约定排序收藏，直接打开[现在推进](https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3)；其余链接与条件见[日常视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)。筛选和实际命中已核对，重复执行保留身份；项目、标签显示列及默认首页尚未完成页面核验，知识浏览体验继续完善，YYH-12 保持进行中。维护命令见 [README](linear-workbench/README.md)。
 本地全文阅读页位于 `.derived/personal-workbench/index.html`，生成与使用见 [说明](linear-workbench/README.md)。
 本机全局 Codex 入口已完成另一项目新会话的无编号读取与普通问答反例验证；非交互写回测试受工具审批策略阻止，YYH-11 继续跟踪。
 上下文材料与来源变化检查、文档发布和完整目录已验证。具体结果与适用范围见
