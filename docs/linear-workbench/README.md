@@ -1,6 +1,6 @@
 # 个人 Linear 工作台
 
-打开[个人工作台](https://linear.app/yyhpokemonmaster/document/个人工作台每日安排与正文维护-abed03cc1da2)安排工作；打开[知识与成果](https://linear.app/yyhpokemonmaster/document/个人工作台知识与成果-736bd2d7d4bb)阅读材料。这次配置在 [YYH-9](https://linear.app/yyhpokemonmaster/issue/YYH-9) 接续。
+日常安排工作从 Linear 左侧 My issues 或 Views 进入；打开[工作台项目](https://linear.app/yyhpokemonmaster/project/个人工作台日常使用与持续推进-a2184ae8c325)的 Overview 看当前能力与用法，Issues 看建设进度。[原入口文档](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)保留操作说明与 Agent 接续约定；[知识与成果](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)提供材料目录。原生场景界面继续在 [YYH-12](https://linear.app/yyhpokemonmaster/issue/YYH-12) 推进，连接与发布见 YYH-9。
 
 在本仓库对 Codex 说：
 
@@ -75,7 +75,9 @@ python scripts/linear_workbench.py plan --key local-guide \
 
 ## 界面配置
 
-已经提供的入口：Linear 原生[工作台首页](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)、[完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)、[知识与代码阅读路线](https://linear.app/yyhpokemonmaster/document/43d261329834)。本地另有可搜索全文、按场景和领域浏览的单文件阅读页，生成与交互见 [reader.md](reader.md)。
+工作台建设情况在项目 Overview 维护，日常选事应使用原生事项界面。YYH-12 已因日常界面未达到预期重新打开。已有“领域”标签组（工作台、金铲铲、Omni-Brain）和“事项类型”标签组（想法、需求、任务），可用 O 再 L 打开标签视图；状态、项目和优先级继续使用原生字段。
+
+已经提供的资料入口：[操作说明与 Agent 约定](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)、[完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)、[知识与代码阅读路线](https://linear.app/yyhpokemonmaster/document/43d261329834)。文档不能按 Issue 标签进入 Custom Views；标题前缀不是可筛选属性。本地另有可搜索全文、按场景和领域浏览的单文件阅读页，生成与交互见 [reader.md](reader.md)。
 
 ```bash
 python scripts/render_personal_workbench.py --local-index config/personal-workbench-assets.json
@@ -91,7 +93,7 @@ python scripts/linear_workbench.py directory --inventory .derived/linear/directo
 
 命令只更新知识入口的“全部 Linear 文档”段，保留领域阅读路线。所有可访问挂载位置都应纳入；来源缺少字段、仍有下一页或重复身份会拒绝更新。它没有向 Linear 保存自定义视图、收藏或默认首页。
 
-日常场景和可选的界面设置见[入口与阅读视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)。当前 MCP 无自定义视图、收藏、模板和默认首页写操作；这些个人界面设置尚未改变，不影响上面的页面与目录直接使用。
+五个场景视图的实际筛选条件、布局与当前核对样例见[入口与阅读视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)。该文档在线维护，不复制一套本地方案。当前 MCP 没有保存自定义视图、收藏和默认首页的工具；尚未配置或验证，不能把说明文档、本地快照或固定事项链接算作动态视图已交付。
 
 官方参考：[Linear MCP](https://linear.app/docs/mcp)、[文档](https://linear.app/docs/documents)、[视图](https://linear.app/docs/custom-views)、[显示选项](https://linear.app/docs/display-options)、[Codex MCP 配置](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)。
 

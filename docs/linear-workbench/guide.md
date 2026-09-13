@@ -1,6 +1,8 @@
 # 本地接续与文档联动
 
-打开[个人工作台｜开始工作](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)选择要推进的事；想读材料时，从[完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)找原文，或从[已有知识与能力](https://linear.app/yyhpokemonmaster/document/43d261329834)选择阅读路线。资料可以直接浏览，不必先找到某条旧事项。
+日常选择要推进的事，从 Linear 左侧 My issues 或 Views 进入。想看工作台做到哪里、能做什么，打开[工作台项目](https://linear.app/yyhpokemonmaster/project/个人工作台日常使用与持续推进-a2184ae8c325)的 Overview；Issues 查看建设进度。[原入口文档](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)保留操作说明与 Agent 接续约定。想读材料时，从[完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)找原文，或从[已有知识与能力](https://linear.app/yyhpokemonmaster/document/43d261329834)选择阅读路线。
+
+事项已按领域与想法、需求、任务归类；原生场景视图尚未保存，具体条件见[视图方案](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)。YYH-12 已因日常界面未达到预期重新打开，文档导航与离线阅读页不代表这项体验已经完成。资料仍可直接浏览，不必依附某条未完成事项。
 
 你可以用 Codex，或用具备 Linear 工具的 ChatGPT，接着同一件事讨论和执行。下一次工作的依据是事项当前正文、采用的方案和成果链接。想法怎样澄清、工作怎样拆分、如何审阅和改进技能，统一见[共同工作方法](https://linear.app/yyhpokemonmaster/document/cf8fc80d7255)；本页只说明入口和文档联动。
 

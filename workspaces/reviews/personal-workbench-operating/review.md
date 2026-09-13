@@ -1,10 +1,13 @@
 # 个人工作台交付说明
 
-这次把“想法能继续、材料能找到、AI 做过什么能看懂”变成了一组可以直接使用的入口。此前失败的根因是先整理内部概念、没有定义具体结果，又把写材料与活动记录当成进度；本次按真实使用动作核对，事项正文只说明目标、结果、证据和下一步。
+已交付事项接续、文档发布与全文阅读的可用部分；原生的日常工作界面仍未完成。2026-09-13 的用户反馈指出：文档入口不适合日常选事，缺少可筛选分类，也看不清工作台能做什么。此前把目录和离线阅读页的技术验证当成界面交付完成，验收范围判断错误，YYH-12 已重新打开。
+
+本轮将现有领域标签归入“领域”，新增“事项类型”分组并为真实事项标记想法、需求或任务；保留原标签 ID、其他标签与进度状态。工作台项目 Overview 已改成能力、可用范围和操作例子的总览；原入口文档保留说明与 Agent 约定。[日常视图方案](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)明确五个原生视图的筛选与核对样例，以及文档不能直接参加 Issue View 标签筛选的边界。方案在线原位维护，不另建报告副本。
 
 ## 从哪里使用
 
-[Linear 首页](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)可以记想法、选事、进入资料。
+日常跨领域工作从 My issues 或 Views 进入；按 O 再 L 可以立即按领域或类型打开原生标签视图。五个自定义场景视图仍未保存，当前工具缺少相应操作和已登录浏览器控制。
+[工作台项目](https://linear.app/yyhpokemonmaster/project/个人工作台日常使用与持续推进-a2184ae8c325)的 Overview 看现在能做什么和怎样用，Issues 看建设进度；[原入口文档](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)保留使用说明和 Agent 接续约定。
 [完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)覆盖当前可访问的团队、事项和项目文档；[已有知识与能力](https://linear.app/yyhpokemonmaster/document/43d261329834)按金铲铲、质检、共作、技能和历史实验进入原文。
 本地浏览器打开 `.derived/personal-workbench/index.html`，可以搜索中文全文、按场景与领域选择，在同一页阅读并复制接续口令。生成和更新见 [README](../../../docs/linear-workbench/README.md)。
 也可以直接从 [YYH-12 附件](https://linear.app/yyhpokemonmaster/issue/YYH-12)下载 HTML 后打开；上传后重新下载，1,344,326 字节与 SHA-256 均一致。最终快照通过真实桌面和手机浏览，[最终页面证据](../../../eval/trials/integrations/PERSONAL_WORKBENCH_20260912/personal-workbench/final-browser-check.json)记录对应文件指纹。
@@ -28,6 +31,8 @@
 系统默认 Python 没有 pytest，工作台使用其 stdlib unittest 入口；这不是忽略失败测试。
 
 ## 明确未完成的范围
+
+YYH-12 的原生场景视图尚未创建与验证；知识分类也不能通过给文档标题加前缀或借用 Issue 标签来冒充原生功能。已有离线 HTML 保留为其抓取时的历史快照，包含旧状态；它的浏览器验证不证明现在的 Linear 界面符合用户预期。本轮仅改变事项标签、状态、项目总览与说明，已进行线上保存回读；没有把内容回读当成人工界面验收。
 
 新的非交互 Codex 会话读取成功，但 save_document 被工具审批要求拒绝（该次 codex exec 为 read-only、审批策略 never）；失败后完整回读确认未写入。[失败与读取证据](../../../eval/trials/integrations/PERSONAL_WORKBENCH_20260912/codex-entry/write-evidence.json)。没有修改安全配置来绕过拒绝。YYH-11 保持 In Progress，交互式正常审批下的新会话写回仍需验证；本会话已有写入成功不替代这一结果。
 
