@@ -2,9 +2,9 @@
 
 日常选择要推进的事，从 Linear 左侧 My issues 或 Views 进入。想看工作台做到哪里、能做什么，打开[工作台项目](https://linear.app/yyhpokemonmaster/project/个人工作台日常使用与持续推进-a2184ae8c325)的 Overview；Issues 查看建设进度。[原入口文档](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)保留操作说明与 Agent 接续约定。想读材料时，从[完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)找原文，或从[已有知识与能力](https://linear.app/yyhpokemonmaster/document/43d261329834)选择阅读路线。
 
-事项已按领域与想法、需求、任务归类。五个原生场景视图已经保存并加入你的收藏，可以直接打开[现在推进](https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3)；其余入口与筛选规则见[日常视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)。筛选和实际命中已回读验证；项目、标签两列的显示与默认首页尚未完成页面核验，YYH-12 继续跟踪。资料仍可直接浏览，不必依附某条未完成事项。
+事项已按领域与想法、需求、任务归类。侧栏收简为三个入口：领域总览、工作阶段、优先级与计划；四个常用筛选仍在 Views 保留。打开[日常视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)查看真实链接与用法。四象限已提供标签选项，按周排期使用 Cycle，真实完成期限使用 Due date。筛选、成员和收藏已验证；项目、标签显示列和原生页面交互仍未通过核验，YYH-12 继续跟踪。资料可独立浏览。
 
-需要维护这些视图时，可以对本地 Codex 说“检查并维护 YYH-12 的五个原生视图，保留已有身份，保存后核对实际事项”。本机已配置单独的官方 API 凭据，具体命令只在仓库 `docs/linear-workbench/README.md` 维护。当前 ChatGPT 的 Linear 工具没有 View 操作；能读写事项并不等于能自动改全部界面设置。
+需要维护时对本地 Codex 说“继续 YYH-12，维护三个主入口和已有快捷视图，保留身份并核对实际事项”。本机已配置单独的官方 API 凭据，具体命令维护在仓库 `docs/linear-workbench/README.md`。不要恢复旧的五个顶层收藏或新增组合视图。当前 ChatGPT 工具没有 View 操作，仍可读取事项与当前用法。
 
 你可以用 Codex，或用具备 Linear 工具的 ChatGPT，接着同一件事讨论和执行。下一次工作的依据是事项当前正文、采用的方案和成果链接。想法怎样澄清、工作怎样拆分、如何审阅和改进技能，统一见[共同工作方法](https://linear.app/yyhpokemonmaster/document/cf8fc80d7255)；本页只说明入口和文档联动。
 

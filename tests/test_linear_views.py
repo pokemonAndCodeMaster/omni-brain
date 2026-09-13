@@ -66,6 +66,12 @@ class FakeClient:
                                    'owner': {'id': app.USER},
                                    'url': 'https://linear.app/' + app.WORKSPACE + '/view/' + data['customViewId']})
             return {'favoriteCreate': {'success': True}}
+        if 'favoriteDelete(' in query:
+            self.favorites = [f for f in self.favorites if f['id'] != variables['id']]
+            return {'favoriteDelete': {'success': True}}
+        if 'customViewUpdate(' in query:
+            self.views[variables['id']].update(variables['input'])
+            return {'customViewUpdate': {'success': True, 'customView': {'id': variables['id']}}}
         if 'favoriteUpdate(' in query:
             target = next(f for f in self.favorites if f['id'] == variables['id'])
             target['sortOrder'] = variables['input']['sortOrder']
@@ -80,7 +86,7 @@ class FakeClient:
 
 class ViewTests(unittest.TestCase):
     def specs(self):
-        return app.definitions({'想法': 'idea-label', '需求': 'requirement-label', '任务': 'task-label'})
+        return app.definitions({'想法': 'idea-label', '需求': 'requirement-label', '任务': 'task-label', '领域': 'domain-group', '四象限': 'quadrant-group'})
 
     def test_lost_response_recovers_existing_identity_without_duplicate(self):
         fake = FakeClient()
@@ -89,13 +95,13 @@ class ViewTests(unittest.TestCase):
             state = Path(tmp) / 'state.json'
             with self.assertRaises(app.ViewError):
                 app.apply_views(fake, app.plan_views(self.specs()[:1], []), state)
-            saved_id = json.loads(state.read_text())['createIds']['现在推进']
+            saved_id = json.loads(state.read_text())['createIds']['领域总览']
             plan = app.plan_views(self.specs()[:1], list(fake.views.values()))
             saved = app.apply_views(fake, plan, state)
             self.assertEqual(saved[0]['id'], saved_id)
             self.assertEqual(len(fake.creates), 1)
 
-    def test_five_views_idempotent_and_favorites_reordered_without_recreation(self):
+    def test_three_entries_and_four_shortcuts_idempotent_and_favorites_reordered_without_recreation(self):
         fake = FakeClient()
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'state.json'
@@ -108,16 +114,16 @@ class ViewTests(unittest.TestCase):
             plan = app.plan_views(self.specs(), list(fake.views.values()))
             views = app.apply_views(fake, plan, path)
             favorites = app.ensure_favorites(fake, views)
-            self.assertEqual(len(fake.creates), 5)
+            self.assertEqual(len(fake.creates), 7)
             self.assertEqual([f['id'] for f in favorites], ids)
             self.assertTrue(all(f['parent'] is None for f in favorites))
             self.assertEqual([f['customView']['id'] for f in sorted(favorites, key=lambda f: f['sortOrder'])],
-                             [v['id'] for v in views])
+                             [v['id'] for v in views if v['name'] in app.PRIMARY_VIEWS])
 
     def test_scope_and_collision_refused_before_mutation(self):
         spec = self.specs()[0]
         old = {'id': 'existing', 'name': spec['name'], 'owner': {'id': app.USER},
-               'modelName': 'Issue', 'team': None, 'archivedAt': None, 'filterData': spec['filterData']}
+               'modelName': 'Issue', 'team': None, 'archivedAt': None, 'filterData': spec['filterData'], 'description': spec['description']}
         self.assertEqual(app.plan_views([spec], [old])[0]['action'], 'noop')
         with self.assertRaises(app.ViewError):
             app.plan_views([spec], [old, dict(old, id='duplicate')])
@@ -125,6 +131,45 @@ class ViewTests(unittest.TestCase):
                         {'team': {'id': 'other-team'}}, {'archivedAt': 'yesterday'}]:
             with self.assertRaises(app.ViewError):
                 app.plan_views([spec], [{**old, **changes}])
+
+    def test_stage_view_rename_keeps_identity_and_rejects_alias_collision(self):
+        fake = FakeClient()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'state.json'
+            spec = next(s for s in self.specs() if s['name'] == '工作阶段')
+            old_spec = copy.deepcopy(spec)
+            old_spec['name'] = '现在推进'
+            old_spec['filterData']['state'] = {'name': {'in': ['Todo', 'In Progress']}}
+            before = app.apply_views(fake, app.plan_views([old_spec], []), path)[0]
+            plan = app.plan_views([spec], list(fake.views.values()))
+            self.assertEqual(plan[0]['action'], 'update')
+            saved = app.apply_views(fake, plan, path)[0]
+            self.assertEqual(saved['id'], before['id'])
+            self.assertEqual(saved['name'], '工作阶段')
+            self.assertEqual(len(fake.creates), 1)
+            with self.assertRaises(app.ViewError):
+                app.plan_views([spec], [saved, {**before, 'id': 'legacy-duplicate'}])
+
+    def test_secondary_favorites_removed_but_views_and_unrelated_favorites_kept(self):
+        fake = FakeClient()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'state.json'
+            views = app.apply_views(fake, app.plan_views(self.specs(), []), path)
+            for view in views:
+                fake('mutation {favoriteCreate(input:$input){success}}',
+                     {'input': {'customViewId': view['id'], 'sortOrder': 10}})
+            unrelated = {'id': 'personal-link', 'customView': None, 'parent': None,
+                         'owner': {'id': app.USER}, 'sortOrder': -8000}
+            fake.favorites.append(copy.deepcopy(unrelated))
+            primary_ids = {f['id'] for f in fake.favorites if f.get('customView') and
+                           fake.views[f['customView']['id']]['name'] in app.PRIMARY_VIEWS}
+            app.ensure_favorites(fake, views)
+            first = copy.deepcopy(fake.favorites)
+            app.ensure_favorites(fake, views)
+            self.assertEqual(first, fake.favorites)
+            self.assertEqual(len(fake.views), 7)
+            self.assertEqual({f['id'] for f in fake.favorites}, primary_ids | {'personal-link'})
+            self.assertIn(unrelated, fake.favorites)
 
     def test_views_changed_since_plan_are_not_overwritten(self):
         fake = FakeClient()
@@ -144,14 +189,14 @@ class ViewTests(unittest.TestCase):
             view = next(iter(fake.views.values()))
             view['userViewPreferences']['preferences'].update(
                 layout='board', fieldAssignee=False, viewOrderingDirection='descending',
-                fieldCycle=None, projectGroupOrdering='name')
+                fieldEstimate=None, projectGroupOrdering='name')
             plan = app.plan_views(self.specs()[:1], copy.deepcopy(list(fake.views.values())))
             saved = app.apply_views(fake, plan, path)[0]['userViewPreferences']['preferences']
             self.assertEqual(saved['layout'], 'list')
             self.assertIs(saved['fieldAssignee'], False)
             self.assertEqual(saved['viewOrderingDirection'], 'descending')
             self.assertEqual(saved['projectGroupOrdering'], 'name')
-            self.assertNotIn('fieldCycle', saved)  # Null means unset, not an owned value.
+            self.assertNotIn('fieldEstimate', saved)  # Null means unset, not an owned value.
 
     def test_membership_distinguishes_idea_backlog_review_and_actual_completion(self):
         now = datetime(2026, 9, 13, tzinfo=timezone.utc)
@@ -167,7 +212,8 @@ class ViewTests(unittest.TestCase):
                   issue('recent', 'Done', 'completed', ['任务'], 14),
                   issue('old-edited-today', 'Done', 'completed', ['任务'], 15),
                   issue('duplicate-idea', 'Duplicate', 'duplicate', ['想法'])]
-        self.assertEqual(app.local_membership(issues, '现在推进', now), {'idea'})
+        for name in app.PRIMARY_VIEWS:
+            self.assertEqual(app.local_membership(issues, name, now), {'idea', 'later', 'review'})
         self.assertEqual(app.local_membership(issues, '等我确认', now), {'review'})
         self.assertEqual(app.local_membership(issues, '想法待澄清', now), {'idea'})
         self.assertEqual(app.local_membership(issues, '以后安排', now), {'later'})

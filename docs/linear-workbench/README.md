@@ -93,9 +93,13 @@ python scripts/linear_workbench.py directory --inventory .derived/linear/directo
 
 命令只更新知识入口的“全部 Linear 文档”段，保留领域阅读路线。所有可访问挂载位置都应纳入；来源缺少字段、仍有下一页或重复身份会拒绝更新。它没有向 Linear 保存自定义视图、收藏或默认首页。
 
-五个场景视图已于 2026-09-13 通过官方 API 保存，并按“现在推进、等我确认、想法待澄清、以后安排、近期成果”的顺序加入本人侧栏收藏。直接打开[现在推进](https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3)；其余链接、筛选和显示规则在[入口与阅读视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)原位维护。
+日常侧栏已收简为三个入口：[领域总览](https://linear.app/yyhpokemonmaster/view/31f2c0ec-56c6-44ca-99b3-65a04f666e7f)、[工作阶段](https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3)、[优先级与计划](https://linear.app/yyhpokemonmaster/view/5342c3bf-41e8-4c87-878d-ecba161e03d4)。原“现在推进”原位改为“工作阶段”，覆盖全部未完成状态。想法、待确认、以后安排、近期成果四个旧视图保留在 Views，移出顶层收藏；不新增领域×阶段的组合视图。
 
-当前 MCP 仍没有 View 操作；本仓的 `scripts/linear_views.py` 补充调用官方 GraphQL API 的能力。它只维护 YYH 团队中分配给本人的这五个个人事项视图，跨项目和领域，不处理文档视图。凭据与 MCP 登录分开：默认读取本机 `~/.config/omni-brain/linear-api-key`（普通文件，权限 600，拒绝符号链接）；也接受明确提供的 `LINEAR_API_KEY`、`LINEAR_ACCESS_TOKEN` 或 `LINEAR_API_KEY_FILE`。不要把密钥写进命令、聊天、文档或 Git；不会读取 Codex MCP 凭据来尝试复用授权。
+所有入口保存为平铺列表、单层分组，包含子事项，关闭二次分组与默认父子嵌套。领域总览及四个快捷视图按领域标签组分组，工作阶段按原生状态分组，优先级与计划按四象限标签组分组并按截止日排序。显示请求包含编号、状态、优先级、项目、标签、周期和截止日。
+
+四象限标签只表达重要性与紧急性的判断；没有标签表示未评估，不映射为低优先级。YYH 已启用一周一个 Cycle、周一开始、上海时区；Cycle 表示准备哪周做，Due date 表示真实期限。自动纳入开始/完成事项和强制活跃事项属于周期均关闭。当前十二条未完成事项没有被添加周期、截止日或四象限判断。已加入周期的未完成事项会按 Linear 原生规则滚动进入下一周期。
+
+维护工具 `scripts/linear_views.py` 只处理本工作区、YYH 团队、负责人为你的七个个人事项视图和三个顶层收藏。凭据默认读取 `~/.config/omni-brain/linear-api-key`，普通文件权限 600，拒绝符号链接；也接受明确的 `LINEAR_API_KEY`、`LINEAR_ACCESS_TOKEN`、`LINEAR_API_KEY_FILE`。不读取 Codex MCP 凭据。不要把密钥写进命令、聊天、文档或 Git。
 
 ```bash
 python scripts/linear_views.py plan
@@ -103,13 +107,17 @@ python scripts/linear_views.py apply
 python scripts/linear_views.py verify
 ```
 
-`plan` 只读，检查当前账号、团队标签和工作区级同名视图，报告筛选条件的创建、更新或无变化；它不是显示偏好与收藏的完整预览。`apply` 会重新读取当前状态，保存筛选和本方案拥有的显示字段，并把五个收藏放在顶层最前面；保留已有视图及收藏 ID、可读取的其他偏好与无关收藏。同名冲突或计划后的变化会停止，不自动合并或删旧对象。串行运行，勿让多个执行器同时配置这组视图。
+`plan` 检查身份、现有标签和同名视图，预览筛选、名称和说明差异；不预览全部显示及收藏变动。`apply` 原位更新同名对象，识别“现在推进”旧名以保留身份，只将三个主入口放到顶层最前面，移除本方案四个快捷视图的收藏而保留 View；无关收藏、可读取的其他偏好保持不变。同名或新旧名碰撞、写前对象变化会停止，不自动合并。串行运行配置器，写入结果未知时先重读，避免重复创建。
 
-`verify` 回读保存的条件，并将 View 实际命中与团队本人事项的独立判断对账，检查收藏身份与顺序。最近成果按实际完成时间的滚动 14 天筛选。每次计划、写前快照与回读证据保存到被忽略的 `.derived/linear/native-views/`；写响应丢失时不自动重试，先重新运行 `plan` 读取实际对象，避免重复创建。读取连接中断最多重试三次。
+领域、事项类型和四象限标签组是配置的前提；首次四象限与周期设置已完成并留存写前/写后证据，日常 `apply` 不反复改团队周期、不替事项分配象限或日期。周期设置从 Team settings → Cycles 调整，四象限标签从 YYH Labels 调整。
 
-本次筛选、实际命中、收藏与顺序已验证。列表布局、分组、排序和编号、状态、优先级回读一致；项目、标签两列的保存值为显示，但最终显示值为隐藏，报告以 `effectivePreferencesVerified:false` 和具体差异保留。退出码 0 表示检查已完成，不代表所有界面条件均通过，须同时读这些结果字段。默认首页未设置，原生浏览器未核验；可在 Settings → Account → Preferences → Default home view 选择已收藏的“现在推进”。没有修改工作区全局默认首页。
+`verify` 回读筛选与真实成员，并用团队本人事项独立判断对账；近期成果按实际完成日期的滚动十四天窗口。核对三个顶层收藏顺序、四个快捷视图未占用收藏、保存偏好和有效偏好的差异。运行记录保存在忽略提交的 `.derived/linear/`。返回 0 只表示检查完成，必须同时阅读 `effectivePreferencesVerified` 和 `uiVerified`，不能据退出码宣布界面通过。
 
-恢复某次修改时先读取当前线上对象，再依据该次写前快照恢复本次拥有的筛选和显示字段；只处理本轮创建的收藏或视图，保留后续用户编辑。脚本没有自动删除或整批回滚入口。原生界面剩余核验与知识浏览仍由 YYH-12 跟踪。
+2026-09-13 简化后的筛选、成员和收藏核对通过；三个主入口各十二条，四个快捷视图分别待确认零条、想法一条、以后安排一条、近期成果五条。十二项测试通过，涵盖旧名迁移、身份恢复、精简收藏与保留无关收藏等。可复核结果见 [本轮证据](../../eval/trials/integrations/LINEAR_SIMPLE_VIEWS_20260913/README.md)。
+
+**未通过：** 项目、标签保存为显示但有效设置仍为隐藏；其余本次请求字段回读一致。分组与平铺属性是字符串，API 原样回读不能替代客户端解释及点击验证。没有已登录浏览器控制，尚未核验实际折叠、行内信息和个人默认首页。不得声称“每行已显示其他维度”。可在个人 Preferences 的 Default home view 选择主入口；脚本未设置个人或工作区默认首页。
+
+回滚先读当前线上对象，再依据写前快照恢复本次拥有的名称、说明、筛选及显示字段，保留后续用户修改；旧视图未删除，快捷收藏可重新添加。恢复团队周期前先检查有无新增安排：禁用 Cycles 会结束当前周期并移除未来周期，不应盲目执行。没有自动整批回滚命令。详细用法继续原位维护在[日常入口与阅读视图](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)，YYH-12 保持进行中。
 
 官方参考：[Linear MCP](https://linear.app/docs/mcp)、[GraphQL API](https://linear.app/developers/graphql)、[公开 Schema](https://github.com/linear/linear/blob/master/packages/sdk/src/schema.graphql)、[文档](https://linear.app/docs/documents)、[视图](https://linear.app/docs/custom-views)、[显示选项](https://linear.app/docs/display-options)、[Codex MCP 配置](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)。
 

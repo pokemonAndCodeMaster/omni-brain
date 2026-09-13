@@ -1,0 +1,344 @@
+{
+  "verifiedAt": "2026-09-13T06:30:20.008770+00:00",
+  "views": [
+    {
+      "name": "领域总览",
+      "id": "31f2c0ec-56c6-44ca-99b3-65a04f666e7f",
+      "url": "https://linear.app/yyhpokemonmaster/view/31f2c0ec-56c6-44ca-99b3-65a04f666e7f",
+      "issues": [
+        "YYH-11",
+        "YYH-12",
+        "YYH-16",
+        "YYH-17",
+        "YYH-18",
+        "YYH-19",
+        "YYH-20",
+        "YYH-21",
+        "YYH-22",
+        "YYH-5",
+        "YYH-7",
+        "YYH-8"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": "80606bbf-31a2-4d30-b2e2-cc24931468f1",
+      "sortOrder": -3000,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "labelGroup",
+        "viewOrdering": "priority",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "fieldDueDate": true,
+        "fieldCycle": true,
+        "issueGroupingLabelGroupId": "fb576b37-570a-40f5-a403-4b7bdf0ef11b",
+        "issueSubGrouping": "none",
+        "issueNesting": "none",
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "工作阶段",
+      "id": "5e7379f4-e21d-4272-8869-1efaa4f4cdd3",
+      "url": "https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3",
+      "issues": [
+        "YYH-11",
+        "YYH-12",
+        "YYH-16",
+        "YYH-17",
+        "YYH-18",
+        "YYH-19",
+        "YYH-20",
+        "YYH-21",
+        "YYH-22",
+        "YYH-5",
+        "YYH-7",
+        "YYH-8"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": "05b8e1b7-a14e-4fae-8305-fe822beb9f21",
+      "sortOrder": -2000,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "workflowState",
+        "viewOrdering": "priority",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "fieldDueDate": true,
+        "fieldCycle": true,
+        "issueGroupingLabelGroupId": null,
+        "issueSubGrouping": "none",
+        "issueNesting": "none",
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "优先级与计划",
+      "id": "5342c3bf-41e8-4c87-878d-ecba161e03d4",
+      "url": "https://linear.app/yyhpokemonmaster/view/5342c3bf-41e8-4c87-878d-ecba161e03d4",
+      "issues": [
+        "YYH-11",
+        "YYH-12",
+        "YYH-16",
+        "YYH-17",
+        "YYH-18",
+        "YYH-19",
+        "YYH-20",
+        "YYH-21",
+        "YYH-22",
+        "YYH-5",
+        "YYH-7",
+        "YYH-8"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": "517d7c1e-574f-46f7-80f4-1dd9a5a5fe2c",
+      "sortOrder": -1000,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "labelGroup",
+        "viewOrdering": "dueDate",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "fieldDueDate": true,
+        "fieldCycle": true,
+        "issueGroupingLabelGroupId": "96e600b8-bc1b-4f5c-97c9-afbc168217b8",
+        "issueSubGrouping": "none",
+        "issueNesting": "none",
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "等我确认",
+      "id": "59475da9-d266-4b05-8c5a-55628ba5721d",
+      "url": "https://linear.app/yyhpokemonmaster/view/59475da9-d266-4b05-8c5a-55628ba5721d",
+      "issues": [],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": null,
+      "sortOrder": null,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "labelGroup",
+        "viewOrdering": "priority",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "fieldDueDate": true,
+        "fieldCycle": true,
+        "issueGroupingLabelGroupId": "fb576b37-570a-40f5-a403-4b7bdf0ef11b",
+        "issueSubGrouping": "none",
+        "issueNesting": "none",
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "想法待澄清",
+      "id": "0c0d11c3-9fd0-4e07-b76f-1938eb8c83af",
+      "url": "https://linear.app/yyhpokemonmaster/view/0c0d11c3-9fd0-4e07-b76f-1938eb8c83af",
+      "issues": [
+        "YYH-5"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": null,
+      "sortOrder": null,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "labelGroup",
+        "viewOrdering": "priority",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "fieldDueDate": true,
+        "fieldCycle": true,
+        "issueGroupingLabelGroupId": "fb576b37-570a-40f5-a403-4b7bdf0ef11b",
+        "issueSubGrouping": "none",
+        "issueNesting": "none",
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "以后安排",
+      "id": "753decfd-bfde-4197-badb-10ec20330471",
+      "url": "https://linear.app/yyhpokemonmaster/view/753decfd-bfde-4197-badb-10ec20330471",
+      "issues": [
+        "YYH-16"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": null,
+      "sortOrder": null,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "labelGroup",
+        "viewOrdering": "priority",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "fieldDueDate": true,
+        "fieldCycle": true,
+        "issueGroupingLabelGroupId": "fb576b37-570a-40f5-a403-4b7bdf0ef11b",
+        "issueSubGrouping": "none",
+        "issueNesting": "none",
+        "showCompletedIssues": "none",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    },
+    {
+      "name": "近期成果",
+      "id": "b514e43d-ceae-461e-aeee-e519de713d17",
+      "url": "https://linear.app/yyhpokemonmaster/view/b514e43d-ceae-461e-aeee-e519de713d17",
+      "issues": [
+        "YYH-10",
+        "YYH-13",
+        "YYH-14",
+        "YYH-15",
+        "YYH-9"
+      ],
+      "filterVerified": true,
+      "membershipVerified": true,
+      "favoriteId": null,
+      "sortOrder": null,
+      "preferences": {
+        "layout": "list",
+        "issueGrouping": "labelGroup",
+        "viewOrdering": "updatedAt",
+        "viewOrderingDirection": null,
+        "fieldId": true,
+        "fieldStatus": true,
+        "fieldPriority": true,
+        "fieldProject": false,
+        "fieldLabels": false,
+        "fieldDueDate": true,
+        "fieldCycle": true,
+        "issueGroupingLabelGroupId": "fb576b37-570a-40f5-a403-4b7bdf0ef11b",
+        "issueSubGrouping": "none",
+        "issueNesting": "none",
+        "showCompletedIssues": "all",
+        "showSubIssues": true
+      },
+      "storedPreferencesVerified": true,
+      "effectivePreferencesVerified": false,
+      "displayDifferences": {
+        "fieldProject": {
+          "requested": true,
+          "effective": false
+        },
+        "fieldLabels": {
+          "requested": true,
+          "effective": false
+        }
+      }
+    }
+  ],
+  "filtersAndMembershipVerified": true,
+  "favoritesAndOrderVerified": true,
+  "effectivePreferencesVerified": false,
+  "defaultHome": {
+    "changed": false,
+    "verified": false,
+    "reason": "Public UserSettings does not expose a readable personal default-home field."
+  },
+  "uiVerified": false,
+  "evidence": ".derived/linear/simple-views/20260913T062958Z-52c76097/verified.json"
+}

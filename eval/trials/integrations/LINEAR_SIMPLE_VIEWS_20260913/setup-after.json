@@ -1,0 +1,157 @@
+{
+  "team": {
+    "id": "4a838ade-2fd2-401f-860e-8926c3acf32c",
+    "cyclesEnabled": true,
+    "cycleDuration": 1,
+    "cycleStartDay": 1,
+    "cycleCooldownTime": 0,
+    "cycleIssueAutoAssignCompleted": false,
+    "cycleIssueAutoAssignStarted": false,
+    "cycleLockToActive": false,
+    "timezone": "Asia/Shanghai",
+    "cycles": {
+      "nodes": [
+        {
+          "id": "d7d021c6-0c01-4ef3-9343-7a55864743d4",
+          "name": null,
+          "startsAt": "2026-09-20T16:00:00.000Z",
+          "endsAt": "2026-09-27T16:00:00.000Z"
+        },
+        {
+          "id": "c5f9adea-fce3-4dfe-85ff-c5ab15208329",
+          "name": null,
+          "startsAt": "2026-09-13T16:00:00.000Z",
+          "endsAt": "2026-09-20T16:00:00.000Z"
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "c5f9adea-fce3-4dfe-85ff-c5ab15208329"
+      }
+    },
+    "labels": {
+      "nodes": [
+        {
+          "id": "6980ed03-7799-41b4-b089-8d010af94a5d",
+          "name": "不重要不紧急",
+          "isGroup": false,
+          "parent": {
+            "id": "96e600b8-bc1b-4f5c-97c9-afbc168217b8"
+          }
+        },
+        {
+          "id": "b0dd5cab-48ac-4c60-ac18-c3c2dcf8d32d",
+          "name": "不重要但紧急",
+          "isGroup": false,
+          "parent": {
+            "id": "96e600b8-bc1b-4f5c-97c9-afbc168217b8"
+          }
+        },
+        {
+          "id": "c38deb47-f562-4748-9235-696ad2652bac",
+          "name": "重要不紧急",
+          "isGroup": false,
+          "parent": {
+            "id": "96e600b8-bc1b-4f5c-97c9-afbc168217b8"
+          }
+        },
+        {
+          "id": "8220f515-632f-432a-a091-e99a0da7d9c4",
+          "name": "重要且紧急",
+          "isGroup": false,
+          "parent": {
+            "id": "96e600b8-bc1b-4f5c-97c9-afbc168217b8"
+          }
+        },
+        {
+          "id": "96e600b8-bc1b-4f5c-97c9-afbc168217b8",
+          "name": "四象限",
+          "isGroup": true,
+          "parent": null
+        },
+        {
+          "id": "6d2c3ff0-5721-4b1f-bbb6-f3b00b75aa36",
+          "name": "任务",
+          "isGroup": false,
+          "parent": {
+            "id": "2c2ec773-fee9-45d7-b16d-f37f18e7f01d"
+          }
+        },
+        {
+          "id": "8b7b6c78-e753-4a70-a340-946b6cbf080d",
+          "name": "需求",
+          "isGroup": false,
+          "parent": {
+            "id": "2c2ec773-fee9-45d7-b16d-f37f18e7f01d"
+          }
+        },
+        {
+          "id": "2c2ec773-fee9-45d7-b16d-f37f18e7f01d",
+          "name": "事项类型",
+          "isGroup": true,
+          "parent": null
+        },
+        {
+          "id": "fb576b37-570a-40f5-a403-4b7bdf0ef11b",
+          "name": "领域",
+          "isGroup": true,
+          "parent": null
+        },
+        {
+          "id": "b68518f1-b86f-4b93-8b06-272f9271d5ab",
+          "name": "想法",
+          "isGroup": false,
+          "parent": {
+            "id": "2c2ec773-fee9-45d7-b16d-f37f18e7f01d"
+          }
+        },
+        {
+          "id": "b71a8baa-a89c-44c7-aa76-91c3918bfaa7",
+          "name": "Omni-Brain",
+          "isGroup": false,
+          "parent": {
+            "id": "fb576b37-570a-40f5-a403-4b7bdf0ef11b"
+          }
+        },
+        {
+          "id": "282050b2-742c-48ae-8c90-cd22719c52e9",
+          "name": "工作台",
+          "isGroup": false,
+          "parent": {
+            "id": "fb576b37-570a-40f5-a403-4b7bdf0ef11b"
+          }
+        },
+        {
+          "id": "837d9c2e-afd6-4538-ae78-59cd4f1e35ce",
+          "name": "金铲铲",
+          "isGroup": false,
+          "parent": {
+            "id": "fb576b37-570a-40f5-a403-4b7bdf0ef11b"
+          }
+        },
+        {
+          "id": "ef7dc5f5-0934-4ea7-bdad-245ac6a09cfd",
+          "name": "Improvement",
+          "isGroup": false,
+          "parent": null
+        },
+        {
+          "id": "d6a7e264-a70d-4117-b361-86406ae7c60e",
+          "name": "Feature",
+          "isGroup": false,
+          "parent": null
+        },
+        {
+          "id": "8e766bea-81df-4364-a08e-fbedff382aa5",
+          "name": "Bug",
+          "isGroup": false,
+          "parent": null
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "8e766bea-81df-4364-a08e-fbedff382aa5"
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure the five personal Linear views through the official GraphQL API.
+"""Configure personal Linear views through the official GraphQL API.
 
 Credentials come only from explicit Linear environment variables or a private
 local key file. Codex MCP credentials are deliberately not used by this tool.
@@ -22,8 +22,9 @@ USER = 'f6bb509e-7703-4055-a83a-71530efe04c3'
 KEY_FILE = Path.home() / '.config/omni-brain/linear-api-key'
 PREF_FIELDS = ('layout issueGrouping viewOrdering viewOrderingDirection '
                'fieldId fieldStatus fieldPriority fieldProject fieldLabels '
+               'fieldDueDate fieldCycle issueGroupingLabelGroupId issueSubGrouping issueNesting '
                'showCompletedIssues showSubIssues')
-VIEW_FIELDS = ('''id name slugId updatedAt archivedAt modelName shared filterData
+VIEW_FIELDS = ('''id name description slugId updatedAt archivedAt modelName shared filterData
  owner { id } team { id } organization { id urlKey }
  userViewPreferences { id preferences { ''' + PREF_FIELDS + ''' } }
  viewPreferencesValues { ''' + PREF_FIELDS + ''' }''')
@@ -116,28 +117,37 @@ def pages(client, query, variables=None, path=('result',)):
         seen.add(cursor)
 
 
+PRIMARY_VIEWS = ('领域总览', '工作阶段', '优先级与计划')
+LEGACY_NAMES = {'工作阶段': '现在推进'}
+
+
 def definitions(label_ids):
     common = {'team': {'id': {'eq': TEAM}}, 'assignee': {'id': {'eq': USER}}}
+    opened = {'state': {'type': {'nin': ['completed', 'canceled', 'duplicate']}}}
     specs = [
-        ('现在推进', {'state': {'name': {'in': ['Todo', 'In Progress']}}}, 'status', 'priority',
-         '跨领域查看准备做和正在做的事情；打开事项查看当前目标、结果和下一步。'),
-        ('等我确认', {'state': {'name': {'eq': 'In Review'}}}, 'project', 'priority',
+        ('领域总览', opened, 'labelGroup', 'priority', '按领域浏览全部未完成工作；同一行查看类型、状态、优先级、计划周期和截止日。'),
+        ('工作阶段', opened, 'workflowState', 'priority', '按待安排、准备做、进行中、待确认查看全部未完成工作；用想法标签筛选需要继续讨论的事项。'),
+        ('优先级与计划', opened, 'labelGroup', 'dueDate', '按四象限安排投入；没有四象限标签表示未评估。周期表示准备何时做，截止日表示何时必须完成。'),
+        ('等我确认', {'state': {'name': {'eq': 'In Review'}}}, 'labelGroup', 'priority',
          '只放已有成果、确实需要本人判断的事项；没有待确认事项时保持为空。'),
         ('想法待澄清', {'labels': {'some': {'id': {'eq': label_ids['想法']}}},
                      'state': {'type': {'nin': ['completed', 'canceled', 'duplicate']}}},
-         'none', 'updatedAt', '保留想法、真实例子和未决问题，讨论清楚后再决定怎样投入。'),
+         'labelGroup', 'priority', '只看尚未完成的想法，按领域分组；同一行查看状态、优先级、计划周期和截止日。'),
         ('以后安排', {'state': {'name': {'eq': 'Backlog'}},
                     'labels': {'some': {'id': {'in': [label_ids['需求'], label_ids['任务']]}}}},
-         'project', 'priority', '已有目标或具体行动，但尚未安排；不混入尚待澄清的想法。'),
+         'labelGroup', 'priority', '已有目标或具体行动，但尚未安排；不混入尚待澄清的想法。'),
         ('近期成果', {'state': {'name': {'eq': 'Done'}}, 'completedAt': {'gte': '-P14D'}},
-         'project', 'updatedAt', '查看实际完成于最近十四天的成果；窗口随当前日期滚动。'),
+         'labelGroup', 'updatedAt', '查看实际完成于最近十四天的成果；窗口随当前日期滚动。'),
     ]
     result = []
     for name, filters, grouping, ordering, description in specs:
         prefs = {'layout': 'list', 'issueGrouping': grouping, 'viewOrdering': ordering,
                  'fieldId': True, 'fieldStatus': True, 'fieldPriority': True,
-                 'fieldProject': True, 'fieldLabels': True, 'showSubIssues': True,
+                 'fieldProject': True, 'fieldLabels': True, 'fieldDueDate': True, 'fieldCycle': True,
+                 'issueSubGrouping': 'none', 'issueNesting': 'none', 'showSubIssues': True,
                  'showCompletedIssues': 'all' if name == '近期成果' else 'none'}
+        if grouping == 'labelGroup':
+            prefs['issueGroupingLabelGroupId'] = label_ids['四象限' if name == '优先级与计划' else '领域']
         result.append({'name': name, 'description': description,
                        'filterData': {**copy.deepcopy(common), **filters}, 'preferences': prefs})
     return result
@@ -191,7 +201,7 @@ def snapshot(client):
         nodes { id name } pageInfo {hasNextPage endCursor}
       } }''', {'team': TEAM})
     label_ids = {}
-    for name in ['想法', '需求', '任务']:
+    for name in ['想法', '需求', '任务', '领域', '四象限']:
         matches = [label for label in labels if label['name'] == name]
         if len(matches) != 1:
             raise ViewError('Missing or ambiguous team label: ' + name)
@@ -202,14 +212,15 @@ def snapshot(client):
 def plan_views(specs, existing):
     plan = []
     for spec in specs:
-        matches = [v for v in existing if v['name'] == spec['name']]
+        matches = [v for v in existing if v['name'] in {spec['name'], LEGACY_NAMES.get(spec['name'])}]
         if len(matches) > 1:
             raise ViewError('Multiple same-name views; no automatic merge: ' + spec['name'])
         old = matches[0] if matches else None
         if old and (old['owner']['id'] != USER or old['modelName'] != 'Issue'
                     or old.get('archivedAt') or (old.get('team') and old['team']['id'] != TEAM)):
             raise ViewError('Existing same-name view has a different owner, scope or lifecycle: ' + spec['name'])
-        action = 'create' if old is None else ('noop' if old['filterData'] == spec['filterData'] else 'update')
+        action = 'create' if old is None else ('noop' if old['filterData'] == spec['filterData']
+                  and old['name'] == spec['name'] and old.get('description') == spec['description'] else 'update')
         plan.append({'name': spec['name'], 'action': action,
                      'id': old['id'] if old else None, 'before': old, 'spec': spec})
     return plan
@@ -251,7 +262,7 @@ def apply_views(client, plan, state_path):
         elif item['action'] == 'update':
             mutate(client, '''mutation UpdateView($id:String!, $input:CustomViewUpdateInput!) {
               customViewUpdate(id:$id,input:$input) {success customView{id}} }''',
-                   {'id': view_id, 'input': {'filterData': spec['filterData']}}, 'customViewUpdate')
+                   {'id': view_id, 'input': {'name': spec['name'], 'description': spec['description'], 'filterData': spec['filterData']}}, 'customViewUpdate')
         saved = get_view(client, view_id)
         if saved['filterData'] != spec['filterData']:
             raise ViewError('Saved filter does not match requested conditions: ' + spec['name'])
@@ -295,6 +306,13 @@ def ensure_favorites(client, views):
     if any(f['owner']['id'] != USER for f in favorites):
         raise ViewError('Favorite owner does not match the authenticated user.')
     targets = {view['id'] for view in views}
+    secondary = {view['id'] for view in views if view['name'] not in PRIMARY_VIEWS}
+    for favorite in favorites:
+        if (favorite.get('customView') or {}).get('id') in secondary:
+            mutate(client, 'mutation RemoveShortcut($id:String!){favoriteDelete(id:$id){success}}',
+                   {'id': favorite['id']}, 'favoriteDelete')
+    favorites = list_favorites(client)
+    views = [view for view in views if view['name'] in PRIMARY_VIEWS]
     other = [f for f in favorites if (f.get('customView') or {}).get('id') not in targets and not f.get('parent')]
     start = min([f['sortOrder'] for f in other] + [0]) - 1000 * len(views)
     for index, view in enumerate(views):
@@ -323,7 +341,7 @@ def local_membership(issues, name, now):
         labels = {v['name'] for v in issue['labels']['nodes']}
         closed = issue['state']['type'] in {'completed', 'canceled', 'duplicate'}
         match = (
-            (name == '现在推进' and state in {'Todo', 'In Progress'}) or
+            (name in PRIMARY_VIEWS and not closed) or
             (name == '等我确认' and state == 'In Review') or
             (name == '想法待澄清' and '想法' in labels and not closed) or
             (name == '以后安排' and state == 'Backlog' and bool(labels & {'需求', '任务'})) or
@@ -347,10 +365,11 @@ def verify(client, specs, favorites=None):
     now = datetime.now(timezone.utc)
     favorites = list_favorites(client) if favorites is None else favorites
     root_favorites = sorted([f for f in favorites if not f.get('parent')], key=lambda f: f['sortOrder'])
-    expected_order = [item['id'] for item in plan]
-    actual_order = [(f.get('customView') or {}).get('id') for f in root_favorites[:len(plan)]]
+    primary = [item for item in plan if item['name'] in PRIMARY_VIEWS]
+    expected_order = [item['id'] for item in primary]
+    actual_order = [(f.get('customView') or {}).get('id') for f in root_favorites[:len(primary)]]
     if actual_order != expected_order:
-        raise ViewError('The five views are not the first sidebar favorites in the requested order.')
+        raise ViewError('The three entry views are not the first sidebar favorites in the requested order.')
     results = []
     for item in plan:
         view, spec = item['before'], item['spec']
@@ -363,9 +382,12 @@ def verify(client, specs, favorites=None):
         if actual != expected:
             raise ViewError('Actual view membership differs for ' + spec['name'] + ': ' + repr(sorted(actual ^ expected)))
         favorite = [f for f in favorites if (f.get('customView') or {}).get('id') == view['id']]
-        if len(favorite) != 1 or favorite[0]['owner']['id'] != USER or favorite[0].get('parent'):
+        if spec['name'] in PRIMARY_VIEWS and (len(favorite) != 1 or favorite[0]['owner']['id'] != USER or favorite[0].get('parent')):
             raise ViewError('Sidebar favorite missing or ambiguous: ' + spec['name'])
-        if not isinstance(favorite[0].get('url'), str) or not favorite[0]['url'].startswith('https://linear.app/' + WORKSPACE + '/'):
+        if spec['name'] not in PRIMARY_VIEWS and favorite:
+            raise ViewError('Secondary shortcut still occupies sidebar: ' + spec['name'])
+        url = favorite[0]['url'] if favorite else 'https://linear.app/' + WORKSPACE + '/view/' + view['id']
+        if not isinstance(url, str) or not url.startswith('https://linear.app/' + WORKSPACE + '/'):
             raise ViewError('Favorite URL is absent or outside the expected workspace.')
         effective = view.get('viewPreferencesValues') or {}
         stored = (view.get('userViewPreferences') or {}).get('preferences') or {}
@@ -373,9 +395,9 @@ def verify(client, specs, favorites=None):
             raise ViewError('Stored display preferences changed: ' + spec['name'])
         differences = {k: {'requested': v, 'effective': effective.get(k)}
                        for k, v in spec['preferences'].items() if effective.get(k) != v}
-        results.append({'name': spec['name'], 'id': view['id'], 'url': favorite[0]['url'],
+        results.append({'name': spec['name'], 'id': view['id'], 'url': url,
                         'issues': sorted(actual), 'filterVerified': True, 'membershipVerified': True,
-                        'favoriteId': favorite[0]['id'], 'sortOrder': favorite[0]['sortOrder'],
+                        'favoriteId': favorite[0]['id'] if favorite else None, 'sortOrder': favorite[0]['sortOrder'] if favorite else None,
                         'preferences': effective, 'storedPreferencesVerified': True,
                         'effectivePreferencesVerified': not differences, 'displayDifferences': differences})
     return {'verifiedAt': now.isoformat(), 'views': results, 'filtersAndMembershipVerified': True,

@@ -1,12 +1,12 @@
 # 个人工作台交付说明
 
-五个原生 Linear 事项视图已保存并按约定顺序加入收藏，日常可以直接打开“现在推进”选事。API 回读核对了筛选、实际命中、收藏身份与顺序；项目、标签两列的显示值存在差异，默认首页和真实页面交互仍未核验，YYH-12 保持进行中。此前把目录和离线阅读页的技术验证当成原生界面完成，验收范围判断错误；本次按用户反馈补交实际 Views。
+日常侧栏已收简为领域总览、工作阶段、优先级与计划三个入口，四个旧快捷视图移出收藏但保留原链接。七个 View 的实际成员、三个收藏及顺序已验证；四象限标签与按周排期已配置。项目、标签有效显示仍为隐藏，原生浏览器交互未验收，YYH-12 保持进行中。具体新结果见[简化视图证据](../../../eval/trials/integrations/LINEAR_SIMPLE_VIEWS_20260913/README.md)。下方早期五视图记录保留其历史验证范围，当前配置以新证据和线上用法为准。
 
-本轮将现有领域标签归入“领域”，新增“事项类型”分组并为真实事项标记想法、需求或任务；保留原标签 ID、其他标签与进度状态。工作台项目 Overview 已改成能力、可用范围和操作例子的总览；原入口文档保留说明与 Agent 约定。[日常视图方案](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)明确五个原生视图的筛选与核对样例，以及文档不能直接参加 Issue View 标签筛选的边界。方案在线原位维护，不另建报告副本。
+本轮将现有领域标签归入“领域”，新增“事项类型”分组并为真实事项标记想法、需求或任务；保留原标签 ID、其他标签与进度状态。工作台项目 Overview 已改成能力、可用范围和操作例子的总览；原入口文档保留说明与 Agent 约定。[日常视图方案](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)维护当前三个主入口、四个快捷视图和核对结果，以及文档不能直接参加 Issue View 标签筛选的边界。方案在线原位维护，不另建报告副本。
 
 ## 从哪里使用
 
-从侧栏收藏或以下链接直接进入：[现在推进](https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3)、[等我确认](https://linear.app/yyhpokemonmaster/view/59475da9-d266-4b05-8c5a-55628ba5721d)、[想法待澄清](https://linear.app/yyhpokemonmaster/view/0c0d11c3-9fd0-4e07-b76f-1938eb8c83af)、[以后安排](https://linear.app/yyhpokemonmaster/view/753decfd-bfde-4197-badb-10ec20330471)、[近期成果](https://linear.app/yyhpokemonmaster/view/b514e43d-ceae-461e-aeee-e519de713d17)。均查看 YYH 团队分配给本人的事项，跨项目和领域；没有人为增加截止日或填充待审事项。
+从侧栏三个收藏进入：[领域总览](https://linear.app/yyhpokemonmaster/view/31f2c0ec-56c6-44ca-99b3-65a04f666e7f)、[工作阶段](https://linear.app/yyhpokemonmaster/view/5e7379f4-e21d-4272-8869-1efaa4f4cdd3)、[优先级与计划](https://linear.app/yyhpokemonmaster/view/5342c3bf-41e8-4c87-878d-ecba161e03d4)。想法、待确认、以后安排、近期成果四个快捷视图继续可从 Views 或[用法说明](https://linear.app/yyhpokemonmaster/document/a43b2877e7d9)打开。均查看 YYH 团队分配给本人的事项，跨项目和领域。
 [工作台项目](https://linear.app/yyhpokemonmaster/project/个人工作台日常使用与持续推进-a2184ae8c325)的 Overview 看现在能做什么和怎样用，Issues 看建设进度；[原入口文档](https://linear.app/yyhpokemonmaster/document/abed03cc1da2)保留使用说明和 Agent 接续约定。
 [完整文档目录](https://linear.app/yyhpokemonmaster/document/736bd2d7d4bb)覆盖当前可访问的团队、事项和项目文档；[已有知识与能力](https://linear.app/yyhpokemonmaster/document/43d261329834)按金铲铲、质检、共作、技能和历史实验进入原文。
 本地浏览器打开 `.derived/personal-workbench/index.html`，可以搜索中文全文、按场景与领域选择，在同一页阅读并复制接续口令。生成和更新见 [README](../../../docs/linear-workbench/README.md)。
@@ -35,7 +35,7 @@
 
 ## 明确未完成的范围
 
-五个原生视图的列表布局、分组、排序和编号、状态、优先级已回读一致；项目、标签两列保存为显示，但 API 最终显示值为隐藏。默认首页未设置；没有已登录的原生浏览器控制，侧栏点击、列显示和状态改变后的页面行为仍未独立核验。不能把 API 回读当成人工界面验收。
+当前七个原生视图的保存偏好已回读；项目、标签两列保存为显示，但 API 最终显示值为隐藏。默认首页未设置；没有已登录的原生浏览器控制，侧栏点击、列显示和状态改变后的页面行为仍未独立核验。不能把 API 回读当成人工界面验收。
 
 知识分类也不能通过给文档标题加前缀或借用 Issue 标签来冒充原生功能。已有离线 HTML 保留为其抓取时的历史快照，包含旧状态；它的浏览器验证不证明现在的 Linear 界面符合用户预期。知识分类与阅读体验继续由 YYH-12 跟踪。
 
